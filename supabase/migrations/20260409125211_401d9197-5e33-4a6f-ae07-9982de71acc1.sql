@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN cv_summary text DEFAULT NULL;

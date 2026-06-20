@@ -1,0 +1,37 @@
+project_id = "okppdziaslsitmoqduqg"
+
+[functions.analyze-cv]
+verify_jwt = false
+
+[functions.career-chat]
+verify_jwt = false
+
+[functions.elevenlabs-tts]
+verify_jwt = false
+
+[functions.elevenlabs-conversation-token]
+verify_jwt = false
+
+[functions.scrape-jobs]
+verify_jwt = false
+
+[functions.generate-cover-letter]
+verify_jwt = false
+
+[functions.manage-role]
+verify_jwt = false
+
+[functions.send-application]
+verify_jwt = false
+
+[functions.extension-profile]
+verify_jwt = false
+
+[functions.track-extension-usage]
+verify_jwt = false
+
+[functions.security-alert]
+verify_jwt = false
+
+[functions.track-applied-job]
+verify_jwt = false
