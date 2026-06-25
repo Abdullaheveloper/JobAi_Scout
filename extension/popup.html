@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>JobAI Scout</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; width: 380px; min-height: 480px; color: #1a1a1a; background: #f8fafc; }
+    h1 { font-size: 15px; padding: 12px 16px; display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; margin: 0; }
+    h1 .dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    /* Tabs */
+    .tabs { display: flex; background: white; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 10; }
+    .tab { flex: 1; padding: 10px 8px; font-size: 12px; font-weight: 500; text-align: center; cursor: pointer; border-bottom: 2px solid transparent; color: #6b7280; transition: all 0.2s; }
+    .tab:hover { color: #3b82f6; background: #f0f9ff; }
+    .tab.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+    /* Panels */
+    .panel { display: none; padding: 12px; }
+    .panel.active { display: block; }
+    /* Common */
+    .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid #f0f0f0; gap: 12px; }
+    .row span:first-child { color: #6b7280; flex-shrink: 0; }
+    .row span:last-child { color: #1a1a1a; font-weight: 500; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    button { padding: 10px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; width: 100%; }
+    button:hover { background: #2563eb; transform: translateY(-1px); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    button.secondary { background: #f3f4f6; color: #1a1a1a; }
+    button.secondary:hover { background: #e5e7eb; }
+    button.danger { background: #fee2e2; color: #b91c1c; }
+    button.success { background: #10b981; }
+    .status { font-size: 12px; color: #10b981; text-align: center; padding: 8px; min-height: 16px; }
+    .status.err { color: #b91c1c; }
+    input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; margin-top: 6px; }
+    label { font-size: 12px; color: #6b7280; display: block; margin-top: 8px; }
+    .card { background: white; border-radius: 10px; border: 1px solid #e5e7eb; padding: 12px; margin-bottom: 10px; }
+    .card h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-yellow { background: #fef3c7; color: #92400e; }
+    .badge-red { background: #fee2e2; color: #b91c1c; }
+    .badge-purple { background: #ede9fe; color: #5b21b6; }
+    .badge-new { background: #3b82f6; color: white; animation: pulse 1.5s infinite; }
+    /* Stats Grid */
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .stat-card { background: white; border-radius: 10px; border: 1px solid #e5e7eb; padding: 10px; text-align: center; }
+    .stat-num { font-size: 22px; font-weight: 700; color: #1a1a1a; }
+    .stat-label { font-size: 11px; color: #6b7280; margin-top: 2px; }
+    /* Progress */
+    .progress { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; margin: 8px 0; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #3b82f6, #6366f1); border-radius: 3px; transition: width 0.5s; }
+    /* Job Card */
+    .job-card { background: white; border-radius: 10px; border: 1px solid #e5e7eb; padding: 12px; margin-bottom: 8px; transition: all 0.2s; }
+    .job-card:hover { border-color: #3b82f6; box-shadow: 0 2px 8px rgba(59,130,246,0.1); }
+    .job-title { font-size: 13px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px; display: flex; align-items: start; gap: 6px; }
+    .job-company { font-size: 12px; color: #6b7280; }
+    .job-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .job-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .job-actions button { flex: 1; padding: 6px; font-size: 11px; border-radius: 6px; }
+    .match-ring { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+    .match-high { background: #dcfce7; color: #166534; border: 2px solid #86efac; }
+    .match-mid { background: #fef3c7; color: #92400e; border: 2px solid #fbbf24; }
+    .match-low { background: #fee2e2; color: #b91c1c; border: 2px solid #fca5a5; }
+    /* Scan Area */
+    .scan-area { text-align: center; padding: 15px 0; }
+    .scan-btn { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; font-size: 14px; font-weight: 600; border: none; cursor: pointer; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s; box-shadow: 0 4px 20px rgba(59,130,246,0.3); }
+    .scan-btn:hover { transform: scale(1.05); box-shadow: 0 6px 24px rgba(59,130,246,0.4); }
+    .scan-btn:disabled { opacity: 0.6; transform: none; }
+    .scan-btn .icon { font-size: 28px; }
+    .scanning { animation: spin 1.5s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Scan Result */
+    .scan-result { background: white; border-radius: 10px; border: 1px solid #e5e7eb; padding: 14px; margin-top: 12px; }
+    .scan-result h3 { font-size: 14px; margin-bottom: 8px; }
+    .scan-stats { display: flex; gap: 12px; }
+    .scan-stat { text-align: center; flex: 1; }
+    .scan-stat .num { font-size: 18px; font-weight: 700; }
+    .scan-stat .lbl { font-size: 11px; color: #6b7280; }
+    /* Empty State */
+    .empty { text-align: center; padding: 30px 0; color: #6b7280; }
+    .empty .icon { font-size: 32px; margin-bottom: 8px; }
+    .empty p { font-size: 13px; }
+    /* Login */
+    .login-area { padding: 16px; }
+    /* Alert */
+    .alert { background: #fef3c7; border: 1px solid #fbbf24; padding: 10px; border-radius: 8px; font-size: 12px; margin: 8px 0; color: #78350f; }
+    .portal-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; }
+    .portal-linkedin { background: #0a66c2; color: white; }
+    .portal-indeed { background: #2557a7; color: white; }
+    .portal-glassdoor { background: #0caa41; color: white; }
+    .portal-monster { background: #6e45a5; color: white; }
+    .portal-bayt { background: #009688; color: white; }
+    .portal-rozee { background: #e53935; color: white; }
+    .portal-wellfound { background: #000; color: white; }
+    .portal-dice { background: #eb1c26; color: white; }
+    .portal-careerbuilder { background: #00719e; color: white; }
+    .portal-greenhouse { background: #00b140; color: white; }
+    .portal-lever { background: #222; color: white; }
+    .portal-default { background: #6b7280; color: white; }
+    /* Scrollable */
+    .scroll-list { max-height: 320px; overflow-y: auto; }
+    .scroll-list::-webkit-scrollbar { width: 4px; }
+    .scroll-list::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+  </style>
+</head>
+<body>
+  <h1><span class="dot"></span> JobAI Scout</h1>
+
+  <!-- Tabs -->
+  <div class="tabs" id="tabsBar" style="display:none">
+    <div class="tab active" data-tab="dashboard">Dashboard</div>
+    <div class="tab" data-tab="scan">Scan</div>
+    <div class="tab" data-tab="jobs">Jobs</div>
+    <div class="tab" data-tab="saved">Saved</div>
+  </div>
+
+  <!-- Login Gate -->
+  <div id="loginGate" class="login-area" style="padding: 24px 16px; text-align: center;">
+    <div style="margin-bottom: 20px;">
+      <h2 style="font-size: 18px; font-weight: 700; color: #1e3a8a; margin-bottom: 6px;">Sign in to Job Scout AI</h2>
+      <p style="font-size: 12px; color: #64748b; line-height: 1.4;">Use the same credentials you use to log in to the Job Scout AI website to connect your account.</p>
+    </div>
+    
+    <div style="text-align: left; margin-bottom: 12px;">
+      <label for="emailInput" style="font-weight: 600; font-size: 11px;">Email Address</label>
+      <input id="emailInput" type="email" placeholder="you@example.com" style="margin-top: 4px;" />
+    </div>
+    
+    <div style="text-align: left; margin-bottom: 16px;">
+      <label for="passInput" style="font-weight: 600; font-size: 11px;">Password</label>
+      <input id="passInput" type="password" placeholder="••••••••" style="margin-top: 4px;" />
+    </div>
+
+    <button id="loginBtn" style="background: linear-gradient(135deg, #3b82f6, #6366f1); font-weight: 600;">Sign In</button>
+    <button id="googleLoginBtn" class="secondary" style="margin-top: 10px; font-weight: 500;">Continue with Google</button>
+  </div>
+
+  <!-- Dashboard Panel -->
+  <div id="panel-dashboard" class="panel active">
+    <div id="profileArea"></div>
+    <div id="mismatch" class="alert" style="display:none"></div>
+    <div class="stats" id="dashStats">
+      <div class="stat-card"><div class="stat-num" id="statScanned">0</div><div class="stat-label">Jobs Scanned</div></div>
+      <div class="stat-card"><div class="stat-num" id="statMatched">0</div><div class="stat-label">Jobs Matched</div></div>
+      <div class="stat-card"><div class="stat-num" id="statSynced">0</div><div class="stat-label">Jobs Synced</div></div>
+      <div class="stat-card"><div class="stat-num" id="statSaved">0</div><div class="stat-label">Saved Jobs</div></div>
+    </div>
+    <div class="card" id="statusCard">
+      <h3>Extension Status</h3>
+      <div class="row"><span>Status</span><span id="extStatus">Connected</span></div>
+      <div class="row"><span>Last Scan</span><span id="lastScan">Never</span></div>
+      <div class="row"><span>Avg Match</span><span id="avgMatch">-</span></div>
+    </div>
+    <button id="dashboardScrapeBtn" style="margin-top:8px; background: linear-gradient(135deg, #3b82f6, #6366f1); font-weight: 600;">Scrape Job</button>
+    <button id="refreshProfileBtn" class="secondary" style="margin-top:8px">Refresh Profile</button>
+    <button id="logoutBtn" class="danger" style="margin-top:8px">Sign out</button>
+  </div>
+
+  <!-- Scan Panel -->
+  <div id="panel-scan" class="panel">
+    <div class="scan-area">
+      <p style="font-size:13px;color:#6b7280;margin-bottom:8px">Visit a job portal, then click to scan</p>
+      
+      <!-- Checkbox for using profile -->
+      <label style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;margin:12px 0;cursor:pointer;font-weight:500;">
+        <input type="checkbox" id="useProfileCheck" checked style="width:auto;margin:0;" /> Use My Job Scout AI Profile
+      </label>
+
+      <!-- Profile Summary Card -->
+      <div id="profileSummaryCard" class="card" style="display:none;text-align:left;margin-bottom:12px;">
+        <h3 style="font-size:12px;color:#3b82f6;">Profile Summary</h3>
+        <div class="row"><span>Desired Role</span><span id="summaryRole">-</span></div>
+        <div class="row"><span>Skills</span><span id="summarySkills" style="white-space:normal;text-align:right;">-</span></div>
+        <div class="row"><span>Preferred Location</span><span id="summaryLocation">-</span></div>
+        <div class="row"><span>Experience</span><span id="summaryExperience">-</span></div>
+        <div class="row"><span>Job Type</span><span id="summaryJobType">-</span></div>
+      </div>
+
+      <button class="scan-btn" id="scanBtn">
+        <span class="icon" id="scanIcon">&#128270;</span>
+        <span id="scanLabel">Scrape Jobs</span>
+      </button>
+      <p style="font-size:12px;color:#6b7280;margin-top:12px" id="portalDetected">No portal detected</p>
+    </div>
+
+    <!-- Sync Progress Area -->
+    <div id="syncProgressArea" class="card" style="display:none;text-align:left;margin-top:12px;">
+      <h3 id="progressState" style="font-size:12px;">Sync Status</h3>
+      <div class="progress" style="margin:6px 0;"><div class="progress-bar" id="syncProgressBar" style="width:0%"></div></div>
+      <div class="row"><span>Scanned</span><span id="syncScanned">0</span></div>
+      <div class="row"><span>Matched</span><span id="syncMatched">0</span></div>
+      <div class="row"><span>Uploaded</span><span id="syncUploaded">0</span></div>
+      <div id="syncSuccessMessage" style="display:none;color:#10b981;font-weight:bold;font-size:12px;text-align:center;margin-top:8px;">Browse Jobs Updated Successfully</div>
+    </div>
+
+    <div id="scanResult" style="display:none"></div>
+    <div id="missingFields" class="alert" style="display:none"></div>
+  </div>
+
+  <!-- Jobs Panel -->
+  <div id="panel-jobs" class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 style="font-size:14px;font-weight:600">Recommended Jobs</h3>
+      <span class="badge badge-blue" id="jobsCount">0 jobs</span>
+    </div>
+    <div class="scroll-list" id="jobsList">
+      <div class="empty"><div class="icon">&#128188;</div><p>No recommended jobs yet.<br>Scan a job portal to get started!</p></div>
+    </div>
+  </div>
+
+  <!-- Saved Panel -->
+  <div id="panel-saved" class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 style="font-size:14px;font-weight:600">Saved Jobs</h3>
+      <span class="badge badge-green" id="savedCount">0 saved</span>
+    </div>
+    <div class="scroll-list" id="savedList">
+      <div class="empty"><div class="icon">&#128278;</div><p>No saved jobs yet.<br>Save jobs from the Jobs tab.</p></div>
+    </div>
+  </div>
+
+  <div class="status" id="status"></div>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
