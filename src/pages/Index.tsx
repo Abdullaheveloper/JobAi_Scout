@@ -73,9 +73,7 @@ const features = [
   { icon: Brain, title: "Semantic AI Matching", desc: "Goes beyond keywords — our NLP engine understands context, seniority, and career trajectory to surface the right roles.", color: "from-indigo-500 to-violet-600", glow: "rgba(99,102,241,0.3)", delay: 0 },
   { icon: Shield, title: "Enterprise-Grade Security", desc: "SOC 2 compliant with row-level security, end-to-end encryption, and zero third-party data sharing.", color: "from-cyan-500 to-blue-600", glow: "rgba(6,182,212,0.3)", delay: 0.1 },
   { icon: Globe, title: "Location-Aware Scraping", desc: "Jobs scraped in real time from your exact city, using location data intelligently extracted from your CV.", color: "from-emerald-500 to-teal-600", glow: "rgba(16,185,129,0.3)", delay: 0.2 },
-  { icon: Rocket, title: "Sub-Second Performance", desc: "Edge-deployed functions deliver real-time results globally — no spinners, no waiting, just instant intelligence.", color: "from-orange-500 to-rose-600", glow: "rgba(244,63,94,0.3)", delay: 0.3 },
-  { icon: Users, title: "Three-Role Ecosystem", desc: "Distinct, purpose-built experiences for Job Seekers, Recruiters, and Platform Admins — all in one product.", color: "from-violet-500 to-purple-600", glow: "rgba(139,92,246,0.3)", delay: 0.4 },
-  { icon: BarChart3, title: "Real-Time Analytics", desc: "Track application stages, match scores, and pipeline health with live dashboards and exportable reports.", color: "from-pink-500 to-fuchsia-600", glow: "rgba(244,114,182,0.3)", delay: 0.5 },
+  { icon: Sparkles, title: "AI Voice Assistant", desc: "Interact with an advanced, context-aware AI voice assistant for natural interview training, sitemap crawling, and career advice.", color: "from-pink-500 to-fuchsia-600", glow: "rgba(244,114,182,0.3)", delay: 0.3 },
 ];
 
 const testimonials = [
@@ -764,7 +762,7 @@ export default function Index() {
             </p>
           </motion.div>
 
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
             {features.map((item) => (
               <FeatureCard key={item.title} {...item} />
             ))}
