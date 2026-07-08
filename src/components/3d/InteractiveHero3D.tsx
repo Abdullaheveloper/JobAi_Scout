@@ -20,7 +20,7 @@ export const InteractiveHero3D: React.FC<InteractiveHeroProps> = ({ onLoadComple
 
     // Scene
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x020817, 0.012);
+    scene.fog = new THREE.FogExp2(0x020a08, 0.012);
 
     // Camera
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
@@ -30,22 +30,22 @@ export const InteractiveHero3D: React.FC<InteractiveHeroProps> = ({ onLoadComple
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.setClearColor(0x020817, 1);
+    renderer.setClearColor(0x020a08, 1);
     renderer.shadowMap.enabled = false;
     container.appendChild(renderer.domElement);
 
     // Lighting
     scene.add(new THREE.AmbientLight(0xffffff, 0.3));
 
-    const pointLight1 = new THREE.PointLight(0x6366f1, 3, 80);
+    const pointLight1 = new THREE.PointLight(0x10b981, 3, 80);
     pointLight1.position.set(-20, 15, 20);
     scene.add(pointLight1);
 
-    const pointLight2 = new THREE.PointLight(0x06b6d4, 2, 80);
+    const pointLight2 = new THREE.PointLight(0x34d399, 2, 80);
     pointLight2.position.set(20, -10, 15);
     scene.add(pointLight2);
 
-    const pointLight3 = new THREE.PointLight(0xf43f5e, 1.5, 60);
+    const pointLight3 = new THREE.PointLight(0x0d9488, 1.5, 60);
     pointLight3.position.set(0, 20, -20);
     scene.add(pointLight3);
 
@@ -66,7 +66,7 @@ export const InteractiveHero3D: React.FC<InteractiveHeroProps> = ({ onLoadComple
       );
       nodePositions.push(pos);
 
-      const hue = 0.63 + Math.random() * 0.15;
+      const hue = 0.33 + Math.random() * 0.12;
       const mat = new THREE.MeshPhongMaterial({
         color: new THREE.Color().setHSL(hue, 0.8, 0.65),
         emissive: new THREE.Color().setHSL(hue, 0.8, 0.3),
@@ -81,7 +81,7 @@ export const InteractiveHero3D: React.FC<InteractiveHeroProps> = ({ onLoadComple
 
     // Connection Lines
     const lineMat = new THREE.LineBasicMaterial({
-      color: 0x6366f1,
+      color: 0x10b981,
       transparent: true,
       opacity: 0.2,
     });
@@ -101,8 +101,8 @@ export const InteractiveHero3D: React.FC<InteractiveHeroProps> = ({ onLoadComple
     // Central glowing sphere
     const coreGeom = new THREE.SphereGeometry(1.8, 32, 32);
     const coreMat = new THREE.MeshPhongMaterial({
-      color: 0x6366f1,
-      emissive: 0x4f46e5,
+      color: 0x10b981,
+      emissive: 0x059669,
       emissiveIntensity: 1.5,
       shininess: 200,
       transparent: true,
@@ -113,13 +113,13 @@ export const InteractiveHero3D: React.FC<InteractiveHeroProps> = ({ onLoadComple
 
     // Outer wireframe ring
     const ringGeom = new THREE.TorusGeometry(22, 0.05, 8, 100);
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0x6366f1, transparent: true, opacity: 0.15 });
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.15 });
     const ring = new THREE.Mesh(ringGeom, ringMat);
     ring.rotation.x = Math.PI / 4;
     scene.add(ring);
 
     const ring2Geom = new THREE.TorusGeometry(18, 0.04, 8, 100);
-    const ring2 = new THREE.Mesh(ring2Geom, new THREE.MeshBasicMaterial({ color: 0x8b5cf6, transparent: true, opacity: 0.1 }));
+    const ring2 = new THREE.Mesh(ring2Geom, new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.1 }));
     ring2.rotation.x = -Math.PI / 3;
     ring2.rotation.y = Math.PI / 6;
     scene.add(ring2);
@@ -197,9 +197,9 @@ export const InteractiveHero3D: React.FC<InteractiveHeroProps> = ({ onLoadComple
     <div
       ref={containerRef}
       className="relative w-full h-screen overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #020817 0%, #0a0f2e 50%, #060d24 100%)' }}
+      style={{ background: 'linear-gradient(135deg, #020a08 0%, #03140e 50%, #010705 100%)' }}
     >
-      <div className="absolute inset-0 bg-gradient-to-t from-[#020817] via-transparent to-transparent opacity-60 pointer-events-none z-10" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#020a08] via-transparent to-transparent opacity-60 pointer-events-none z-10" />
     </div>
   );
 };

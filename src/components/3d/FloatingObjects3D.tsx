@@ -9,7 +9,7 @@ interface FloatingObjectsProps {
 }
 
 export const FloatingObjects3D: React.FC<FloatingObjectsProps> = ({ 
-  backgroundColor = '#020817',
+  backgroundColor = '#020a08',
   onLoadComplete 
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -33,13 +33,13 @@ export const FloatingObjects3D: React.FC<FloatingObjectsProps> = ({
 
     // Lighting
     scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-    const pLight1 = new THREE.PointLight(0x6366f1, 2, 150);
+    const pLight1 = new THREE.PointLight(0x10b981, 2, 150);
     pLight1.position.set(30, 30, 30);
     scene.add(pLight1);
-    const pLight2 = new THREE.PointLight(0x06b6d4, 1.5, 120);
+    const pLight2 = new THREE.PointLight(0x34d399, 1.5, 120);
     pLight2.position.set(-30, -20, 20);
     scene.add(pLight2);
-    const pLight3 = new THREE.PointLight(0xf43f5e, 1, 100);
+    const pLight3 = new THREE.PointLight(0x0d9488, 1, 100);
     pLight3.position.set(0, 30, -30);
     scene.add(pLight3);
 
@@ -49,7 +49,7 @@ export const FloatingObjects3D: React.FC<FloatingObjectsProps> = ({
     const totalHeight = 60;
     const helixRadius = 8;
 
-    const colors = [0x6366f1, 0x8b5cf6, 0x06b6d4, 0xf43f5e, 0x10b981, 0xf59e0b];
+    const colors = [0x10b981, 0x34d399, 0x2dd4bf, 0x059669, 0x0d9488, 0x6ee7b7];
     const sphereGeom = new THREE.SphereGeometry(0.6, 16, 16);
 
     for (let i = 0; i < helixCount; i++) {

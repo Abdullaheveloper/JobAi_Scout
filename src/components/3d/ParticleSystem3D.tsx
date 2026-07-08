@@ -37,11 +37,11 @@ export const ParticleSystem3D: React.FC<ParticleSystemProps> = ({
     const velocities = new Float32Array(particleCount * 3);
 
     const colorPalette = [
-      new THREE.Color(0x6366f1),
-      new THREE.Color(0x8b5cf6),
-      new THREE.Color(0xc084fc),
-      new THREE.Color(0x06b6d4),
-      new THREE.Color(0xf472b6),
+      new THREE.Color(0x10b981), // Emerald
+      new THREE.Color(0x059669), // Dark Emerald
+      new THREE.Color(0x34d399), // Mint
+      new THREE.Color(0x2dd4bf), // Teal
+      new THREE.Color(0x6ee7b7), // Sage Mint
     ];
 
     for (let i = 0; i < particleCount; i++) {

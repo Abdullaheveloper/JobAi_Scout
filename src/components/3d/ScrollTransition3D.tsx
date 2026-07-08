@@ -38,10 +38,10 @@ export const ScrollTransition3D: React.FC<ScrollTransition3DProps> = ({
 
     // Lighting
     scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    const pLight = new THREE.PointLight(0x8b5cf6, 3, 100);
+    const pLight = new THREE.PointLight(0x34d399, 3, 100);
     pLight.position.set(0, 10, 20);
     scene.add(pLight);
-    const pLight2 = new THREE.PointLight(0x06b6d4, 2, 80);
+    const pLight2 = new THREE.PointLight(0x2dd4bf, 2, 80);
     pLight2.position.set(-20, -10, 10);
     scene.add(pLight2);
 
@@ -53,8 +53,8 @@ export const ScrollTransition3D: React.FC<ScrollTransition3DProps> = ({
     ];
 
     const material = new THREE.MeshPhongMaterial({
-      color: 0x6366f1,
-      emissive: 0x4338ca,
+      color: 0x10b981,
+      emissive: 0x059669,
       emissiveIntensity: 0.5,
       shininess: 120,
       wireframe: false,
@@ -67,7 +67,7 @@ export const ScrollTransition3D: React.FC<ScrollTransition3DProps> = ({
 
     // Wireframe overlay
     const wireMat = new THREE.MeshBasicMaterial({
-      color: 0x818cf8,
+      color: 0x6ee7b7,
       wireframe: true,
       transparent: true,
       opacity: 0.15,
@@ -81,8 +81,8 @@ export const ScrollTransition3D: React.FC<ScrollTransition3DProps> = ({
     const orbitGeom = new THREE.SphereGeometry(0.3, 8, 8);
     for (let i = 0; i < orbitCount; i++) {
       const orbitMat = new THREE.MeshPhongMaterial({
-        color: [0x6366f1, 0x8b5cf6, 0x06b6d4, 0xf43f5e, 0x10b981, 0xf59e0b][i],
-        emissive: [0x6366f1, 0x8b5cf6, 0x06b6d4, 0xf43f5e, 0x10b981, 0xf59e0b][i],
+        color: [0x10b981, 0x34d399, 0x2dd4bf, 0x059669, 0x0d9488, 0x6ee7b7][i],
+        emissive: [0x10b981, 0x34d399, 0x2dd4bf, 0x059669, 0x0d9488, 0x6ee7b7][i],
         emissiveIntensity: 0.8,
       });
       const orbit = new THREE.Mesh(orbitGeom, orbitMat);
