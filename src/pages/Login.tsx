@@ -129,18 +129,18 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#020817] text-white">
+    <div className="flex min-h-screen bg-[#020817] text-white relative overflow-hidden">
+      {/* Global Particle Background — visible on desktop and mobile behind form */}
+      <div className="absolute inset-0 pointer-events-none z-0">
+        <Suspense fallback={null}>
+          <ParticleSystem3D particleCount={500} />
+        </Suspense>
+      </div>
 
       {/* ── Left Panel ─────────────────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden">
-        {/* 3D BG */}
-        <div className="absolute inset-0">
-          <Suspense fallback={null}>
-            <ParticleSystem3D particleCount={500} />
-          </Suspense>
-        </div>
+      <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden z-10">
         {/* Gradient overlays */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#020817]/70 via-[#0a0f2e]/50 to-indigo-950/40" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#020817]/60 via-[#0a0f2e]/40 to-indigo-950/30" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#020817]/80 via-transparent to-transparent" />
 
         {/* Glow orbs */}
@@ -207,10 +207,9 @@ export default function Login() {
       </div>
 
       {/* ── Right Panel ────────────────────────────────────────── */}
-      <div className="flex w-full lg:w-[45%] items-center justify-center p-6 lg:p-12 relative">
-        {/* Background */}
-        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #060d24 0%, #020817 60%, #030b1f 100%)" }} />
-        <div className="absolute inset-0 dot-bg opacity-15" />
+      <div className="flex w-full lg:w-[45%] items-center justify-center p-6 lg:p-12 relative z-10">
+        {/* Background Overlay */}
+        <div className="absolute inset-0 bg-[#020817]/40 lg:bg-[#020817]/10 pointer-events-none" />
         {/* Edge glow */}
         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-px h-3/4 bg-gradient-to-b from-transparent via-indigo-500/20 to-transparent hidden lg:block" />
 
@@ -312,7 +311,15 @@ export default function Login() {
                 }
               />
 
-              <div className="flex justify-end -mt-1">
+              <div className="flex items-center justify-between -mt-1">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 rounded border-white/10 bg-white/5 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 focus:ring-0"
+                    style={{ accentColor: "#6366f1" }}
+                  />
+                  <span className="text-xs text-gray-400">Remember me</span>
+                </label>
                 <Link
                   to="/forgot-password"
                   className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors font-medium"

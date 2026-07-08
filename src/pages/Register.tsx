@@ -197,16 +197,17 @@ export default function Register() {
   const selectedRole = roleOptions.find((r) => r.value === role)!;
 
   return (
-    <div className="flex min-h-screen bg-[#020817] text-white">
+    <div className="flex min-h-screen bg-[#020817] text-white relative overflow-hidden">
+      {/* Global Interactive Node Background — visible on desktop and mobile behind form */}
+      <div className="absolute inset-0 pointer-events-none z-0">
+        <Suspense fallback={null}>
+          <InteractiveHero3D />
+        </Suspense>
+      </div>
 
       {/* ── Left Panel — 3D Hero ─────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-[50%] relative overflow-hidden">
-        <div className="absolute inset-0">
-          <Suspense fallback={null}>
-            <InteractiveHero3D />
-          </Suspense>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-br from-[#020817]/75 via-[#0a0f2e]/50 to-transparent" />
+      <div className="hidden lg:flex lg:w-[50%] relative overflow-hidden z-10">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#020817]/70 via-[#0a0f2e]/40 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#020817]/80 via-transparent to-transparent" />
 
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
@@ -268,9 +269,8 @@ export default function Register() {
       </div>
 
       {/* ── Right Panel — Form ────────────────────────────────── */}
-      <div className="flex w-full lg:w-[50%] items-start justify-center p-6 lg:p-10 relative overflow-y-auto">
-        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #060d24 0%, #020817 60%, #030b1f 100%)" }} />
-        <div className="absolute inset-0 dot-bg opacity-15" />
+      <div className="flex w-full lg:w-[50%] items-start justify-center p-6 lg:p-10 relative overflow-y-auto z-10">
+        <div className="absolute inset-0 bg-[#020817]/40 lg:bg-[#020817]/10 pointer-events-none" />
         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-px h-3/4 bg-gradient-to-b from-transparent via-indigo-500/20 to-transparent hidden lg:block" />
 
         <motion.div
