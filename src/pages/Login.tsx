@@ -36,7 +36,7 @@ function InputField({
           required={required}
           autoComplete={autoComplete}
           className={`input-premium w-full pl-10 ${rightElement ? "pr-12" : "pr-4"} py-3 ${error ? "input-error" : success ? "input-success" : ""}`}
-          style={{ color: "#f1f5f9", caretColor: "#a5b4fc" }}
+          style={{ color: "#f1f5f9", caretColor: "#6ee7b7" }}
         />
         {rightElement && (
           <div className="absolute right-3.5 top-1/2 -translate-y-1/2">{rightElement}</div>
@@ -129,7 +129,7 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#020817] text-white relative overflow-hidden">
+    <div className="flex min-h-screen bg-[#020a08] text-white relative overflow-hidden">
       {/* Global Particle Background — visible on desktop and mobile behind form */}
       <div className="absolute inset-0 pointer-events-none z-0">
         <Suspense fallback={null}>
@@ -140,18 +140,18 @@ export default function Login() {
       {/* ── Left Panel ─────────────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden z-10">
         {/* Gradient overlays */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#020817]/60 via-[#0a0f2e]/40 to-indigo-950/30" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#020817]/80 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#020a08]/60 via-[#03140e]/40 to-emerald-950/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#020a08]/80 via-transparent to-transparent" />
 
         {/* Glow orbs */}
-        <div className="absolute top-1/4 left-1/3 w-72 h-72 bg-indigo-600/15 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "4s" }} />
-        <div className="absolute bottom-1/3 right-1/4 w-56 h-56 bg-violet-600/12 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 left-1/3 w-72 h-72 bg-emerald-600/15 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "4s" }} />
+        <div className="absolute bottom-1/3 right-1/4 w-56 h-56 bg-teal-600/12 rounded-full blur-3xl" />
 
         {/* Content */}
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary shadow-lg shadow-indigo-500/40">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary shadow-lg shadow-emerald-500/40">
               <Briefcase className="h-5 w-5 text-white" />
             </div>
             <span className="font-bold text-xl text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
@@ -167,7 +167,7 @@ export default function Login() {
             className="max-w-md"
           >
             <span className="badge-premium mb-5 inline-flex">
-              <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+              <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
               AI Career Intelligence
             </span>
             <h1 className="text-4xl font-bold text-white mb-4 leading-tight" style={{ fontFamily: 'Syne, sans-serif' }}>
@@ -209,9 +209,9 @@ export default function Login() {
       {/* ── Right Panel ────────────────────────────────────────── */}
       <div className="flex w-full lg:w-[45%] items-center justify-center p-6 lg:p-12 relative z-10">
         {/* Background Overlay */}
-        <div className="absolute inset-0 bg-[#020817]/40 lg:bg-[#020817]/10 pointer-events-none" />
+        <div className="absolute inset-0 bg-[#020a08]/40 lg:bg-[#020a08]/10 pointer-events-none" />
         {/* Edge glow */}
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-px h-3/4 bg-gradient-to-b from-transparent via-indigo-500/20 to-transparent hidden lg:block" />
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-px h-3/4 bg-gradient-to-b from-transparent via-emerald-500/20 to-transparent hidden lg:block" />
 
         <motion.div
           className="w-full max-w-[420px] relative z-10"
@@ -230,7 +230,7 @@ export default function Login() {
           <div className="auth-card p-8">
             {/* Header */}
             <div className="mb-8">
-              <div className="hidden lg:flex h-12 w-12 items-center justify-center rounded-2xl gradient-primary shadow-xl shadow-indigo-500/30 mb-5">
+              <div className="hidden lg:flex h-12 w-12 items-center justify-center rounded-2xl gradient-primary shadow-xl shadow-emerald-500/30 mb-5">
                 <Lock className="h-5 w-5 text-white" />
               </div>
               <h2 className="text-2xl font-bold text-white mb-1.5" style={{ fontFamily: 'Syne, sans-serif' }}>
@@ -245,15 +245,24 @@ export default function Login() {
             <motion.button
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-white/10 text-gray-300 hover:text-white text-sm font-medium transition-all mb-6 disabled:opacity-50 group"
-              style={{ background: "rgba(255,255,255,0.04)" }}
-              whileHover={{ background: "rgba(255,255,255,0.07)", borderColor: "rgba(99,102,241,0.3)", y: -1 }}
+              className="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all mb-6 disabled:opacity-50 group"
+              style={{
+                background: "#ffffff",
+                color: "#1f2937",
+                border: "1.5px solid rgba(255,255,255,0.9)",
+                boxShadow: "0 2px 12px rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.3)",
+              }}
+              whileHover={{
+                boxShadow: "0 4px 20px rgba(255,255,255,0.2), 0 2px 6px rgba(0,0,0,0.4)",
+                y: -2,
+                scale: 1.02,
+              }}
               whileTap={{ scale: 0.98 }}
             >
               {loading ? (
-                <div className="h-4 w-4 border-2 border-gray-600 border-t-gray-300 rounded-full animate-spin" />
+                <div className="h-5 w-5 border-2 border-gray-300 border-t-gray-700 rounded-full animate-spin" />
               ) : (
-                <svg className="h-4.5 w-4.5 flex-shrink-0" viewBox="0 0 24 24">
+                <svg className="h-5 w-5 flex-shrink-0" viewBox="0 0 24 24">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
@@ -315,14 +324,14 @@ export default function Login() {
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
-                    className="h-3.5 w-3.5 rounded border-white/10 bg-white/5 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 focus:ring-0"
-                    style={{ accentColor: "#6366f1" }}
+                    className="h-3.5 w-3.5 rounded border-white/10 bg-white/5 text-emerald-600 focus:ring-emerald-500 focus:ring-offset-0 focus:ring-0"
+                    style={{ accentColor: "#10b981" }}
                   />
                   <span className="text-xs text-gray-400">Remember me</span>
                 </label>
                 <Link
                   to="/forgot-password"
-                  className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors font-medium"
+                  className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors font-medium"
                 >
                   Forgot password?
                 </Link>
@@ -352,7 +361,7 @@ export default function Login() {
             {/* Footer link */}
             <p className="text-center text-sm text-gray-600 mt-6">
               New to JobAI Scout?{" "}
-              <Link to="/register" className="text-indigo-400 hover:text-indigo-300 font-semibold transition-colors">
+              <Link to="/register" className="text-emerald-400 hover:text-emerald-300 font-semibold transition-colors">
                 Create a free account
               </Link>
             </p>

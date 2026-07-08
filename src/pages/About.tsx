@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Briefcase, Users, Target, Award, ArrowLeft, Globe, Zap, Shield, CheckCircle, ArrowRight, Rocket, Heart, Code2, TrendingUp } from "lucide-react";
+import { Briefcase, Users, Target, Award, ArrowLeft, Globe, Zap, Shield, CheckCircle, ArrowRight, Rocket, Heart, Code2, TrendingUp, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 
@@ -10,7 +10,7 @@ const teamMembers = [
     bio: "Full-stack engineer passionate about AI-driven recruitment solutions.",
     image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Abdullah",
     skills: ["React", "Node.js", "AI/ML", "Supabase"],
-    gradient: "from-indigo-500 to-violet-600",
+    gradient: "from-emerald-500 to-teal-600",
   },
   {
     name: "Arsalan Haider",
@@ -18,12 +18,12 @@ const teamMembers = [
     bio: "Product strategist focused on building scalable hiring platforms.",
     image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Arsalan",
     skills: ["Figma", "Product", "UX Research", "Strategy"],
-    gradient: "from-violet-500 to-pink-600",
+    gradient: "from-teal-500 to-mint-600",
   },
 ];
 
 const stats = [
-  { label: "Active Users", value: "10,000+", icon: Users, color: "from-indigo-500 to-violet-600" },
+  { label: "Active Users", value: "10,000+", icon: Users, color: "from-emerald-500 to-teal-600" },
   { label: "Jobs Matched", value: "50,000+", icon: Briefcase, color: "from-cyan-500 to-blue-600" },
   { label: "Companies Trust Us", value: "500+", icon: Globe, color: "from-emerald-500 to-teal-600" },
   { label: "Success Rate", value: "94%", icon: Target, color: "from-rose-500 to-orange-600" },
@@ -189,7 +189,7 @@ export default function About() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#020817] text-white overflow-x-hidden page-enter">
+    <div className="min-h-screen bg-[#020a08] text-white overflow-x-hidden page-enter">
       {/* Navigation */}
       <nav className="sticky top-0 z-50 nav-premium">
         <div className="container mx-auto px-6 flex h-16 items-center justify-between">
@@ -211,12 +211,12 @@ export default function About() {
       {/* Hero */}
       <section className="relative py-24 lg:py-32 overflow-hidden">
         <div className="absolute inset-0 dot-bg opacity-20 pointer-events-none" />
-        <div className="absolute top-0 left-1/4 w-80 h-80 bg-indigo-600/8 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-violet-600/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 left-1/4 w-80 h-80 bg-emerald-600/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-teal-600/8 rounded-full blur-3xl pointer-events-none" />
 
         <div className="container mx-auto px-6 relative z-10 text-center max-w-3xl">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <Link to="/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-indigo-400 transition-colors mb-8">
+            <Link to="/" className="inline-flex items-center gap-2 text-sm text-gray-400 font-medium hover:text-emerald-400 transition-colors mb-8">
               <ArrowLeft className="h-4 w-4" /> Back to Home
             </Link>
           </motion.div>
@@ -275,8 +275,8 @@ export default function About() {
                 icon: Target,
                 title: "Our Mission",
                 desc: "Democratize job searching by making AI-powered matching accessible to every job seeker and recruiter worldwide.",
-                color: "from-indigo-500 to-violet-600",
-                glow: "rgba(99,102,241,0.2)",
+                color: "from-emerald-500 to-teal-600",
+                glow: "rgba(16,185,129,0.2)",
               },
               {
                 icon: Globe,
@@ -326,7 +326,7 @@ export default function About() {
 
           <div className="relative max-w-3xl mx-auto">
             {/* Vertical line */}
-            <div className="absolute left-8 md:left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-indigo-500/30 to-transparent" />
+            <div className="absolute left-8 md:left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-emerald-500/30 to-transparent" />
 
             {timeline.map((item, i) => {
               const isRight = i % 2 === 0;
@@ -340,14 +340,14 @@ export default function About() {
                   transition={{ delay: i * 0.15 }}
                 >
                   {/* Dot */}
-                  <div className="absolute left-8 md:left-1/2 -translate-x-1/2 flex h-8 w-8 items-center justify-center rounded-full gradient-primary shadow-lg shadow-indigo-500/30 z-10 flex-shrink-0">
+                  <div className="absolute left-8 md:left-1/2 -translate-x-1/2 flex h-8 w-8 items-center justify-center rounded-full gradient-primary shadow-lg shadow-emerald-500/30 z-10 flex-shrink-0">
                     <item.icon className="h-4 w-4 text-white" />
                   </div>
 
                   {/* Card */}
                   <div className={`ml-20 md:ml-0 ${isRight ? "md:mr-8 md:text-right md:w-5/12" : "md:ml-8 md:text-left md:w-5/12 md:ml-auto"} w-full`}>
                     <div className="glass-card p-5">
-                      <span className="text-xs text-indigo-400 font-semibold tracking-wider uppercase">{item.year}</span>
+                      <span className="text-xs text-emerald-400 font-bold tracking-wider uppercase">{item.year}</span>
                       <h3 className="font-bold text-white mt-1 mb-2" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{item.title}</h3>
                       <p className="text-sm text-gray-400 leading-relaxed">{item.desc}</p>
                     </div>
@@ -360,8 +360,8 @@ export default function About() {
       </section>
 
       {/* Trusted By */}
-      <section className="py-20 border-y border-indigo-500/10 overflow-hidden relative">
-        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, transparent, rgba(99,102,241,0.025), transparent)" }} />
+      <section className="py-20 border-y border-emerald-500/10 overflow-hidden relative">
+        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, transparent, rgba(16,185,129,0.025), transparent)" }} />
         <div className="container mx-auto px-6 text-center mb-10 relative z-10">
           <p className="overline mb-2">Trusted Partners</p>
           <h2 className="heading-md text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
@@ -410,8 +410,8 @@ export default function About() {
               { icon: Users, text: "500+ Companies Onboarded" },
               { icon: TrendingUp, text: "98% Client Satisfaction" },
             ].map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-2 px-4 py-2 rounded-full glass-card-sm text-sm text-gray-400 flex-shrink-0">
-                <Icon className="h-4 w-4 text-indigo-400" />
+              <div key={text} className="flex items-center gap-2 px-4 py-2 rounded-full glass-card-sm text-sm text-gray-300 font-medium flex-shrink-0">
+                <Icon className="h-4 w-4 text-emerald-400" />
                 {text}
               </div>
             ))}
@@ -432,7 +432,7 @@ export default function About() {
             {teamMembers.map((member, i) => (
               <motion.div
                 key={member.name}
-                className="premium-card p-6 flex flex-col justify-between h-full group hover:border-indigo-500/35 transition-all"
+                className="premium-card p-6 flex flex-col justify-between h-full group hover:border-emerald-500/35 transition-all"
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -448,18 +448,18 @@ export default function About() {
                     />
                   </div>
                   <h3 className="font-bold text-lg text-white" style={{ fontFamily: 'Syne, sans-serif' }}>{member.name}</h3>
-                  <p className="text-sm text-indigo-400 font-medium mt-0.5">{member.role}</p>
-                  <p className="text-sm text-gray-400 leading-relaxed mt-4 mb-4">{member.bio}</p>
+                  <p className="text-sm text-emerald-400 font-medium mt-0.5">{member.role}</p>
+                  <p className="text-sm text-gray-300 font-medium leading-relaxed mt-4 mb-4">{member.bio}</p>
                 </div>
                 <div>
                   <div className="flex flex-wrap gap-1.5 mb-5">
                     {member.skills.map((skill) => (
-                      <span key={skill} className="px-2 py-0.5 text-xs rounded-full bg-indigo-500/12 text-indigo-300 border border-indigo-500/18">
+                      <span key={skill} className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/12 text-emerald-300 border border-emerald-500/18">
                         {skill}
                       </span>
                     ))}
                   </div>
-                  <button className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-500/10 text-indigo-300 text-sm border border-indigo-500/25 hover:bg-indigo-500/20 transition-colors">
+                  <button className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500/10 text-emerald-300 font-bold text-sm border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors">
                     <Mail className="h-4 w-4" /> Contact Founder
                   </button>
                 </div>
@@ -490,7 +490,7 @@ export default function About() {
                 Join thousands of job seekers and recruiters already using JobAI Scout.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link to="/register" className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-white text-indigo-700 font-bold text-base hover:shadow-xl hover:shadow-white/20 transition-all">
+                <Link to="/register" className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-white text-emerald-700 font-bold text-base hover:shadow-xl hover:shadow-white/20 transition-all">
                   Create Free Account <ArrowRight className="h-5 w-5" />
                 </Link>
                 <Link to="/contact" className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-white/15 text-white font-semibold text-base hover:bg-white/25 transition-all border border-white/20">
@@ -507,9 +507,9 @@ export default function About() {
         <div className="container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-600">
           <p>© 2026 JobAI Scout — AI-Powered Intelligent Job Application Platform</p>
           <div className="flex gap-6">
-            <Link to="/about" className="hover:text-indigo-400 transition-colors">About</Link>
-            <Link to="/contact" className="hover:text-indigo-400 transition-colors">Contact</Link>
-            <Link to="/privacy" className="hover:text-indigo-400 transition-colors">Privacy Policy</Link>
+            <Link to="/about" className="hover:text-emerald-400 font-semibold transition-colors">About</Link>
+            <Link to="/contact" className="hover:text-emerald-400 font-semibold transition-colors">Contact</Link>
+            <Link to="/privacy" className="hover:text-emerald-400 font-semibold transition-colors">Privacy Policy</Link>
           </div>
         </div>
       </footer>

@@ -364,8 +364,8 @@ function FeatureCard({ icon: Icon, title, desc, color, glow, delay }: any) {
           >
             <Icon className="h-6 w-6 text-white" />
           </motion.div>
-          <h3 className="font-bold text-base mb-2.5 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{title}</h3>
-          <p className="text-sm text-gray-400 leading-relaxed">{desc}</p>
+          <h3 className="font-bold text-lg mb-2.5 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{title}</h3>
+          <p className="text-sm text-gray-300 font-medium leading-relaxed">{desc}</p>
         </div>
       </MagneticCard>
     </motion.div>
@@ -391,7 +391,7 @@ function StepCard({ icon: Icon, title, desc, color, num, index }: any) {
           </div>
         </div>
         <h3 className="font-bold text-lg mb-3 text-white" style={{ fontFamily: 'Syne, sans-serif' }}>{title}</h3>
-        <p className="text-sm text-gray-400 leading-relaxed">{desc}</p>
+        <p className="text-sm text-gray-300 font-medium leading-relaxed">{desc}</p>
       </div>
     </motion.div>
   );
@@ -497,7 +497,7 @@ export default function Index() {
   const navScrolled = scrollY > 50;
 
   return (
-    <div className="min-h-screen bg-[#020817] text-white overflow-x-hidden page-enter">
+    <div className="min-h-screen bg-[#020a08] text-white overflow-x-hidden page-enter">
 
       {/* Scroll Progress */}
       <div className="scroll-progress-bar" style={{ transform: `scaleX(${scrollProgress})` }} />
@@ -511,7 +511,7 @@ export default function Index() {
       >
         <div className="container mx-auto px-6 flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary shadow-lg shadow-indigo-500/30 group-hover:shadow-indigo-500/50 transition-all">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary shadow-lg shadow-emerald-500/30 group-hover:shadow-emerald-500/50 transition-all">
               <Briefcase className="h-5 w-5 text-white" />
             </div>
             <span className="font-bold text-xl text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
@@ -580,7 +580,7 @@ export default function Index() {
           >
             <motion.div variants={fadeUp} custom={0} className="mb-8">
               <span className="badge-premium">
-                <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
                 Intelligent Recruitment Platform — Now in Open Beta
               </span>
             </motion.div>
@@ -590,12 +590,12 @@ export default function Index() {
               <span className="text-gradient">Start Getting Found.</span>
             </motion.h1>
 
-            <motion.p variants={fadeUp} custom={2} className="text-xl text-gray-400 max-w-2xl mx-auto mb-4 leading-relaxed">
+            <motion.p variants={fadeUp} custom={2} className="text-xl text-gray-200 font-semibold max-w-2xl mx-auto mb-4 leading-relaxed">
               Upload your CV once. Our AI extracts your skills, matches you to the right roles,
               and helps you apply — all in under 60 seconds.
             </motion.p>
 
-            <motion.p variants={fadeUp} custom={3} className="text-sm text-gray-600 max-w-lg mx-auto mb-10">
+            <motion.p variants={fadeUp} custom={3} className="text-sm text-gray-400 font-medium max-w-lg mx-auto mb-10">
               For recruiters: post jobs, get AI-ranked candidates, and close positions faster than ever.
             </motion.p>
 
@@ -644,7 +644,7 @@ export default function Index() {
           <motion.div className="text-center mb-16" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
             <span className="overline block mb-3">How It Works</span>
             <h2 className="heading-lg text-white">From CV to Offer in 3 Steps</h2>
-            <p className="body-lg text-gray-500 mt-3 max-w-lg mx-auto">
+            <p className="body-lg text-gray-300 font-medium mt-3 max-w-lg mx-auto">
               The fastest path from job seeker to candidate. Powered entirely by AI.
             </p>
           </motion.div>
@@ -671,7 +671,7 @@ export default function Index() {
           <motion.div className="text-center mb-16" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
             <span className="overline block mb-3">Platform Advantages</span>
             <h2 className="heading-lg text-white">Built Different, By Design</h2>
-            <p className="body-lg text-gray-500 mt-3 max-w-xl mx-auto">
+            <p className="body-lg text-gray-300 font-medium mt-3 max-w-xl mx-auto">
               Every feature was engineered to give candidates an unfair advantage and give recruiters back their time.
             </p>
           </motion.div>
@@ -706,9 +706,9 @@ export default function Index() {
                 Matches That Actually<br />
                 <span className="text-gradient">Make Sense</span>
               </h2>
-              <p className="text-gray-400 leading-relaxed mb-8">
+              <p className="text-gray-200 font-medium leading-relaxed mb-8">
                 Unlike keyword-matching job boards, our AI understands the{" "}
-                <em className="text-gray-300 not-italic font-medium">meaning</em> behind your experience. It reads between the lines — surfacing opportunities even you didn't know existed.
+                <em className="text-white not-italic font-bold">meaning</em> behind your experience. It reads between the lines — surfacing opportunities even you didn't know existed.
               </p>
               <ul className="space-y-4 mb-8">
                 {[
@@ -719,7 +719,7 @@ export default function Index() {
                 ].map((item, i) => (
                   <motion.li
                     key={item}
-                    className="flex items-start gap-3 text-gray-300 text-sm"
+                    className="flex items-start gap-3 text-gray-200 text-sm font-semibold"
                     initial={{ opacity: 0, x: -16 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
@@ -776,9 +776,9 @@ export default function Index() {
                         <Briefcase className="h-4 w-4 text-white" />
                       </div>
                       <div>
-                        <p className="font-medium text-white text-sm leading-snug">{job.title}</p>
-                        <p className="text-xs text-gray-600 mt-0.5">{job.company}</p>
-                        <p className="text-xs text-indigo-400 mt-0.5">{job.salary}</p>
+                        <p className="font-bold text-white text-sm leading-snug">{job.title}</p>
+                        <p className="text-xs text-gray-400 font-medium mt-0.5">{job.company}</p>
+                        <p className="text-xs text-emerald-400 font-semibold mt-0.5">{job.salary}</p>
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0 ml-3">
@@ -804,9 +804,9 @@ export default function Index() {
           <motion.div className="text-center mb-16" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
             <span className="overline block mb-3">Our People</span>
             <h2 className="heading-lg text-white">The Team Behind the Magic</h2>
-            <p className="body-lg text-gray-500 mt-3 max-w-lg mx-auto">
+            <p className="body-lg text-gray-300 font-medium mt-3 max-w-lg mx-auto">
               A small, mighty team obsessed with making job searching not suck.
-              <br /><span className="text-gray-600 text-sm">Hover any card to learn more.</span>
+              <br /><span className="text-gray-400 text-sm font-medium">Hover any card to learn more.</span>
             </p>
           </motion.div>
 
@@ -840,7 +840,7 @@ export default function Index() {
           <motion.div className="text-center mb-10" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
             <span className="overline block mb-3">Platform Features</span>
             <h2 className="heading-lg text-white">Everything You Need to Win</h2>
-            <p className="body-lg text-gray-500 mt-3">
+            <p className="body-lg text-gray-300 font-medium mt-3">
               One platform, every tool — from first upload to final offer.
             </p>
           </motion.div>
@@ -858,7 +858,7 @@ export default function Index() {
           <motion.div className="text-center mb-16" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
             <span className="overline block mb-3">Social Proof</span>
             <h2 className="heading-lg text-white">Real People. Real Results.</h2>
-            <p className="body-lg text-gray-500 mt-3 max-w-md mx-auto">
+            <p className="body-lg text-gray-300 font-medium mt-3 max-w-md mx-auto">
               Join thousands of professionals who've already transformed their job search.
             </p>
           </motion.div>
@@ -880,7 +880,7 @@ export default function Index() {
                         <Star key={j} className="h-4 w-4 text-amber-400 fill-amber-400" />
                       ))}
                     </div>
-                    <p className="text-gray-300 text-sm leading-relaxed flex-1 mb-5">"{t.text}"</p>
+                    <p className="text-gray-200 text-sm font-medium leading-relaxed flex-1 mb-5">"{t.text}"</p>
                     {/* Metric badge */}
                     <div className="mb-5">
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-medium">
@@ -989,7 +989,7 @@ export default function Index() {
                 </div>
                 <span className="font-bold text-xl text-white" style={{ fontFamily: 'Syne, sans-serif' }}>JobAI Scout</span>
               </Link>
-              <p className="text-gray-600 text-sm leading-relaxed max-w-xs mb-5">
+              <p className="text-gray-400 text-sm font-medium leading-relaxed max-w-xs mb-5">
                 AI-Powered Intelligent Job Application Platform. Built with passion at IIU Islamabad, Pakistan.
               </p>
               <div className="flex items-center gap-2">
