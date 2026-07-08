@@ -1,0 +1,101 @@
+import { lazy, Suspense } from "react";
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+
+/* ─── Lazy-loaded Pages (code-split per route) ──────────── */
+const Index = lazy(() => import("./pages/Index"));
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const About = lazy(() => import("./pages/About"));
+const Contact = lazy(() => import("./pages/Contact"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const CVUpload = lazy(() => import("./pages/CVUpload"));
+const JobBoard = lazy(() => import("./pages/JobBoard"));
+const SavedJobs = lazy(() => import("./pages/SavedJobs"));
+const Applications = lazy(() => import("./pages/Applications"));
+const AppliedJobs = lazy(() => import("./pages/AppliedJobs"));
+const AutoFormFill = lazy(() => import("./pages/AutoFormFill"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const VoiceAssistant = lazy(() => import("./pages/VoiceAssistant"));
+const VoiceAgent = lazy(() => import("./pages/VoiceAgent"));
+const ProfileSettings = lazy(() => import("./pages/ProfileSettings"));
+const Extension = lazy(() => import("./pages/Extension"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminUsers = lazy(() => import("./pages/AdminUsers"));
+const AdminJobs = lazy(() => import("./pages/AdminJobs"));
+const AdminAnalytics = lazy(() => import("./pages/AdminAnalytics"));
+const AdminVoice = lazy(() => import("./pages/AdminVoice"));
+const RecruiterJobs = lazy(() => import("./pages/recruiter/RecruiterJobs"));
+const RecruiterCandidates = lazy(() => import("./pages/recruiter/RecruiterCandidates"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+const queryClient = new QueryClient();
+
+/* ─── Page Loader (shown while chunk downloads) ─────────── */
+const PageLoader = () => (
+  <div className="flex min-h-screen items-center justify-center bg-[#020817]">
+    <div className="flex flex-col items-center gap-4">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+      <p className="text-sm text-gray-500 animate-pulse">Loading…</p>
+    </div>
+  </div>
+);
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <AuthProvider>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/privacy" element={<Privacy />} />
+              {/* Job Seeker routes */}
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/dashboard/cv" element={<ProtectedRoute><CVUpload /></ProtectedRoute>} />
+              <Route path="/dashboard/jobs" element={<ProtectedRoute><JobBoard /></ProtectedRoute>} />
+              <Route path="/dashboard/saved" element={<ProtectedRoute><SavedJobs /></ProtectedRoute>} />
+              <Route path="/dashboard/applications" element={<ProtectedRoute><Applications /></ProtectedRoute>} />
+              <Route path="/dashboard/applied" element={<ProtectedRoute><AppliedJobs /></ProtectedRoute>} />
+              <Route path="/dashboard/auto-fill" element={<ProtectedRoute><AutoFormFill /></ProtectedRoute>} />
+              <Route path="/dashboard/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+              <Route path="/dashboard/assistant" element={<ProtectedRoute><VoiceAssistant /></ProtectedRoute>} />
+              <Route path="/dashboard/voice-agent" element={<ProtectedRoute><VoiceAgent /></ProtectedRoute>} />
+              <Route path="/dashboard/settings" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
+              <Route path="/dashboard/extension" element={<ProtectedRoute><Extension /></ProtectedRoute>} />
+              {/* Recruiter routes */}
+              <Route path="/recruiter" element={<Navigate to="/recruiter/jobs" replace />} />
+              <Route path="/recruiter/jobs" element={<ProtectedRoute requiredRole="recruiter"><RecruiterJobs /></ProtectedRoute>} />
+              <Route path="/recruiter/candidates" element={<ProtectedRoute requiredRole="recruiter"><RecruiterCandidates /></ProtectedRoute>} />
+              {/* Admin routes */}
+              <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+              <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><AdminUsers /></ProtectedRoute>} />
+              <Route path="/admin/jobs" element={<ProtectedRoute requiredRole="admin"><AdminJobs /></ProtectedRoute>} />
+              <Route path="/admin/analytics" element={<ProtectedRoute requiredRole="admin"><AdminAnalytics /></ProtectedRoute>} />
+              <Route path="/admin/voice" element={<ProtectedRoute requiredRole="admin"><AdminVoice /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </AuthProvider>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
+
+export default App;

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Job Form Fill</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; width: 360px; min-height: 420px; color: #1a1a1a; background: #f8fafc; }
+    h1 { font-size: 15px; padding: 14px 16px; display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; margin: 0; }
+    h1 .dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .content { padding: 16px; }
+    button { padding: 10px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; width: 100%; }
+    button:hover { background: #2563eb; transform: translateY(-1px); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    button.secondary { background: #f3f4f6; color: #1a1a1a; }
+    button.secondary:hover { background: #e5e7eb; }
+    button.danger { background: #fee2e2; color: #b91c1c; }
+    button.danger:hover { background: #fecaca; }
+    .status { font-size: 12px; color: #10b981; text-align: center; padding: 8px; min-height: 16px; }
+    .status.err { color: #b91c1c; }
+    input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; margin-top: 6px; }
+    label { font-size: 12px; color: #6b7280; display: block; margin-top: 8px; }
+    .card { background: white; border-radius: 10px; border: 1px solid #e5e7eb; padding: 12px; margin-bottom: 10px; }
+    .card h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+    .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid #f0f0f0; gap: 12px; }
+    .row span:first-child { color: #6b7280; flex-shrink: 0; }
+    .row span:last-child { color: #1a1a1a; font-weight: 500; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-yellow { background: #fef3c7; color: #92400e; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .progress { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; margin: 8px 0; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #3b82f6, #6366f1); border-radius: 3px; transition: width 0.5s; }
+    .fill-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 16px rgba(59,130,246,0.3); display: flex; align-items: center; justify-content: center; gap: 8px; margin: 12px 0; }
+    .fill-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,0.4); }
+    .fill-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .fill-btn .icon { font-size: 20px; }
+    .empty { text-align: center; padding: 20px 0; color: #6b7280; }
+    .empty .icon { font-size: 28px; margin-bottom: 8px; }
+    .empty p { font-size: 13px; }
+    .skills-wrap { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .skill-tag { background: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <h1><span class="dot"></span> Job Form Fill</h1>
+
+  <!-- Login Gate -->
+  <div id="loginGate" class="content" style="padding: 24px 16px; text-align: center;">
+    <div style="margin-bottom: 20px;">
+      <h2 style="font-size: 18px; font-weight: 700; color: #1e3a8a; margin-bottom: 6px;">Sign in to JobAI</h2>
+      <p style="font-size: 12px; color: #64748b; line-height: 1.4;">Use your JobAI account to auto-fill forms with your profile.</p>
+    </div>
+    <div style="text-align: left; margin-bottom: 12px;">
+      <label for="emailInput" style="font-weight: 600; font-size: 11px;">Email Address</label>
+      <input id="emailInput" type="email" placeholder="you@example.com" style="margin-top: 4px;" />
+    </div>
+    <div style="text-align: left; margin-bottom: 16px;">
+      <label for="passInput" style="font-weight: 600; font-size: 11px;">Password</label>
+      <input id="passInput" type="password" placeholder="••••••••" style="margin-top: 4px;" />
+    </div>
+    <button id="loginBtn" style="background: linear-gradient(135deg, #3b82f6, #6366f1); font-weight: 600;">Sign In</button>
+    <button id="googleLoginBtn" class="secondary" style="margin-top: 10px; font-weight: 500;">Continue with Google</button>
+  </div>
+
+  <!-- Main Panel (after login) -->
+  <div id="mainPanel" class="content" style="display:none;">
+    <!-- Profile Card -->
+    <div class="card" id="profileCard">
+      <h3>Your Profile</h3>
+      <div class="row"><span>Signed in as</span><span id="userEmail">-</span></div>
+      <div class="row"><span>Name</span><span id="userName">-</span></div>
+      <div class="row"><span>Phone</span><span id="userPhone">-</span></div>
+      <div class="row"><span>Location</span><span id="userLocation">-</span></div>
+      <div style="margin-top: 6px;">
+        <span style="font-size: 12px; color: #6b7280;">Skills:</span>
+        <div class="skills-wrap" id="userSkills"></div>
+      </div>
+    </div>
+
+    <!-- Profile Completeness -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-size:12px;font-weight:600;">Profile Complete</span>
+        <span class="badge" id="completionBadge">0%</span>
+      </div>
+      <div class="progress"><div class="progress-bar" id="completionBar" style="width:0%"></div></div>
+    </div>
+
+    <!-- Auto Fill Button -->
+    <button class="fill-btn" id="fillBtn">
+      <span class="icon">&#9889;</span> Auto Fill This Form
+    </button>
+
+    <!-- Fill Result -->
+    <div id="fillResult" style="display:none;" class="card">
+      <h3 id="fillResultTitle">Fill Complete</h3>
+      <div id="fillResultDetails"></div>
+    </div>
+
+    <!-- Actions -->
+    <button id="refreshBtn" class="secondary" style="margin-top:8px;">Refresh Profile</button>
+    <button id="logoutBtn" class="danger" style="margin-top:8px;">Sign Out</button>
+  </div>
+
+  <div class="status" id="status"></div>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

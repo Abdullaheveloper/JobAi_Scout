@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Job Form Fill",
+  "version": "3.0.0",
+  "description": "Auto-fill job application forms with your profile. Works on LinkedIn, Indeed, Greenhouse, Lever, and any web form.",
+  "permissions": ["activeTab", "storage", "scripting", "identity"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Job Form Fill"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "icons": {
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}
