@@ -382,6 +382,59 @@ body {
   left: 100%;
 }
 
+/* ─── 3D Flip Card Styles ────────────────────────────────────── */
+.flip-card-container {
+  perspective: 1500px;
+  width: 100%;
+  height: 100%;
+  min-height: 380px;
+  position: relative;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.flip-card-container:hover {
+  transform: translateY(-8px) scale(1.02);
+}
+
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.15);
+}
+
+/* Hover flip on desktop */
+@media (hover: hover) {
+  .flip-card-container:hover .flip-card-inner {
+    transform: rotateY(180deg);
+  }
+}
+
+/* Toggle flip on mobile or manual trigger via class */
+.flip-card-container.is-flipped .flip-card-inner {
+  transform: rotateY(180deg);
+}
+
+.flip-card-front,
+.flip-card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.flip-card-back {
+  transform: rotateY(180deg);
+}
+
 /* ─── Bento Grid ────────────────────────────────────────────── */
 .bento-grid {
   display: grid;

@@ -223,31 +223,67 @@ function MagneticCard({ children, className = "" }: { children: React.ReactNode;
 
 /* ─── Team Card ──────────────────────────────────────────── */
 function TeamCard({ member }: { member: typeof teamMembers[0] }) {
+  const [isFlipped, setIsFlipped] = useState(false);
+
   return (
-    <div className="premium-card p-6 flex flex-col justify-between h-full group hover:border-indigo-500/35 transition-all">
-      <div>
-        <div className="relative overflow-hidden rounded-xl mb-5 aspect-[4/3] bg-slate-950">
-          <div className={`absolute inset-0 bg-gradient-to-br ${member.gradient} opacity-20`} />
-          <img 
-            src={member.image} 
-            alt={member.name} 
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          />
+    <div 
+      className={`flip-card-container ${isFlipped ? "is-flipped" : ""}`}
+      onClick={() => setIsFlipped(!isFlipped)}
+      style={{ minHeight: "410px" }}
+    >
+      <div className="flip-card-inner">
+        {/* Front Side */}
+        <div className="flip-card-front premium-card p-6 flex flex-col justify-between h-full group">
+          <div>
+            <div className="relative overflow-hidden rounded-xl mb-5 aspect-[4/3] bg-slate-950">
+              <div className={`absolute inset-0 bg-gradient-to-br ${member.gradient} opacity-20`} />
+              <img 
+                src={member.image} 
+                alt={member.name} 
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+            </div>
+            <h3 className="font-bold text-lg text-white" style={{ fontFamily: 'Syne, sans-serif' }}>{member.name}</h3>
+            <p className="text-sm text-emerald-400 font-semibold mt-0.5">{member.role}</p>
+            <p className="text-xs text-gray-400 mt-1 font-medium">{member.experience} experience</p>
+          </div>
+          <div className="flex items-center justify-between text-xs text-emerald-400/80 font-bold border-t border-white/5 pt-4">
+            <span>Tap to flip</span>
+            <ArrowRight className="h-4 w-4 animate-pulse" />
+          </div>
         </div>
-        <h3 className="font-bold text-lg text-white" style={{ fontFamily: 'Syne, sans-serif' }}>{member.name}</h3>
-        <p className="text-sm text-indigo-400 font-medium mt-0.5">{member.role}</p>
-        <p className="text-xs text-gray-500 mt-1">{member.experience} experience</p>
-        <p className="text-sm text-gray-400 leading-relaxed mt-4 mb-4">{member.bio}</p>
-      </div>
-      <div>
-        <div className="flex flex-wrap gap-1.5 mb-5">
-          {member.skills.map((s) => (
-            <span key={s} className="px-2 py-0.5 text-xs rounded-full bg-indigo-500/12 text-indigo-300 border border-indigo-500/18">{s}</span>
-          ))}
+
+        {/* Back Side */}
+        <div className="flip-card-back premium-card p-6 flex flex-col justify-between h-full group">
+          <div>
+            <div className="flex items-center gap-3 border-b border-white/5 pb-4 mb-4">
+              <img 
+                src={member.image} 
+                alt={member.name} 
+                className="w-10 h-10 rounded-full bg-slate-950 object-cover ring-2 ring-emerald-500/30"
+              />
+              <div>
+                <h4 className="font-bold text-sm text-white">{member.name}</h4>
+                <p className="text-xs text-emerald-400 font-medium">{member.role}</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-300 font-medium leading-relaxed mb-4">{member.bio}</p>
+            <div className="flex flex-wrap gap-1.5 mb-5">
+              {member.skills.map((s) => (
+                <span key={s} className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/12 text-emerald-300 border border-emerald-500/18 font-medium">{s}</span>
+              ))}
+            </div>
+          </div>
+          <button 
+            className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500/10 text-emerald-300 text-sm border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors font-bold"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.location.href = `mailto:founder@jobaiscout.com?subject=Contact ${member.name}`;
+            }}
+          >
+            <Mail className="h-4 w-4" /> Contact Founder
+          </button>
         </div>
-        <button className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-500/10 text-indigo-300 text-sm border border-indigo-500/25 hover:bg-indigo-500/20 transition-colors">
-          <Mail className="h-4 w-4" /> Contact Founder
-        </button>
       </div>
     </div>
   );
@@ -347,6 +383,8 @@ function Counter({ target, label, suffix = "" }: { target: number; label: string
 
 /* ─── Feature Card ──────────────────────────────────────── */
 function FeatureCard({ icon: Icon, title, desc, color, glow, delay }: any) {
+  const [isFlipped, setIsFlipped] = useState(false);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 40 }}
@@ -355,17 +393,67 @@ function FeatureCard({ icon: Icon, title, desc, color, glow, delay }: any) {
       transition={{ delay, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
     >
       <MagneticCard>
-        <div className="premium-card premium-card-interactive p-7 h-full group">
-          <motion.div
-            className={`mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${color}`}
-            style={{ boxShadow: `0 8px 24px ${glow}` }}
-            whileHover={{ rotate: [0, -8, 8, 0], scale: 1.1 }}
-            transition={{ duration: 0.4 }}
-          >
-            <Icon className="h-6 w-6 text-white" />
-          </motion.div>
-          <h3 className="font-bold text-lg mb-2.5 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{title}</h3>
-          <p className="text-sm text-gray-300 font-medium leading-relaxed">{desc}</p>
+        <div 
+          className={`flip-card-container ${isFlipped ? "is-flipped" : ""}`}
+          onClick={() => setIsFlipped(!isFlipped)}
+          style={{ minHeight: "360px" }}
+        >
+          <div className="flip-card-inner">
+            {/* Front Side */}
+            <div className="flip-card-front premium-card p-7 h-full group flex flex-col justify-between">
+              <div>
+                <motion.div
+                  className={`mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${color}`}
+                  style={{ boxShadow: `0 8px 24px ${glow}` }}
+                  whileHover={{ rotate: [0, -8, 8, 0], scale: 1.1 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <Icon className="h-6 w-6 text-white" />
+                </motion.div>
+                <h3 className="font-bold text-lg mb-2.5 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{title}</h3>
+                <p className="text-sm text-gray-300 font-medium leading-relaxed">{desc}</p>
+              </div>
+              <div className="flex items-center justify-between text-xs text-emerald-400/80 font-bold border-t border-white/5 pt-4 mt-4">
+                <span>Explore details</span>
+                <ArrowRight className="h-4 w-4 animate-pulse" />
+              </div>
+            </div>
+
+            {/* Back Side */}
+            <div className="flip-card-back premium-card p-7 h-full group flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-3 border-b border-white/5 pb-4 mb-4">
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br ${color}`}>
+                    <Icon className="h-5 w-5 text-white" />
+                  </div>
+                  <h4 className="font-bold text-base text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{title}</h4>
+                </div>
+                
+                <div className="space-y-3 mt-2">
+                  <div className="flex items-start gap-2.5 text-sm text-gray-300 font-medium">
+                    <CheckCircle className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+                    <span>Real-time capability integration</span>
+                  </div>
+                  <div className="flex items-start gap-2.5 text-sm text-gray-300 font-medium">
+                    <CheckCircle className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+                    <span>Fully customizable settings</span>
+                  </div>
+                  <div className="flex items-start gap-2.5 text-sm text-gray-300 font-medium">
+                    <CheckCircle className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+                    <span>Deep analytics and logging</span>
+                  </div>
+                </div>
+              </div>
+              
+              <Link 
+                to="/register" 
+                className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition-colors font-bold text-sm"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Get Started
+              </Link>
+            </div>
+          </div>
         </div>
       </MagneticCard>
     </motion.div>
