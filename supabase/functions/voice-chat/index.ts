@@ -33,11 +33,6 @@ const BASE_SYSTEM_PROMPT = `You are the official AI assistant for Job Scout AI �
 
 Primary rule: answer questions about the website, company, products, services, pricing, policies, FAQs, blogs, or documentation ONLY from the retrieved context below. Never invent pricing, services, features, or policies.
 
-If the user's question is about the website/company AND the retrieved context does NOT contain the answer, reply:
-"I couldn't find that specific information, but I'm happy to help with general career advice."
-
-Fallback allowance: General career advice (resumes, interviews, job search, salary tips, skill recommendations) MAY be answered from your general knowledge even if not in the retrieved context. Make clear when you are giving general advice vs. answering from the website.
-
 Never hallucinate. Never invent information. Be concise and helpful. Speak naturally — your answer will be read aloud.
 Always respond in the same language the user used.`;
 
@@ -77,6 +72,48 @@ async function embedOne(text: string, apiKey: string): Promise<number[]> {
   if (!r.ok) throw new Error(`Embedding failed: ${r.status} ${await r.text()}`);
   const j = await r.json();
   return j.embedding.values;
+}
+
+// Context-Aware Query Rewriter for follow-up questions
+async function rewriteQuery(question: string, history: Array<{role: string; content: string}>, apiKey: string): Promise<string> {
+  if (!history || history.length === 0) return question;
+
+  try {
+    const prompt = `You are a query reformulation assistant for a semantic search engine.
+Given the conversation history and the latest user query, reformulate it into a single, standalone search query containing all relevant details.
+If the query is already self-contained or is generic career advice, return it unmodified.
+Do not answer the query. Do not include any intro, explanation, or quotes.
+
+Conversation history:
+${history.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join("\n")}
+
+Latest query: ${question}
+
+Standalone search query:`;
+
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 60,
+          }
+        }),
+      }
+    );
+
+    if (!resp.ok) return question;
+    const json = await resp.json();
+    const text = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    return text ? text.replace(/^["']|["']$/g, "") : question;
+  } catch (err) {
+    console.warn("rewriteQuery failed, using original:", err);
+    return question;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -160,6 +197,85 @@ Deno.serve(async (req) => {
       conversationId = convo.id;
     }
 
+    // ── Cache Check ────────────────────────────────────────────────────────
+    const { data: cached } = await adminSupabase
+      .from("voice_cache")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("query", question.toLowerCase())
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+
+    if (cached) {
+      // Log analytics for cache hit
+      const latencyMs = Date.now() - startTime;
+      adminSupabase.from("voice_search_logs").insert({
+        user_id: userId,
+        conversation_id: conversationId,
+        query: question,
+        top_similarity: cached.confidence,
+        confidence_score: cached.confidence,
+        result_count: cached.sources?.length || 0,
+        language_detected: detectedLang,
+        response_latency_ms: latencyMs,
+        was_successful: true,
+      }).catch((e: unknown) => console.warn("Analytics log failed:", e));
+
+      // Persist messages
+      await supabase.from("voice_messages").insert([
+        { conversation_id: conversationId, user_id: userId, role: "user", content: question },
+        { conversation_id: conversationId, user_id: userId, role: "assistant", content: cached.answer },
+      ]);
+
+      if (streamMode) {
+        const encoder = new TextEncoder();
+        const readable = new ReadableStream({
+          async start(controller) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              type: "metadata",
+              conversationId,
+              sources: cached.sources,
+              confidence: cached.confidence,
+              language: cached.language,
+              isLowConfidence: cached.confidence < confidenceThreshold,
+            })}\n\n`));
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              type: "chunk",
+              text: cached.answer,
+            })}\n\n`));
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              type: "done",
+              fullAnswer: cached.answer,
+            })}\n\n`));
+
+            controller.close();
+          }
+        });
+        return new Response(readable, {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+          },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        answer: cached.answer,
+        sources: cached.sources,
+        conversationId,
+        confidence: cached.confidence,
+        language: cached.language,
+        isLowConfidence: cached.confidence < confidenceThreshold,
+        cached: true,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Load conversation history (last 16 messages = 8 turns)
     const { data: history } = await supabase
       .from("voice_messages")
@@ -168,12 +284,15 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: true })
       .limit(16);
 
+    // ── Reformulate query for search using context ────────────────────────
+    const searchQuestion = await rewriteQuery(question, history || [], apiKey);
+
     // Embed and retrieve relevant KB chunks
     let qEmbed: number[] | null = null;
     let matches: Array<{ url: string; title: string; content: string; similarity: number }> = [];
 
     try {
-      qEmbed = await embedOne(question, apiKey);
+      qEmbed = await embedOne(searchQuestion, apiKey);
       const { data: matchData } = await supabase.rpc("match_kb_chunks", {
         query_embedding: qEmbed as unknown as string,
         match_user_id: userId,
@@ -186,18 +305,36 @@ Deno.serve(async (req) => {
 
     const topSimilarity = matches[0]?.similarity ?? 0;
     const confidenceScore = Math.max(0, Math.min(1, topSimilarity));
-    const isLowConfidence = confidenceScore < confidenceThreshold;
+    
+    // Filter matches that meet the similarity threshold
+    const highConfidenceMatches = matches.filter(m => m.similarity >= confidenceThreshold);
+    const hasHighConfidence = highConfidenceMatches.length > 0;
+    const isLowConfidence = !hasHighConfidence;
 
-    const context = matches
-      .map((m, i) => `[Source ${i + 1}: ${m.title || m.url}]\n${m.content}`)
-      .join("\n\n---\n\n");
+    let dynamicContextPrompt = "";
+    if (hasHighConfidence) {
+      const context = highConfidenceMatches
+        .map((m, i) => `[Source ${i + 1}: ${m.title || m.url}]\n${m.content}`)
+        .join("\n\n---\n\n");
+      
+      dynamicContextPrompt = `Retrieved knowledge base context (grounded truth):
+${context}
+
+You MUST answer the question using ONLY the provided knowledge base context above.
+Do not hallucinate or invent any information.
+Cite the Source numbers (e.g. [Source 1], [Source 2]) to reference where in the knowledge base you got the information.`;
+    } else {
+      dynamicContextPrompt = `No relevant information was found in the internal knowledge base for this query.
+Therefore, you must fall back to your general AI knowledge to answer the query.
+Please explicitly state in a brief, polite manner in your response that you are answering from your general knowledge (e.g., "I couldn't find this in the official documentation, but from my general knowledge...").`;
+    }
 
     const personalityPrompt = PERSONALITIES[personality] || PERSONALITIES.professional;
 
     const chatMessages = [
       { role: "system", content: BASE_SYSTEM_PROMPT },
       { role: "system", content: personalityPrompt },
-      { role: "system", content: `Retrieved knowledge base context:\n\n${context || "(No website content has been indexed yet. Use general knowledge for career advice.)"}` },
+      { role: "system", content: dynamicContextPrompt },
       ...(history || []).map((m: { role: string; content: string }) => ({ role: m.role, content: m.content })),
       { role: "user", content: question },
     ];
@@ -275,6 +412,23 @@ Deno.serve(async (req) => {
               ]);
             } catch (e) {
               console.warn("Failed to persist messages:", e);
+            }
+
+            // Cache response if valid
+            if (answer && answer.length > 5) {
+              try {
+                await adminSupabase.from("voice_cache").upsert({
+                  user_id: userId,
+                  query: question.toLowerCase(),
+                  answer,
+                  sources,
+                  confidence: confidenceScore,
+                  language: detectedLang,
+                  expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                }, { onConflict: "user_id,query" });
+              } catch (cacheErr) {
+                console.warn("Failed to write voice cache:", cacheErr);
+              }
             }
 
             controller.close();
@@ -360,6 +514,21 @@ Deno.serve(async (req) => {
       { conversation_id: conversationId, user_id: userId, role: "user", content: question },
       { conversation_id: conversationId, user_id: userId, role: "assistant", content: answer },
     ]);
+
+    // Cache response
+    try {
+      await adminSupabase.from("voice_cache").upsert({
+        user_id: userId,
+        query: question.toLowerCase(),
+        answer,
+        sources,
+        confidence: confidenceScore,
+        language: detectedLang,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      }, { onConflict: "user_id,query" });
+    } catch (cacheErr) {
+      console.warn("Failed to write voice cache:", cacheErr);
+    }
 
     return new Response(JSON.stringify({
       answer,

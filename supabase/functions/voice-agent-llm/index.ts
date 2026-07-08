@@ -58,6 +58,48 @@ async function embedOne(text: string, apiKey: string): Promise<number[]> {
   return j.embedding.values;
 }
 
+// Context-Aware Query Rewriter for voice agent
+async function rewriteQuery(question: string, history: Array<{role: string; content: string}>, apiKey: string): Promise<string> {
+  if (!history || history.length === 0) return question;
+
+  try {
+    const prompt = `You are a query reformulation assistant for a semantic search engine.
+Given the conversation history and the latest user query, reformulate it into a single, standalone search query containing all relevant details.
+If the query is already self-contained or is generic career advice, return it unmodified.
+Do not answer the query. Do not include any intro, explanation, or quotes.
+
+Conversation history:
+${history.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join("\n")}
+
+Latest query: ${question}
+
+Standalone search query:`;
+
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 60,
+          }
+        }),
+      }
+    );
+
+    if (!resp.ok) return question;
+    const json = await resp.json();
+    const text = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    return text ? text.replace(/^["']|["']$/g, "") : question;
+  } catch (err) {
+    console.warn("rewriteQuery failed, using original:", err);
+    return question;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -95,6 +137,8 @@ Deno.serve(async (req) => {
       .is("user_id", null)
       .maybeSingle();
 
+    const confidenceThreshold = globalSettings?.confidence_threshold ?? 0.70;
+
     if (globalSettings?.assistant_enabled === false) {
       return new Response(JSON.stringify({ error: "Voice assistant is currently disabled by admin." }), {
         status: 503,
@@ -110,7 +154,7 @@ Deno.serve(async (req) => {
     // Extract last user message
     const lastUserMsg = [...messages].reverse().find((m: { role: string }) => m.role === "user");
     if (!lastUserMsg) {
-      return new Response("Hello! I'm your JobAI voice assistant. How can I help with your job search?", {
+      return new Response("Hello! I'm your JobAI voice assistant. How can I help with your job search today?", {
         headers: { ...corsHeaders, "Content-Type": "text/plain" },
       });
     }
@@ -126,52 +170,94 @@ Deno.serve(async (req) => {
     const piiPatterns = [/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/, /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/];
     const hasPII = piiPatterns.some((p) => p.test(rawQuestion));
     if (hasPII) {
-      return new Response("Please do not share personal information like email addresses or phone numbers. How can I help with your job search?", {
+      return new Response("Please do not share personal info like emails or phone numbers. How else can I assist?", {
         headers: { ...corsHeaders, "Content-Type": "text/plain" },
       });
     }
 
     const otherUserPatterns = [/other\s+users?/gi, /someone\s+else/gi, /another\s+person/gi];
     if (otherUserPatterns.some((p) => p.test(rawQuestion))) {
-      return new Response("I can only access your own information. I cannot share other users' data. How can I help you?", {
+      return new Response("I can only access your own information. I cannot share other users' data.", {
         headers: { ...corsHeaders, "Content-Type": "text/plain" },
       });
     }
 
     const systemPatterns = [/system\s+prompt/gi, /api\s+key/gi, /database/gi, /credentials/gi];
     if (systemPatterns.some((p) => p.test(rawQuestion))) {
-      return new Response("I'm designed to help with job searching and career advice. What can I help you with?", {
+      return new Response("I'm designed to help with job searching and career advice.", {
         headers: { ...corsHeaders, "Content-Type": "text/plain" },
       });
     }
 
-    // Embed and retrieve KB chunks
-    let context = "";
-    try {
-      const qEmbed = await embedOne(rawQuestion, apiKey);
-      const { data: matchData } = await supabase.rpc("match_kb_chunks", {
-        query_embedding: qEmbed as unknown as string,
-        match_user_id: userId,
-        match_count: 5,
+    // ── Cache Check ────────────────────────────────────────────────────────
+    const { data: cached } = await adminSupabase
+      .from("voice_cache")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("query", rawQuestion.toLowerCase())
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+
+    if (cached) {
+      // Return cached answer directly
+      return new Response(cached.answer, {
+        headers: { ...corsHeaders, "Content-Type": "text/plain" },
       });
-      if (matchData && matchData.length > 0) {
-        context = matchData
-          .map((m: { url: string; title: string; content: string }, i: number) => `[Source ${i + 1}: ${m.title || m.url}]\n${m.content}`)
-          .join("\n\n---\n\n");
-      }
-    } catch (embedErr) {
-      console.warn("Embedding/retrieval failed (continuing without context):", embedErr);
     }
 
-    // Build conversation history for LLM (last 10 messages)
+    // Clean ElevenLabs history to matching role names
     const historyMessages = messages.slice(-10).map((m: { role: string; content: string }) => ({
       role: m.role === "user" ? "user" : "assistant",
       content: m.content,
     }));
 
+    // Reformulate query using context
+    const searchQuestion = await rewriteQuery(rawQuestion, historyMessages, apiKey);
+
+    // Embed and retrieve KB chunks
+    let qEmbed: number[] | null = null;
+    let matches: Array<{ url: string; title: string; content: string; similarity: number }> = [];
+
+    try {
+      qEmbed = await embedOne(searchQuestion, apiKey);
+      const { data: matchData } = await supabase.rpc("match_kb_chunks", {
+        query_embedding: qEmbed as unknown as string,
+        match_user_id: userId,
+        match_count: 5,
+      });
+      matches = matchData || [];
+    } catch (embedErr) {
+      console.warn("Embedding/retrieval failed (continuing without context):", embedErr);
+    }
+
+    const topSimilarity = matches[0]?.similarity ?? 0;
+    const confidenceScore = Math.max(0, Math.min(1, topSimilarity));
+    
+    // Filter matches that meet the similarity threshold
+    const highConfidenceMatches = matches.filter(m => m.similarity >= confidenceThreshold);
+    const hasHighConfidence = highConfidenceMatches.length > 0;
+
+    let dynamicContextPrompt = "";
+    if (hasHighConfidence) {
+      const context = highConfidenceMatches
+        .map((m, i) => `[Source ${i + 1}: ${m.title || m.url}]\n${m.content}`)
+        .join("\n\n---\n\n");
+      
+      dynamicContextPrompt = `Retrieved knowledge base context (grounded truth):
+${context}
+
+You MUST answer the question using ONLY the provided knowledge base context above.
+Do not hallucinate or invent any information.
+Cite the Source numbers (e.g. [Source 1], [Source 2]) to reference where in the knowledge base you got the information.`;
+    } else {
+      dynamicContextPrompt = `No relevant information was found in the internal knowledge base for this query.
+Therefore, you must fall back to your general AI knowledge to answer the query.
+Please explicitly state in a brief, polite manner in your response that you are answering from your general knowledge (e.g., "I couldn't find this in the official documentation, but from my general knowledge...").`;
+    }
+
     const chatMessages = [
       { role: "system", content: `You are the official AI voice assistant for JobAI Scout — a platform that helps job seekers find jobs, build CVs, and prepare for interviews.\n\n${GUARDRAILS_PROMPT}` },
-      ...(context ? [{ role: "system", content: `Retrieved knowledge base context:\n\n${context}` }] : []),
+      { role: "system", content: dynamicContextPrompt },
       ...historyMessages,
       { role: "user", content: rawQuestion },
     ];
@@ -236,7 +322,7 @@ Deno.serve(async (req) => {
 
         controller.close();
 
-        // Persist to voice_messages (fire-and-forget)
+        // Persist to voice_messages and Cache
         if (fullAnswer) {
           try {
             // Ensure conversation exists
@@ -252,8 +338,20 @@ Deno.serve(async (req) => {
                 { conversation_id: convo.id, user_id: userId, role: "assistant", content: fullAnswer },
               ]);
             }
+
+            // Cache response
+            const sources = matches.map((m) => ({ url: m.url, title: m.title, similarity: m.similarity }));
+            await adminSupabase.from("voice_cache").upsert({
+              user_id: userId,
+              query: rawQuestion.toLowerCase(),
+              answer: fullAnswer,
+              sources,
+              confidence: confidenceScore,
+              language: detectLanguage(rawQuestion),
+              expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            }, { onConflict: "user_id,query" });
           } catch (e) {
-            console.warn("Failed to persist voice agent messages:", e);
+            console.warn("Failed to persist voice agent messages/cache:", e);
           }
         }
       },

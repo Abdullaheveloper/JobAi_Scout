@@ -27,16 +27,79 @@ function stripHtml(html: string): { text: string; title: string; links: string[]
   return { text, title, links };
 }
 
-function chunkText(text: string): string[] {
+function cleanText(text: string): string {
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n") // replace excessive newlines
+    .replace(/[ \t]+/g, " ")      // replace duplicate spaces
+    .trim();
+}
+
+function chunkTextSemantic(text: string, maxChunkSize = CHUNK_SIZE, overlapSize = CHUNK_OVERLAP): string[] {
+  const cleaned = cleanText(text);
+  const paragraphs = cleaned.split(/\n\n+/);
   const chunks: string[] = [];
-  let i = 0;
-  while (i < text.length) {
-    const end = Math.min(i + CHUNK_SIZE, text.length);
-    chunks.push(text.slice(i, end));
-    if (end >= text.length) break;
-    i = end - CHUNK_OVERLAP;
+  let currentChunk = "";
+
+  for (const para of paragraphs) {
+    const paraCleaned = para.trim();
+    if (!paraCleaned) continue;
+
+    if ((currentChunk + "\n\n" + paraCleaned).length <= maxChunkSize) {
+      currentChunk = currentChunk ? currentChunk + "\n\n" + paraCleaned : paraCleaned;
+    } else {
+      if (paraCleaned.length > maxChunkSize) {
+        if (currentChunk) {
+          chunks.push(currentChunk);
+          currentChunk = "";
+        }
+
+        const sentences = paraCleaned.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [paraCleaned];
+        for (const sentence of sentences) {
+          const sentTrimmed = sentence.trim();
+          if (!sentTrimmed) continue;
+
+          if ((currentChunk + " " + sentTrimmed).length <= maxChunkSize) {
+            currentChunk = currentChunk ? currentChunk + " " + sentTrimmed : sentTrimmed;
+          } else {
+            if (currentChunk) {
+              chunks.push(currentChunk);
+              const lastWords = currentChunk.split(/\s+/);
+              let overlapText = "";
+              for (let w = lastWords.length - 1; w >= 0; w--) {
+                const candidate = lastWords.slice(w).join(" ");
+                if (candidate.length <= overlapSize) {
+                  overlapText = candidate;
+                } else {
+                  break;
+                }
+              }
+              currentChunk = overlapText ? overlapText + " " + sentTrimmed : sentTrimmed;
+            } else {
+              let charIndex = 0;
+              while (charIndex < sentTrimmed.length) {
+                const end = Math.min(charIndex + maxChunkSize, sentTrimmed.length);
+                chunks.push(sentTrimmed.slice(charIndex, end));
+                charIndex = end - overlapSize;
+                if (charIndex >= sentTrimmed.length - overlapSize) break;
+              }
+            }
+          }
+        }
+      } else {
+        if (currentChunk) {
+          chunks.push(currentChunk);
+        }
+        currentChunk = paraCleaned;
+      }
+    }
   }
-  return chunks;
+
+  if (currentChunk) {
+    chunks.push(currentChunk);
+  }
+
+  return chunks.filter(c => c.trim().length > 10);
 }
 
 async function embed(texts: string[], apiKey: string): Promise<number[][]> {
@@ -191,14 +254,34 @@ Deno.serve(async (req) => {
     await supabase.from("kb_chunks").delete().eq("source_id", source.id);
 
     // Chunk + embed in batches
-    type Row = { user_id: string; source_id: string; url: string; title: string; content: string; chunk_index: number; embedding: number[] };
+    type Row = {
+      user_id: string;
+      source_id: string;
+      url: string;
+      title: string;
+      content: string;
+      chunk_index: number;
+      embedding: number[];
+      metadata: Record<string, unknown>;
+    };
     const rows: Row[] = [];
     for (const p of pages) {
-      const chunks = chunkText(p.text);
+      const chunks = chunkTextSemantic(p.text);
       for (let i = 0; i < chunks.length; i++) {
         rows.push({
-          user_id: userId, source_id: source.id, url: p.url, title: p.title,
-          content: chunks[i], chunk_index: i, embedding: [] as unknown as number[],
+          user_id: userId,
+          source_id: source.id,
+          url: p.url,
+          title: p.title,
+          content: chunks[i],
+          chunk_index: i,
+          embedding: [] as unknown as number[],
+          metadata: {
+            document_id: source.id,
+            source: p.url,
+            title: p.title,
+            created_at: new Date().toISOString()
+          }
         });
       }
     }
@@ -215,6 +298,9 @@ Deno.serve(async (req) => {
       const { error } = await supabase.from("kb_chunks").insert(rows.slice(i, i + 100));
       if (error) throw error;
     }
+
+    // Invalidate cache for this user
+    await supabase.from("voice_cache").delete().eq("user_id", userId);
 
     await supabase.from("kb_sources").update({
       status: "ready",

@@ -2,18 +2,114 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const CHUNK_SIZE = 800;
-const CHUNK_OVERLAP = 100;
+const CHUNK_OVERLAP = 150;
 
-function chunkText(text: string): string[] {
+function cleanText(text: string): string {
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n") // replace excessive newlines
+    .replace(/[ \t]+/g, " ")      // replace duplicate spaces
+    .trim();
+}
+
+function chunkTextSemantic(text: string, maxChunkSize = CHUNK_SIZE, overlapSize = CHUNK_OVERLAP): string[] {
+  const cleaned = cleanText(text);
+  const paragraphs = cleaned.split(/\n\n+/);
   const chunks: string[] = [];
-  let i = 0;
-  while (i < text.length) {
-    const end = Math.min(i + CHUNK_SIZE, text.length);
-    chunks.push(text.slice(i, end));
-    if (end >= text.length) break;
-    i = end - CHUNK_OVERLAP;
+  let currentChunk = "";
+
+  for (const para of paragraphs) {
+    const paraCleaned = para.trim();
+    if (!paraCleaned) continue;
+
+    if ((currentChunk + "\n\n" + paraCleaned).length <= maxChunkSize) {
+      currentChunk = currentChunk ? currentChunk + "\n\n" + paraCleaned : paraCleaned;
+    } else {
+      if (paraCleaned.length > maxChunkSize) {
+        if (currentChunk) {
+          chunks.push(currentChunk);
+          currentChunk = "";
+        }
+
+        const sentences = paraCleaned.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [paraCleaned];
+        for (const sentence of sentences) {
+          const sentTrimmed = sentence.trim();
+          if (!sentTrimmed) continue;
+
+          if ((currentChunk + " " + sentTrimmed).length <= maxChunkSize) {
+            currentChunk = currentChunk ? currentChunk + " " + sentTrimmed : sentTrimmed;
+          } else {
+            if (currentChunk) {
+              chunks.push(currentChunk);
+              const lastWords = currentChunk.split(/\s+/);
+              let overlapText = "";
+              for (let w = lastWords.length - 1; w >= 0; w--) {
+                const candidate = lastWords.slice(w).join(" ");
+                if (candidate.length <= overlapSize) {
+                  overlapText = candidate;
+                } else {
+                  break;
+                }
+              }
+              currentChunk = overlapText ? overlapText + " " + sentTrimmed : sentTrimmed;
+            } else {
+              let charIndex = 0;
+              while (charIndex < sentTrimmed.length) {
+                const end = Math.min(charIndex + maxChunkSize, sentTrimmed.length);
+                chunks.push(sentTrimmed.slice(charIndex, end));
+                charIndex = end - overlapSize;
+                if (charIndex >= sentTrimmed.length - overlapSize) break;
+              }
+            }
+          }
+        }
+      } else {
+        if (currentChunk) {
+          chunks.push(currentChunk);
+        }
+        currentChunk = paraCleaned;
+      }
+    }
   }
-  return chunks;
+
+  if (currentChunk) {
+    chunks.push(currentChunk);
+  }
+
+  return chunks.filter(c => c.trim().length > 10);
+}
+
+function parsePagesAndChunk(text: string, maxChunkSize = CHUNK_SIZE, overlapSize = CHUNK_OVERLAP): Array<{ content: string; pageNumber: number }> {
+  const parts = text.split(/\[PAGE\s+\d+\]/gi);
+  const markers = [...text.matchAll(/\[PAGE\s+(\d+)\]/gi)].map(m => parseInt(m[1]));
+
+  const chunksWithPages: Array<{ content: string; pageNumber: number }> = [];
+
+  if (parts.length <= 1 || markers.length === 0) {
+    const chunks = chunkTextSemantic(text, maxChunkSize, overlapSize);
+    return chunks.map(c => ({ content: c, pageNumber: 1 }));
+  }
+
+  const firstPart = parts[0].trim();
+  if (firstPart) {
+    const chunks = chunkTextSemantic(firstPart, maxChunkSize, overlapSize);
+    for (const c of chunks) {
+      chunksWithPages.push({ content: c, pageNumber: 1 });
+    }
+  }
+
+  for (let i = 1; i < parts.length; i++) {
+    const pageNum = markers[i - 1] || 1;
+    const pageText = parts[i].trim();
+    if (!pageText) continue;
+
+    const chunks = chunkTextSemantic(pageText, maxChunkSize, overlapSize);
+    for (const c of chunks) {
+      chunksWithPages.push({ content: c, pageNumber: pageNum });
+    }
+  }
+
+  return chunksWithPages;
 }
 
 async function embed(texts: string[], apiKey: string): Promise<number[][]> {
@@ -48,7 +144,7 @@ async function extractPdfText(base64: string, filename: string, apiKey: string):
           {
             role: "user",
             parts: [
-              { text: `Extract all readable text from this PDF (${filename}). Preserve order. Skip headers/footers if repetitive.` },
+              { text: `Extract all readable text from this PDF (${filename}). Preserve order. Identify the pages and insert explicit page markers like "[PAGE 1]", "[PAGE 2]", etc. at the beginning of each page's content. Skip headers/footers if repetitive.` },
               {
                 inlineData: {
                   mimeType: "application/pdf",
@@ -59,7 +155,7 @@ async function extractPdfText(base64: string, filename: string, apiKey: string):
           },
         ],
         systemInstruction: {
-          parts: [{ text: "You extract the full readable text from documents. Output ONLY the document text with natural paragraph breaks. No commentary, no markdown fences, no summaries." }],
+          parts: [{ text: "You extract the full readable text from documents. Output ONLY the document text with page markers, with natural paragraph breaks. No commentary, no markdown fences, no summaries." }],
         },
       }),
     }
@@ -123,11 +219,33 @@ Deno.serve(async (req) => {
       const text = await extractPdfText(base64, filename, apiKey);
       if (!text || text.length < 30) throw new Error("Could not extract text from PDF");
 
-      const chunks = chunkText(text);
-      type Row = { user_id: string; source_id: string; url: string; title: string; content: string; chunk_index: number; embedding: number[] };
-      const rows: Row[] = chunks.map((c, i) => ({
-        user_id: userId, source_id: source.id, url: sourceKey, title: filename,
-        content: c, chunk_index: i, embedding: [] as unknown as number[],
+      const pagesAndChunks = parsePagesAndChunk(text, CHUNK_SIZE, CHUNK_OVERLAP);
+      type Row = {
+        user_id: string;
+        source_id: string;
+        url: string;
+        title: string;
+        content: string;
+        chunk_index: number;
+        embedding: number[];
+        metadata: Record<string, unknown>;
+      };
+      
+      const rows: Row[] = pagesAndChunks.map((pc, i) => ({
+        user_id: userId,
+        source_id: source.id,
+        url: sourceKey,
+        title: filename,
+        content: pc.content,
+        chunk_index: i,
+        embedding: [] as unknown as number[],
+        metadata: {
+          page_number: pc.pageNumber,
+          document_id: source.id,
+          source: sourceKey,
+          filename: filename,
+          created_at: new Date().toISOString()
+        }
       }));
 
       const BATCH = 32;
@@ -141,6 +259,9 @@ Deno.serve(async (req) => {
         const { error } = await supabase.from("kb_chunks").insert(rows.slice(i, i + 100));
         if (error) throw error;
       }
+
+      // Invalidate cache for this user
+      await supabase.from("voice_cache").delete().eq("user_id", userId);
 
       await supabase.from("kb_sources").update({
         status: "ready", pages_indexed: 1, last_crawled_at: new Date().toISOString(), error: null,
