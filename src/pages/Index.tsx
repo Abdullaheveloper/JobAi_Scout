@@ -477,6 +477,20 @@ export default function Index() {
       setScrollY(window.scrollY);
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
+
+    // Preload secondary pages (About, Contact, Login, Register) when the browser is idle to make page switches instant
+    const preloadRoutes = () => {
+      import("./About").catch(() => {});
+      import("./Contact").catch(() => {});
+      import("./Login").catch(() => {});
+      import("./Register").catch(() => {});
+    };
+    if ("requestIdleCallback" in window) {
+      (window as any).requestIdleCallback(preloadRoutes);
+    } else {
+      setTimeout(preloadRoutes, 2000);
+    }
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 

@@ -173,6 +173,21 @@ function AnimatedStat({ value, label, icon: Icon, color }: any) {
 }
 
 export default function About() {
+  useEffect(() => {
+    // Preload other main routes when the browser is idle to speed up navigation
+    const preloadRoutes = () => {
+      import("./Index").catch(() => {});
+      import("./Contact").catch(() => {});
+      import("./Login").catch(() => {});
+      import("./Register").catch(() => {});
+    };
+    if ("requestIdleCallback" in window) {
+      (window as any).requestIdleCallback(preloadRoutes);
+    } else {
+      setTimeout(preloadRoutes, 2000);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#020817] text-white overflow-x-hidden page-enter">
       {/* Navigation */}

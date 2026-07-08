@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Briefcase, Mail, Phone, MapPin, ArrowLeft, Send, Clock, MessageSquare, ArrowRight, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +16,21 @@ export default function Contact() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [formData, setFormData] = useState({ name: "", email: "", subject: "", message: "" });
+
+  useEffect(() => {
+    // Preload other main routes when the browser is idle to speed up navigation
+    const preloadRoutes = () => {
+      import("./Index").catch(() => {});
+      import("./About").catch(() => {});
+      import("./Login").catch(() => {});
+      import("./Register").catch(() => {});
+    };
+    if ("requestIdleCallback" in window) {
+      (window as any).requestIdleCallback(preloadRoutes);
+    } else {
+      setTimeout(preloadRoutes, 2000);
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
