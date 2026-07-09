@@ -7,12 +7,15 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
+// Browser-native voice engine
+import { VoiceRecognition } from "@/lib/voice/recognition";
+import { voiceSynthesis } from "@/lib/voice/synthesis";
+import { VoiceActivityDetector } from "@/lib/voice/vad";
+
 type Msg = { role: "user" | "assistant"; content: string; sources?: { url: string; title: string }[]; confidence?: number };
 type VoiceState = "idle" | "listening" | "processing" | "thinking" | "speaking" | "interrupted" | "error" | "offline";
 
 const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
-const VAD_SILENCE_THRESHOLD = 0.03;
-const VAD_MIN_SPEECH_MS = 300;
 
 export function VoiceWidget() {
   const location = useLocation();
@@ -25,30 +28,22 @@ export function VoiceWidget() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [detectedLang, setDetectedLang] = useState<string | null>(null);
 
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const rafRef = useRef<number | null>(null);
+  const recognitionRef = useRef<VoiceRecognition | null>(null);
+  const vadRef = useRef<VoiceActivityDetector | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const speechStartRef = useRef<number>(0);
-  const vadActiveRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
-  const silenceTimeoutRef = useRef(2); // default 2s
-  const levelRef = useRef(0);
+  
+  const [volume, setVolume] = useState(0);
   const waveformRef = useRef<HTMLDivElement | null>(null);
-  const maxDurationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const recordingStartRef = useRef<number>(0);
 
-  // ─── Waveform Animation Loop (Silk-Smooth, 0% React re-render overhead) ───
+  // ─── Waveform Animation Loop ───
   useEffect(() => {
     let animId: number;
     const updateWaveform = () => {
       if (waveformRef.current && (status === "listening" || status === "speaking")) {
         const spans = waveformRef.current.children;
-        const currentLevel = status === "listening" ? levelRef.current : 0.12 * (1 + Math.sin(Date.now() / 120));
+        const currentLevel = status === "listening" ? volume : 0.12 * (1 + Math.sin(Date.now() / 120));
         for (let i = 0; i < spans.length; i++) {
           const span = spans[i] as HTMLSpanElement;
           const base = 4 + Math.abs(Math.sin((Date.now() / 200) + i)) * 8;
@@ -73,113 +68,60 @@ export function VoiceWidget() {
     return () => {
       if (animId) cancelAnimationFrame(animId);
     };
-  }, [status]);
+  }, [status, volume]);
 
   const onDashboard = location.pathname.startsWith("/dashboard") ||
     location.pathname.startsWith("/recruiter") || location.pathname.startsWith("/admin");
   const onAssistant = location.pathname === "/dashboard/assistant";
 
-  const tearDown = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    silenceTimerRef.current = null;
-    if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current);
-    maxDurationTimerRef.current = null;
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    if (audioCtxRef.current?.state !== "closed") audioCtxRef.current?.close().catch(() => {});
-    audioCtxRef.current = null;
-    vadActiveRef.current = false;
-    levelRef.current = 0;
-  }, []);
-
   const stopSpeaking = useCallback(() => {
-    if (audioElRef.current) { audioElRef.current.pause(); audioElRef.current.src = ""; audioElRef.current = null; }
+    voiceSynthesis.stop();
     if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
     setStreamingText("");
     if (status === "speaking") setStatus("idle");
   }, [status]);
 
-  // VAD
-  const startVAD = (stream: MediaStream, ctx: AudioContext) => {
-    const src = ctx.createMediaStreamSource(stream);
-    const an = ctx.createAnalyser();
-    an.fftSize = 256;
-    an.smoothingTimeConstant = 0.3;
-    src.connect(an);
-    const data = new Uint8Array(an.frequencyBinCount);
-
-    const tick = () => {
-      if (!ctx || ctx.state === "closed") return;
-      an.getByteFrequencyData(data);
-      let sum = 0;
-      for (let i = 0; i < data.length; i++) sum += data[i];
-      const avg = sum / data.length / 255;
-      levelRef.current = avg;
-
-      if (avg > VAD_SILENCE_THRESHOLD) {
-        if (!vadActiveRef.current) { vadActiveRef.current = true; speechStartRef.current = Date.now(); }
-        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = null;
-      } else if (vadActiveRef.current) {
-        const speechDuration = Date.now() - speechStartRef.current;
-        if (speechDuration > VAD_MIN_SPEECH_MS && !silenceTimerRef.current) {
-          const timeSinceStart = Date.now() - recordingStartRef.current;
-          // Guard to keep microphone open for at least 1.5 seconds to prevent opening/closing instantly
-          if (timeSinceStart >= 1500) {
-            silenceTimerRef.current = setTimeout(() => {
-              if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
-            }, Math.max(1000, (silenceTimeoutRef.current || 2) * 1000));
-          }
-        }
-      }
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    tick();
-  };
-
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+    vadRef.current?.stop();
+    vadRef.current = null;
+    if (status === "listening") setStatus("idle");
+  }, [status]);
 
   const getAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     return session?.access_token ? `Bearer ${session.access_token}` : `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`;
   };
 
-  const handleAudio = async (blob: Blob) => {
-    setStatus("processing");
-    setStreamingText("");
+  const handleQuerySubmit = async (queryText: string) => {
+    if (!queryText.trim()) { setStatus("idle"); return; }
+    setMessages((m) => [...m, { role: "user", content: queryText }]);
+    setStatus("thinking");
+
     try {
       const auth = await getAuth();
-      // STT
-      const fd = new FormData();
-      const isMp4 = blob.type.includes("mp4");
-      const filename = isMp4 ? "recording.mp4" : "recording.webm";
-      fd.append("file", blob, filename);
-      const sttResp = await fetch(`${FUNCTIONS_URL}/voice-transcribe`, {
-        method: "POST", headers: { Authorization: auth, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }, body: fd,
-      });
-      const sttJson = await sttResp.json();
-      if (!sttResp.ok) throw new Error(sttJson.error || "STT failed");
-      const userText = (sttJson.text || "").trim();
-      if (!userText) { setStatus("idle"); toast({ title: "Didn't catch that", variant: "destructive" }); return; }
-      setMessages((m) => [...m, { role: "user", content: userText }]);
-      setStatus("thinking");
-
-      // Chat with streaming
       const abort = new AbortController();
       abortRef.current = abort;
+
       const chatResp = await fetch(`${FUNCTIONS_URL}/voice-chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: auth, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-        body: JSON.stringify({ question: userText, conversationId, stream: true }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: auth,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ question: queryText, conversationId, stream: true }),
         signal: abort.signal,
       });
-      if (!chatResp.ok) throw new Error("Chat failed");
+
+      if (!chatResp.ok) throw new Error("Assistant response failed");
 
       const reader = chatResp.body!.getReader();
       const decoder = new TextDecoder();
       let fullAnswer = "";
       let meta: { conversationId?: string; sources?: Msg["sources"]; confidence?: number; language?: string } = {};
+      
       setStatus("speaking");
       let buffer = "";
 
@@ -194,10 +136,17 @@ export function VoiceWidget() {
           if (!dataLine) continue;
           try {
             const parsed = JSON.parse(dataLine);
-            if (parsed.type === "metadata") { meta = parsed; setConversationId(parsed.conversationId); setDetectedLang(parsed.language); }
-            else if (parsed.type === "chunk") { fullAnswer += parsed.text; setStreamingText(fullAnswer); }
-            else if (parsed.type === "done") { fullAnswer = parsed.fullAnswer || fullAnswer; }
-          } catch { /* skip */ }
+            if (parsed.type === "metadata") {
+              meta = parsed;
+              setConversationId(parsed.conversationId);
+              setDetectedLang(parsed.language);
+            } else if (parsed.type === "chunk") {
+              fullAnswer += parsed.text;
+              setStreamingText(fullAnswer);
+            } else if (parsed.type === "done") {
+              fullAnswer = parsed.fullAnswer || fullAnswer;
+            }
+          } catch { /* skip parsing errors */ }
         }
       }
 
@@ -205,23 +154,14 @@ export function VoiceWidget() {
       setStreamingText("");
       abortRef.current = null;
 
-      // TTS
-      try {
-        const ttsResp = await fetch(`${FUNCTIONS_URL}/elevenlabs-tts`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: auth, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-          body: JSON.stringify({ text: fullAnswer.slice(0, 4500) }),
-        });
-        if (ttsResp.ok) {
-          const audioBlob = await ttsResp.blob();
-          const url = URL.createObjectURL(audioBlob);
-          const audio = new Audio(url);
-          audioElRef.current = audio;
-          audio.onended = () => { setStatus("idle"); URL.revokeObjectURL(url); audioElRef.current = null; };
-          audio.onerror = () => { setStatus("idle"); };
-          await audio.play();
-        } else { setStatus("idle"); }
-      } catch { setStatus("idle"); }
+      // Speak back using browser TTS
+      setStatus("speaking");
+      await voiceSynthesis.speak(fullAnswer, {
+        language: meta.language || 'en',
+        onEnd: () => setStatus("idle"),
+        onError: () => setStatus("idle"),
+      });
+
     } catch (e) {
       if ((e as Error).name === "AbortError") { setStatus("idle"); return; }
       console.error(e);
@@ -233,62 +173,65 @@ export function VoiceWidget() {
 
   const startListening = useCallback(async () => {
     stopSpeaking();
+    setVolume(0);
 
-    // Create AudioContext synchronously inside the user gesture handler to satisfy Safari's security requirements
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    let activeCtx: AudioContext | null = null;
-    if (AudioContextClass) {
-      try {
-        activeCtx = new AudioContextClass();
-        activeCtx.resume().catch(() => {});
-        audioCtxRef.current = activeCtx;
-      } catch (err) {
-        console.warn("Failed to initialize AudioContext:", err);
-      }
-    }
+    if (VoiceRecognition.isSupported()) {
+      const recognition = new VoiceRecognition();
+      recognitionRef.current = recognition;
 
-    recordingStartRef.current = Date.now();
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { noiseSuppression: true, echoCancellation: true } });
-      streamRef.current = stream;
-      const mimeType = ["audio/webm", "audio/mp4"].find((t) => MediaRecorder.isTypeSupported(t)) || "";
-      const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-      recorderRef.current = rec;
-      chunksRef.current = [];
-      vadActiveRef.current = false;
-      rec.ondataavailable = (e) => e.data.size && chunksRef.current.push(e.data);
-      rec.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
-        tearDown();
-        if (blob.size < 100) { setStatus("idle"); return; }
-        await handleAudio(blob);
-      };
-      rec.start(100);
-      setStatus("listening");
-
-      if (activeCtx) {
-        startVAD(stream, activeCtx);
-      }
-
-      // Safety limit: 30 seconds max recording duration
-      maxDurationTimerRef.current = setTimeout(() => {
-        if (rec.state !== "inactive") {
-          rec.stop();
-          toast({ title: "Recording limit reached", description: "Sent automatically after 30 seconds." });
+      const started = recognition.start({
+        language: 'en',
+        continuous: false,
+        interimResults: true,
+        onResult: (transcript, isFinal) => {
+          if (isFinal) {
+            stopListening();
+            if (transcript.trim()) {
+              handleQuerySubmit(transcript.trim());
+            }
+          } else {
+            setStreamingText(transcript);
+          }
+        },
+        onError: (err) => {
+          console.warn("Speech recognition error:", err);
+          stopListening();
+        },
+        onEnd: () => {
+          if (status === "listening") setStatus("idle");
         }
-      }, 30000);
-    } catch {
-      tearDown();
-      toast({ title: "Microphone error", description: "Please allow microphone access.", variant: "destructive" });
-      setStatus("offline");
-    }
-  }, [stopSpeaking, toast, tearDown]);
+      });
 
-  const stopListening = useCallback(() => {
-    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-    if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
-  }, []);
+      if (started) {
+        setStatus("listening");
+        return;
+      }
+    }
+
+    // Fallback: VAD Mode
+    try {
+      const vad = new VoiceActivityDetector({
+        silenceThreshold: 0.025,
+        minSpeechMs: 400,
+        minRecordMs: 1800,
+        maxRecordMs: 30000,
+        onVolumeChange: (level) => setVolume(level),
+        onSpeechEnd: () => {
+          stopListening();
+        },
+        onError: (err) => {
+          console.error("VAD error:", err);
+          setStatus("error");
+        }
+      });
+      vadRef.current = vad;
+      const stream = await vad.start();
+      if (stream) setStatus("listening");
+    } catch {
+      setStatus("offline");
+      toast({ title: "Microphone error", description: "Please allow microphone access.", variant: "destructive" });
+    }
+  }, [stopSpeaking, toast, status]);
 
   const bargeIn = useCallback(() => {
     stopSpeaking();
@@ -297,7 +240,7 @@ export function VoiceWidget() {
   }, [stopSpeaking, startListening]);
 
   useEffect(() => { scrollRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, streamingText]);
-  useEffect(() => () => { tearDown(); stopSpeaking(); }, [tearDown, stopSpeaking]);
+  useEffect(() => () => { stopSpeaking(); stopListening(); }, [stopSpeaking, stopListening]);
 
   if (!onDashboard || onAssistant) return null;
 

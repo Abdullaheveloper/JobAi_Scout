@@ -31,10 +31,15 @@ const PERSONALITIES: Record<string, string> = {
 
 const BASE_SYSTEM_PROMPT = `You are the official AI assistant for Job Scout AI — a platform that helps job seekers find jobs, build CVs, and prepare for interviews.
 
-Primary rule: answer questions about the website, company, products, services, pricing, policies, FAQs, blogs, or documentation ONLY from the retrieved context below. Never invent pricing, services, features, or policies.
-
-Never hallucinate. Never invent information. Be concise and helpful. Speak naturally — your answer will be read aloud.
-Always respond in the same language the user used.`;
+## Core Rules
+1. Search the knowledge base first. If relevant information exists in the CONTEXT below, answer STRICTLY using that context.
+2. NEVER invent pricing, services, features, or policies.
+3. NEVER hallucinate. Never invent information not in the context.
+4. If retrieval confidence is low, answer from your general knowledge and explicitly state: "Based on my general knowledge (not from your uploaded documents):"
+5. If documents contradict your general knowledge, PRIORITIZE the documents.
+6. Cite sources in [Source: title, page X] format when referencing documents.
+7. Be concise, natural, and conversational — your answer may be read aloud.
+8. Always respond in the same language the user used.`;
 
 function sanitizeInput(text: string): string {
   return text
@@ -42,6 +47,7 @@ function sanitizeInput(text: string): string {
     .replace(/you are now/gi, "")
     .replace(/system prompt/gi, "")
     .replace(/\[INST\]|\[\/INST\]|<<SYS>>|<\/SYS>/gi, "")
+    .replace(/act as (a |an )?/gi, "")
     .trim();
 }
 
@@ -49,11 +55,13 @@ function openaiToGemini(messages: Array<{role: string; content: string}>) {
   const systemMsgs = messages.filter(m => m.role === 'system');
   const chatMsgs = messages.filter(m => m.role !== 'system');
   return {
-    systemInstruction: systemMsgs.length > 0 ? { parts: [{ text: systemMsgs.map(m => m.content).join('\n\n') }] } : undefined,
+    systemInstruction: systemMsgs.length > 0
+      ? { parts: [{ text: systemMsgs.map(m => m.content).join('\n\n') }] }
+      : undefined,
     contents: chatMsgs.map(m => ({
       role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }]
-    }))
+      parts: [{ text: m.content }],
+    })),
   };
 }
 
@@ -74,10 +82,12 @@ async function embedOne(text: string, apiKey: string): Promise<number[]> {
   return j.embedding.values;
 }
 
-// Context-Aware Query Rewriter for follow-up questions
-async function rewriteQuery(question: string, history: Array<{role: string; content: string}>, apiKey: string): Promise<string> {
+async function rewriteQuery(
+  question: string,
+  history: Array<{role: string; content: string}>,
+  apiKey: string
+): Promise<string> {
   if (!history || history.length === 0) return question;
-
   try {
     const prompt = `You are a query reformulation assistant for a semantic search engine.
 Given the conversation history and the latest user query, reformulate it into a single, standalone search query containing all relevant details.
@@ -98,21 +108,48 @@ Standalone search query:`;
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 60,
-          }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 80 },
         }),
       }
     );
-
     if (!resp.ok) return question;
     const json = await resp.json();
     const text = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    return text ? text.replace(/^["']|["']$/g, "") : question;
-  } catch (err) {
-    console.warn("rewriteQuery failed, using original:", err);
+    return text ? text.replace(/^[\"']|[\"']$/g, "") : question;
+  } catch {
     return question;
+  }
+}
+
+// Conversation summarization for long sessions (>20 messages)
+async function summarizeConversation(
+  history: Array<{role: string; content: string}>,
+  apiKey: string
+): Promise<string> {
+  const prompt = `Summarize this conversation in 2-3 sentences for context continuation. Focus on key topics, user needs, and important answers given.
+
+Conversation:
+${history.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`).join("\n")}
+
+Summary:`;
+
+  try {
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 200 },
+        }),
+      }
+    );
+    if (!resp.ok) return "";
+    const json = await resp.json();
+    return json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+  } catch {
+    return "";
   }
 }
 
@@ -135,7 +172,6 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: auth } } });
     const adminSupabase = createClient(supabaseUrl, serviceKey);
 
-    // Auth check
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) {
       return new Response(JSON.stringify({ error: "Please log in to use the voice assistant." }), {
@@ -144,7 +180,6 @@ Deno.serve(async (req) => {
     }
     const userId = u.user.id;
 
-    // Parse body
     let body: Record<string, unknown>;
     try {
       body = await req.json();
@@ -158,7 +193,7 @@ Deno.serve(async (req) => {
     let conversationId: string | null = (body.conversationId as string) || null;
     const personality: string = (body.personality as string) || "professional";
     const speed: number = (body.speed as number) || 1.0;
-    const streamMode: boolean = (body.stream as boolean) || false;
+    const streamMode: boolean = (body.stream as boolean) ?? true;
     const language: string = (body.language as string) || "";
 
     if (!rawQuestion) {
@@ -178,7 +213,7 @@ Deno.serve(async (req) => {
       .is("user_id", null)
       .maybeSingle();
 
-    const confidenceThreshold = globalSettings?.confidence_threshold ?? 0.70;
+    const confidenceThreshold = globalSettings?.confidence_threshold ?? 0.65;
 
     if (globalSettings?.assistant_enabled === false) {
       return new Response(JSON.stringify({ error: "Voice assistant is currently disabled by admin." }), {
@@ -197,7 +232,7 @@ Deno.serve(async (req) => {
       conversationId = convo.id;
     }
 
-    // ── Cache Check ────────────────────────────────────────────────────────
+    // Cache check
     const { data: cached } = await adminSupabase
       .from("voice_cache")
       .select("*")
@@ -207,7 +242,6 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (cached) {
-      // Log analytics for cache hit
       const latencyMs = Date.now() - startTime;
       adminSupabase.from("voice_search_logs").insert({
         user_id: userId,
@@ -221,7 +255,6 @@ Deno.serve(async (req) => {
         was_successful: true,
       }).catch((e: unknown) => console.warn("Analytics log failed:", e));
 
-      // Persist messages
       await supabase.from("voice_messages").insert([
         { conversation_id: conversationId, user_id: userId, role: "user", content: question },
         { conversation_id: conversationId, user_id: userId, role: "assistant", content: cached.answer },
@@ -238,28 +271,15 @@ Deno.serve(async (req) => {
               confidence: cached.confidence,
               language: cached.language,
               isLowConfidence: cached.confidence < confidenceThreshold,
+              cached: true,
             })}\n\n`));
-
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-              type: "chunk",
-              text: cached.answer,
-            })}\n\n`));
-
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-              type: "done",
-              fullAnswer: cached.answer,
-            })}\n\n`));
-
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "chunk", text: cached.answer })}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done", fullAnswer: cached.answer })}\n\n`));
             controller.close();
-          }
+          },
         });
         return new Response(readable, {
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-          },
+          headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
         });
       }
 
@@ -271,77 +291,156 @@ Deno.serve(async (req) => {
         language: cached.language,
         isLowConfidence: cached.confidence < confidenceThreshold,
         cached: true,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Load conversation history (last 16 messages = 8 turns)
-    const { data: history } = await supabase
+    // Load conversation history
+    const { data: allHistory } = await supabase
       .from("voice_messages")
       .select("role, content")
       .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true })
-      .limit(16);
+      .order("created_at", { ascending: true });
 
-    // ── Reformulate query for search using context ────────────────────────
-    const searchQuestion = await rewriteQuery(question, history || [], apiKey);
+    const historyMessages = allHistory || [];
 
-    // Embed and retrieve relevant KB chunks
+    // For long conversations: summarize older messages and keep recent 8 turns
+    let contextMessages: Array<{role: string; content: string}> = [];
+    let summaryPrefix = "";
+
+    if (historyMessages.length > 20) {
+      const olderMessages = historyMessages.slice(0, historyMessages.length - 16);
+      const recentMessages = historyMessages.slice(historyMessages.length - 16);
+      summaryPrefix = await summarizeConversation(olderMessages, apiKey);
+      contextMessages = recentMessages;
+    } else {
+      contextMessages = historyMessages.slice(-16);
+    }
+
+    // Rewrite query for better retrieval
+    const searchQuestion = await rewriteQuery(question, contextMessages, apiKey);
+
+    // ── Hybrid Search ────────────────────────────────────────────────────────
+    type MatchResult = {
+      id: string;
+      url: string;
+      title: string;
+      content: string;
+      source_id: string;
+      page_number: number;
+      section_heading: string | null;
+      chunk_index: number;
+      document_type: string;
+      semantic_rank: number;
+      keyword_rank: number;
+      rrf_score: number;
+      similarity: number;
+    };
+
+    let matches: MatchResult[] = [];
     let qEmbed: number[] | null = null;
-    let matches: Array<{ url: string; title: string; content: string; similarity: number }> = [];
 
     try {
       qEmbed = await embedOne(searchQuestion, apiKey);
-      const { data: matchData } = await supabase.rpc("match_kb_chunks", {
+
+      // Try hybrid search first
+      const { data: hybridData, error: hybridErr } = await supabase.rpc("hybrid_search_kb", {
+        query_text: searchQuestion,
         query_embedding: qEmbed as unknown as string,
         match_user_id: userId,
-        match_count: 5,
+        match_count: 8,
+        rrf_k: 60,
       });
-      matches = matchData || [];
+
+      if (!hybridErr && hybridData && hybridData.length > 0) {
+        matches = hybridData as MatchResult[];
+      } else {
+        // Fallback to pure vector search
+        const { data: vectorData } = await supabase.rpc("match_kb_chunks", {
+          query_embedding: qEmbed as unknown as string,
+          match_user_id: userId,
+          match_count: 6,
+        });
+        matches = (vectorData || []).map((m: {id: string; url: string; title: string; content: string; similarity: number}) => ({
+          ...m,
+          source_id: "",
+          page_number: 1,
+          section_heading: null,
+          chunk_index: 0,
+          document_type: "url",
+          semantic_rank: 1,
+          keyword_rank: 1000,
+          rrf_score: m.similarity,
+          similarity: m.similarity,
+        }));
+      }
     } catch (embedErr) {
-      console.warn("Embedding/retrieval failed (continuing without context):", embedErr);
+      console.warn("Embedding/retrieval failed, continuing without context:", embedErr);
     }
 
+    // Determine confidence level
     const topSimilarity = matches[0]?.similarity ?? 0;
-    const confidenceScore = Math.max(0, Math.min(1, topSimilarity));
-    
-    // Filter matches that meet the similarity threshold
-    const highConfidenceMatches = matches.filter(m => m.similarity >= confidenceThreshold);
+    const topRrfScore = matches[0]?.rrf_score ?? 0;
+    const confidenceScore = Math.max(0, Math.min(1, topSimilarity > 0 ? topSimilarity : topRrfScore * 2));
+
+    const highConfidenceMatches = matches.filter(m => m.similarity >= confidenceThreshold || m.rrf_score >= 0.02);
     const hasHighConfidence = highConfidenceMatches.length > 0;
     const isLowConfidence = !hasHighConfidence;
 
+    // Build context prompt with rich source metadata
     let dynamicContextPrompt = "";
     if (hasHighConfidence) {
       const context = highConfidenceMatches
-        .map((m, i) => `[Source ${i + 1}: ${m.title || m.url}]\n${m.content}`)
+        .slice(0, 6)
+        .map((m, i) => {
+          const pageInfo = m.page_number > 1 ? `, page ${m.page_number}` : "";
+          const headingInfo = m.section_heading ? `, section: "${m.section_heading}"` : "";
+          const sourceLabel = `[Source ${i + 1}: ${m.title || m.url}${pageInfo}${headingInfo}]`;
+          return `${sourceLabel}\n${m.content}`;
+        })
         .join("\n\n---\n\n");
-      
-      dynamicContextPrompt = `Retrieved knowledge base context (grounded truth):
+
+      dynamicContextPrompt = `Retrieved knowledge base context (use this as ground truth):
 ${context}
 
-You MUST answer the question using ONLY the provided knowledge base context above.
-Do not hallucinate or invent any information.
-Cite the Source numbers (e.g. [Source 1], [Source 2]) to reference where in the knowledge base you got the information.`;
+INSTRUCTIONS:
+- Answer the question using ONLY the provided context above.
+- Cite sources as [Source 1], [Source 2], etc.
+- Do NOT hallucinate or invent any information not in the context.
+- If the context partially answers the question, say so and answer what you can.`;
     } else {
       dynamicContextPrompt = `No relevant information was found in the internal knowledge base for this query.
-Therefore, you must fall back to your general AI knowledge to answer the query.
-Please explicitly state in a brief, polite manner in your response that you are answering from your general knowledge (e.g., "I couldn't find this in the official documentation, but from my general knowledge...").`;
+Answer from your general AI knowledge, but EXPLICITLY state at the start: "Based on my general knowledge (not from your uploaded documents): "`;
     }
 
     const personalityPrompt = PERSONALITIES[personality] || PERSONALITIES.professional;
 
+    // Build message array
+    const systemParts = [
+      BASE_SYSTEM_PROMPT,
+      personalityPrompt,
+      dynamicContextPrompt,
+    ];
+
+    if (summaryPrefix) {
+      systemParts.push(`Previous conversation summary: ${summaryPrefix}`);
+    }
+
     const chatMessages = [
-      { role: "system", content: BASE_SYSTEM_PROMPT },
-      { role: "system", content: personalityPrompt },
-      { role: "system", content: dynamicContextPrompt },
-      ...(history || []).map((m: { role: string; content: string }) => ({ role: m.role, content: m.content })),
+      { role: "system", content: systemParts.join("\n\n---\n\n") },
+      ...contextMessages.map((m: { role: string; content: string }) => ({ role: m.role, content: m.content })),
       { role: "user", content: question },
     ];
 
-    const sources = matches.map((m) => ({ url: m.url, title: m.title, similarity: m.similarity }));
+    const sources = matches.map(m => ({
+      url: m.url,
+      title: m.title,
+      similarity: m.similarity,
+      page_number: m.page_number,
+      section_heading: m.section_heading,
+      document_type: m.document_type,
+    }));
 
-    // Log search analytics (fire-and-forget, don't let it block the response)
+    // Fire-and-forget analytics
     const latencyMs = Date.now() - startTime;
     adminSupabase.from("voice_search_logs").insert({
       user_id: userId,
@@ -363,7 +462,14 @@ Please explicitly state in a brief, polite manner in your response that you are 
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(geminiBody),
+          body: JSON.stringify({
+            ...geminiBody,
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 1024,
+              topP: 0.9,
+            },
+          }),
         }
       );
 
@@ -381,7 +487,7 @@ Please explicitly state in a brief, polite manner in your response that you are 
 
       const readable = new ReadableStream({
         async start(controller) {
-          // Send metadata first so the client knows the conversationId immediately
+          // Send metadata first
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({
             type: "metadata",
             conversationId,
@@ -414,21 +520,17 @@ Please explicitly state in a brief, polite manner in your response that you are 
               console.warn("Failed to persist messages:", e);
             }
 
-            // Cache response if valid
-            if (answer && answer.length > 5) {
-              try {
-                await adminSupabase.from("voice_cache").upsert({
-                  user_id: userId,
-                  query: question.toLowerCase(),
-                  answer,
-                  sources,
-                  confidence: confidenceScore,
-                  language: detectedLang,
-                  expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-                }, { onConflict: "user_id,query" });
-              } catch (cacheErr) {
-                console.warn("Failed to write voice cache:", cacheErr);
-              }
+            // Cache if useful answer
+            if (answer && answer.length > 20) {
+              adminSupabase.from("voice_cache").upsert({
+                user_id: userId,
+                query: question.toLowerCase(),
+                answer,
+                sources,
+                confidence: confidenceScore,
+                language: detectedLang,
+                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+              }, { onConflict: "user_id,query" }).catch(() => {});
             }
 
             controller.close();
@@ -446,10 +548,7 @@ Please explicitly state in a brief, polite manner in your response that you are 
               for (const line of lines) {
                 if (!line.startsWith("data: ")) continue;
                 const data = line.slice(6).trim();
-                if (data === "[DONE]") {
-                  await closeStream(fullAnswer);
-                  return;
-                }
+                if (data === "[DONE]") { await closeStream(fullAnswer); return; }
                 try {
                   const parsed = JSON.parse(data);
                   const delta = parsed.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -457,13 +556,9 @@ Please explicitly state in a brief, polite manner in your response that you are 
                     fullAnswer += delta;
                     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "chunk", text: delta })}\n\n`));
                   }
-                } catch {
-                  // skip malformed SSE lines
-                }
+                } catch { /* skip malformed */ }
               }
             }
-
-            // Stream ended without [DONE] — still close cleanly
             await closeStream(fullAnswer);
           } catch (streamErr) {
             console.error("Stream read error:", streamErr);
@@ -495,12 +590,14 @@ Please explicitly state in a brief, polite manner in your response that you are 
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(geminiBody),
+        body: JSON.stringify({
+          ...geminiBody,
+          generationConfig: { temperature: 0.7, maxOutputTokens: 1024, topP: 0.9 },
+        }),
       }
     );
 
     if (!chatResp.ok) {
-      const t = await chatResp.text();
       return new Response(JSON.stringify({ error: `AI service error (${chatResp.status}). Please try again.` }), {
         status: chatResp.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -509,26 +606,20 @@ Please explicitly state in a brief, polite manner in your response that you are 
     const chatJson = await chatResp.json();
     const answer: string = chatJson.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "I couldn't generate a response. Please try again.";
 
-    // Persist messages
     await supabase.from("voice_messages").insert([
       { conversation_id: conversationId, user_id: userId, role: "user", content: question },
       { conversation_id: conversationId, user_id: userId, role: "assistant", content: answer },
     ]);
 
-    // Cache response
-    try {
-      await adminSupabase.from("voice_cache").upsert({
-        user_id: userId,
-        query: question.toLowerCase(),
-        answer,
-        sources,
-        confidence: confidenceScore,
-        language: detectedLang,
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      }, { onConflict: "user_id,query" });
-    } catch (cacheErr) {
-      console.warn("Failed to write voice cache:", cacheErr);
-    }
+    adminSupabase.from("voice_cache").upsert({
+      user_id: userId,
+      query: question.toLowerCase(),
+      answer,
+      sources,
+      confidence: confidenceScore,
+      language: detectedLang,
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    }, { onConflict: "user_id,query" }).catch(() => {});
 
     return new Response(JSON.stringify({
       answer,
@@ -537,15 +628,11 @@ Please explicitly state in a brief, polite manner in your response that you are 
       confidence: confidenceScore,
       language: detectedLang,
       isLowConfidence,
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (e) {
     console.error("voice-chat unhandled error:", e);
-    return new Response(JSON.stringify({
-      error: "Something went wrong. Please try again in a moment.",
-    }), {
+    return new Response(JSON.stringify({ error: "Something went wrong. Please try again in a moment." }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
