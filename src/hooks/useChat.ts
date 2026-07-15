@@ -147,6 +147,31 @@ export function useChat() {
             });
             // Reload conversations to update titles
             store.loadConversations();
+
+            // Speak response if autoSpeak is enabled and voice mode is active
+            if (voiceStore.settings.autoSpeak) {
+              const speakResponse = async () => {
+                try {
+                  const { voiceSynthesis } = await import('@/lib/voice/synthesis');
+                  voiceStore.setState('speaking');
+                  await voiceSynthesis.speak(finalText, {
+                    rate: voiceStore.settings.speed,
+                    pitch: voiceStore.settings.pitch,
+                    language: voiceStore.settings.language,
+                    onEnd: () => {
+                      voiceStore.setState('idle');
+                    },
+                    onError: () => {
+                      voiceStore.setState('idle');
+                    },
+                  });
+                } catch (err) {
+                  console.warn('AutoSpeak failed:', err);
+                  voiceStore.setState('idle');
+                }
+              };
+              speakResponse();
+            }
             break;
           } else if (parsed.type === 'error') {
             throw new Error((parsed.error as string) || 'Stream error');

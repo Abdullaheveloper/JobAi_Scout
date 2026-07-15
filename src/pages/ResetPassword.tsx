@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Briefcase, Lock, Eye, EyeOff, ArrowRight, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
@@ -14,26 +14,86 @@ export default function ResetPassword() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [confirmError, setConfirmError] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Listen for the PASSWORD_RECOVERY event from the redirect
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
+    // Handle the PKCE flow: Supabase redirects with tokens in hash or search params
+    const handleAuth = async () => {
+      const hash = window.location.hash;
+      const search = window.location.search;
+
+      // Check for error in URL
+      const urlParams = new URLSearchParams(search);
+      const hashParams = new URLSearchParams(hash.substring(1));
+      const errorDesc = urlParams.get("error_description") || hashParams.get("error_description");
+      if (errorDesc) {
+        setError(errorDesc);
+        return;
+      }
+
+      // Check for recovery tokens in hash (PKCE flow)
+      if (hash && hash.includes("access_token")) {
+        // Supabase has already set the session via the hash fragment
+        // The onAuthStateChange listener will pick it up
+        return;
+      }
+
+      // Check for type=recovery in hash
+      if (hash && hash.includes("type=recovery")) {
+        return;
+      }
+
+      // Check for code in search params (PKCE authorization code flow)
+      const code = urlParams.get("code");
+      if (code) {
+        // Exchange the code for a session
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          setError(error.message);
+        }
+        return;
+      }
+    };
+
+    handleAuth();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" || (session && !ready)) {
         setReady(true);
       }
     });
 
-    // Also check hash for recovery type
+    // Also check hash immediately
     const hash = window.location.hash;
-    if (hash && hash.includes("type=recovery")) {
+    if (hash && (hash.includes("type=recovery") || hash.includes("access_token"))) {
       setReady(true);
     }
 
-    return () => subscription.unsubscribe();
+    // Check search params for code
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("code")) {
+      setReady(true);
+    }
+
+    // Fallback: if nothing happens in 3 seconds, show the form anyway
+    // (the session might already be established from a previous step)
+    const fallback = setTimeout(() => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          setReady(true);
+        }
+      });
+    }, 3000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(fallback);
+    };
   }, []);
 
   const handleUpdate = async (e: React.FormEvent) => {
@@ -63,10 +123,42 @@ export default function ResetPassword() {
     }
   };
 
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#020817] text-white p-6 relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none z-0">
+          <Suspense fallback={null}>
+            <ParticleSystem3D particleCount={300} />
+          </Suspense>
+        </div>
+        <motion.div
+          className="w-full max-w-[420px] relative z-10"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="auth-card p-8 text-center space-y-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-400 mx-auto">
+              <AlertCircle className="h-6 w-6" />
+            </div>
+            <h2 className="text-xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
+              Reset link invalid
+            </h2>
+            <p className="text-gray-400 text-sm">{error}</p>
+            <a
+              href="/forgot-password"
+              className="inline-flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
+            >
+              Request a new reset link
+            </a>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#020817] text-white relative overflow-hidden">
-        {/* Global Particle Background */}
         <div className="absolute inset-0 pointer-events-none z-0">
           <Suspense fallback={null}>
             <ParticleSystem3D particleCount={300} />
@@ -82,7 +174,6 @@ export default function ResetPassword() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#020817] text-white p-6 relative overflow-hidden">
-      {/* Global Particle Background */}
       <div className="absolute inset-0 pointer-events-none z-0">
         <Suspense fallback={null}>
           <ParticleSystem3D particleCount={400} />
@@ -97,7 +188,6 @@ export default function ResetPassword() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       >
-        {/* Logo */}
         <div className="flex items-center justify-center gap-2.5 mb-8">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary shadow-lg shadow-indigo-500/40">
             <Briefcase className="h-5 w-5 text-white" />
@@ -108,7 +198,6 @@ export default function ResetPassword() {
         </div>
 
         <div className="auth-card p-8">
-          {/* Header */}
           <div className="mb-6 text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl gradient-primary shadow-xl shadow-indigo-500/30">
               <Lock className="h-5 w-5 text-white" />
@@ -122,7 +211,6 @@ export default function ResetPassword() {
           </div>
 
           <form onSubmit={handleUpdate} className="space-y-4" noValidate>
-            {/* New Password */}
             <div className="input-wrapper space-y-1.5">
               <label htmlFor="new-password" className="input-label">New Password</label>
               <div className="relative">
@@ -159,7 +247,6 @@ export default function ResetPassword() {
               )}
             </div>
 
-            {/* Confirm Password */}
             <div className="input-wrapper space-y-1.5">
               <label htmlFor="confirm-password" className="input-label">Confirm New Password</label>
               <div className="relative">

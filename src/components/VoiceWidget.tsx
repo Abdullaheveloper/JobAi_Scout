@@ -74,6 +74,47 @@ export function VoiceWidget() {
     location.pathname.startsWith("/recruiter") || location.pathname.startsWith("/admin");
   const onAssistant = location.pathname === "/dashboard/assistant";
 
+  // Load latest conversation history when widget is opened
+  useEffect(() => {
+    if (!open) return;
+    
+    const loadLatestConversation = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        // Get latest conversation
+        const { data: convos, error: convoErr } = await supabase
+          .from("voice_conversations")
+          .select("id")
+          .eq("user_id", session.user.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (convoErr || !convos || convos.length === 0) return;
+        const latestConvoId = convos[0].id;
+        setConversationId(latestConvoId);
+
+        // Load messages
+        const { data: msgs, error: msgsErr } = await supabase
+          .from("voice_messages")
+          .select("role, content")
+          .eq("conversation_id", latestConvoId)
+          .order("created_at", { ascending: true });
+
+        if (msgsErr || !msgs) return;
+        setMessages(msgs.map(m => ({
+          role: m.role as "user" | "assistant",
+          content: m.content
+        })));
+      } catch (err) {
+        console.warn("Failed to load voice widget history:", err);
+      }
+    };
+
+    loadLatestConversation();
+  }, [open]);
+
   const stopSpeaking = useCallback(() => {
     voiceSynthesis.stop();
     if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }

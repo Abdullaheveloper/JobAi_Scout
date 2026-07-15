@@ -1,10 +1,14 @@
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) throw new Error("GEMINI_API_KEY missing");
+    const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
+    if (!openrouterApiKey) throw new Error("OPENROUTER_API_KEY missing");
 
     const form = await req.formData();
     const file = form.get("file");
@@ -27,45 +31,44 @@ Deno.serve(async (req) => {
       const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
       binary += String.fromCharCode.apply(null, Array.from(chunk));
     }
-    const base64 = btoa(binary);
+    const base64Audio = btoa(binary);
 
-    const langInstruction = languageHint ? ` The user is speaking ${languageHint}.` : "";
+    // Determine audio format from mime type
+    let audioFormat = "webm";
+    if (mime.includes("wav")) audioFormat = "wav";
+    else if (mime.includes("mp3") || mime.includes("mpeg")) audioFormat = "mp3";
+    else if (mime.includes("ogg")) audioFormat = "ogg";
+    else if (mime.includes("flac")) audioFormat = "flac";
+    else if (mime.includes("mp4") || mime.includes("m4a")) audioFormat = "mp4";
 
-    const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  inlineData: {
-                    mimeType: mime,
-                    data: base64,
-                  },
-                },
-                {
-                  text: `Transcribe this audio exactly as spoken. Return only the transcription text.${langInstruction}`,
-                },
-              ],
-            },
-          ],
-        }),
-      }
-    );
+    // Use OpenRouter Whisper API for transcription
+    const resp = await fetch("https://openrouter.ai/api/v1/audio/transcriptions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${openrouterApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "openai/whisper-large-v3-turbo",
+        input_audio: {
+          data: base64Audio,
+          format: audioFormat,
+        },
+        ...(languageHint ? { language: languageHint } : {}),
+      }),
+    });
 
     if (!resp.ok) {
       const txt = await resp.text();
+      console.error("OpenRouter Whisper error:", resp.status, txt);
       return new Response(JSON.stringify({ error: `STT failed: ${resp.status} ${txt}` }), {
         status: resp.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const json = await resp.json();
-    const text = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const result = await resp.json();
+    const text = result.text || "";
+
     return new Response(JSON.stringify({ text, language: languageHint || null }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -6,49 +6,56 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-function openaiToGemini(messages: Array<{role: string; content: string}>) {
-  const systemMsgs = messages.filter(m => m.role === 'system');
-  const chatMsgs = messages.filter(m => m.role !== 'system');
-  return {
-    systemInstruction: systemMsgs.length > 0 ? { parts: [{ text: systemMsgs.map(m => m.content).join('\n\n') }] } : undefined,
-    contents: chatMsgs.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }]
-    }))
-  };
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { messages } = await req.json();
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
+    const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+    if (!openrouterApiKey) throw new Error('OPENROUTER_API_KEY is not configured');
 
-    const geminiBody = openaiToGemini([
-      {
-        role: "system",
-        content: `You are JobAI Career Assistant — an expert career advisor and job coach. You help users with:
-- Job search strategies and advice
-- Resume/CV improvement suggestions
-- Interview preparation tips
-- Skill development recommendations
-- Salary negotiation guidance
-- Career path planning
-- Industry trends and insights
+    const systemMsg = {
+      role: "system",
+      content: `You are **JobScout AI** — the official intelligent career advisor powering the JobAi Scout platform. You are a premium, world-class career intelligence system trusted by professionals worldwide.
 
-Be concise, actionable, and encouraging. Use markdown formatting for clarity. When discussing skills or technologies, be specific. If the user shares their skills or CV data, tailor advice to their profile.`,
-      },
-      ...messages,
-    ]);
+## Your Core Identity
+You are an elite career strategist with deep expertise across all industries, hiring practices, and career development methodologies. You combine the knowledge of a top executive recruiter, career coach, and industry analyst.
+
+## Response Quality Standards
+- **Be Direct & Authoritative**: Open with the key answer or recommendation. No filler phrases like "Great question!" or "Sure, I can help with that."
+- **Structure with Clarity**: Use **bold headings**, bullet points, numbered steps, and clean Markdown formatting. Every response should be scannable and visually organized.
+- **Be Specific & Actionable**: Replace vague advice with concrete steps, real examples, specific metrics, and proven strategies.
+- **Tailor to Context**: If the user shares their background, skills, or CV data, personalize every recommendation to their unique situation.
+- **Professional Tone**: Speak with confidence and authority. You are the expert — present information decisively, not tentatively.
+
+## Areas of Expertise
+1. **Job Search Strategy**: Market analysis, company research, networking tactics, hidden job market access, application optimization
+2. **CV/Resume Excellence**: ATS optimization, impact-driven bullet points, quantified achievements, industry-specific formatting
+3. **Interview Mastery**: STAR method responses, behavioral questions, technical interviews, salary negotiation scripts, follow-up strategies
+4. **Career Architecture**: Career pivots, skill gap analysis, upskilling roadmaps, personal branding, LinkedIn optimization
+5. **Industry Intelligence**: Market trends, in-demand skills, salary benchmarks, emerging roles, industry-specific advice
+
+## Output Format Rules
+- Always respond in the same language the user writes in
+- Use Markdown formatting: **bold** for emphasis, \`code\` for technical terms, bullet lists for multiple items
+- For multi-step advice, use numbered lists with clear action items
+- Keep responses focused and impactful — quality over quantity
+- Never mention your limitations or that you're an AI — simply deliver expert advice`,
+    };
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?key=${apiKey}&alt=sse`,
+      'https://openrouter.ai/api/v1/chat/completions',
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(geminiBody),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openrouterApiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [systemMsg, ...messages],
+          stream: true,
+        }),
       }
     );
 
@@ -59,13 +66,13 @@ Be concise, actionable, and encouraging. Use markdown formatting for clarity. Wh
         });
       }
       const t = await response.text();
-      console.error("Gemini API error:", response.status, t);
+      console.error("OpenRouter API error:", response.status, t);
       return new Response(JSON.stringify({ error: "AI service error" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Transform Gemini SSE to OpenAI-compatible SSE for the frontend
+    // Stream OpenRouter SSE (OpenAI-compatible) to the frontend
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
     const encoder = new TextEncoder();
@@ -86,7 +93,7 @@ Be concise, actionable, and encouraging. Use markdown formatting for clarity. Wh
               if (!data || data === "[DONE]") continue;
               try {
                 const parsed = JSON.parse(data);
-                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                const text = parsed.choices?.[0]?.delta?.content;
                 if (text) {
                   const chunk = JSON.stringify({
                     choices: [{ delta: { content: text }, finish_reason: null }],

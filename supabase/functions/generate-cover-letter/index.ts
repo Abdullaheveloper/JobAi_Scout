@@ -24,8 +24,8 @@ Deno.serve(async (req) => {
   try {
     const { jobTitle, company, jobDescription, userName, userEmail, userSkills, userExperience, userBio, userCvSummary } = await req.json();
 
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) {
+    const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
+    if (!openrouterApiKey) {
       return new Response(
         JSON.stringify({ error: "AI service not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -57,26 +57,26 @@ Instructions:
 - Don't include header/address block, just the letter body
 - End with a brief, confident closing line`;
 
-    const geminiBody = openaiToGemini([
-      { role: "system", content: "You write short, genuine cover letters that sound like a real person. Use only facts from the applicant's actual background. Never invent experience or skills." },
-      { role: "user", content: prompt },
-    ]);
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...geminiBody,
-          generationConfig: { maxOutputTokens: 800 },
-        }),
-      }
-    );
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${openrouterApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: "You write short, genuine cover letters that sound like a real person. Use only facts from the applicant's actual background. Never invent experience or skills." },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 800,
+      }),
+    });
 
     if (!response.ok) {
       const err = await response.text();
-      console.error("Gemini API error:", err);
+      console.error("OpenRouter API error:", err);
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
@@ -90,7 +90,7 @@ Instructions:
     }
 
     const data = await response.json();
-    const coverLetter = data.candidates?.[0]?.content?.parts?.[0]?.text || "Could not generate cover letter.";
+    const coverLetter = data.choices?.[0]?.message?.content || "Could not generate cover letter.";
 
     return new Response(
       JSON.stringify({ coverLetter }),

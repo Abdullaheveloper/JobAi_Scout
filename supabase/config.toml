@@ -1,4 +1,4 @@
-project_id = "uhvjleclbpseveyeajap"
+project_id = "jyknmnyxjrydgosssego"
 
 [auth]
 enabled = true
@@ -49,4 +49,28 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.voice-agent-guard]
+verify_jwt = false
+
+[functions.api]
+verify_jwt = false
+
+[functions.kb-ingest-document]
+verify_jwt = false
+
+[functions.kb-ingest-pdf]
+verify_jwt = false
+
+[functions.kb-reindex]
+verify_jwt = false
+
+[functions.sync-jobs]
+verify_jwt = false
+
+[functions.voice-chat]
+verify_jwt = false
+
+[functions.voice-settings]
+verify_jwt = false
+
+[functions.voice-transcribe]
 verify_jwt = false

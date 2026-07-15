@@ -1,5 +1,10 @@
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 const CHUNK_SIZE = 800;
 const CHUNK_OVERLAP = 150;
@@ -112,63 +117,80 @@ function parsePagesAndChunk(text: string, maxChunkSize = CHUNK_SIZE, overlapSize
   return chunksWithPages;
 }
 
-async function embed(texts: string[], apiKey: string): Promise<number[][]> {
+async function embed(texts: string[], openrouterApiKey: string): Promise<number[][]> {
+  if (!openrouterApiKey) throw new Error("OPENROUTER_API_KEY is missing");
   const results: number[][] = [];
-  for (const text of texts) {
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "models/text-embedding-004",
-          content: { parts: [{ text }] },
-        }),
-      }
-    );
-    if (!r.ok) throw new Error(`embed: ${r.status} ${await r.text()}`);
-    const j = await r.json();
-    results.push(j.embedding.values);
+  const BATCH = 16;
+  for (let i = 0; i < texts.length; i += BATCH) {
+    const batch = texts.slice(i, i + BATCH);
+    const r = await fetch("https://openrouter.ai/api/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${openrouterApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-embedding-2",
+        input: batch,
+        dimensions: 1536,
+      }),
+    });
+    if (!r.ok) throw new Error(`OpenRouter embed failed: ${r.status} ${await r.text()}`);
+    const json = await r.json();
+    if (!json.data || !Array.isArray(json.data)) throw new Error(`Invalid OpenRouter response: ${JSON.stringify(json)}`);
+    const sorted = [...json.data].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+    for (const item of sorted) {
+      if (item.embedding) results.push(item.embedding.slice(0, 1536));
+    }
   }
   return results;
 }
 
-async function extractPdfText(base64: string, filename: string, apiKey: string): Promise<string> {
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: `Extract all readable text from this PDF (${filename}). Preserve order. Identify the pages and insert explicit page markers like "[PAGE 1]", "[PAGE 2]", etc. at the beginning of each page's content. Skip headers/footers if repetitive.` },
-              {
-                inlineData: {
-                  mimeType: "application/pdf",
-                  data: base64,
-                },
-              },
-            ],
-          },
-        ],
-        systemInstruction: {
-          parts: [{ text: "You extract the full readable text from documents. Output ONLY the document text with page markers, with natural paragraph breaks. No commentary, no markdown fences, no summaries." }],
+async function extractPdfText(base64: string, filename: string, openrouterApiKey: string): Promise<string> {
+  if (!openrouterApiKey) throw new Error("OPENROUTER_API_KEY is missing");
+  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${openrouterApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        {
+          role: "system",
+          content: "You extract the full readable text from documents. Output ONLY the document text with page markers, with natural paragraph breaks. No commentary, no markdown fences, no summaries."
         },
-      }),
-    }
-  );
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Extract all readable text from this PDF (${filename}). Preserve order. Identify the pages and insert explicit page markers like "[PAGE 1]", "[PAGE 2]", etc. at the beginning of each page's content. Skip headers/footers if repetitive.`,
+            },
+            {
+              type: "file",
+              file: {
+                url: `data:application/pdf;base64,${base64}`,
+              },
+            },
+          ],
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 8000,
+    }),
+  });
   if (!r.ok) throw new Error(`extract: ${r.status} ${await r.text()}`);
   const j = await r.json();
-  return (j.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+  return (j.choices?.[0]?.message?.content || "").trim();
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     const apiKey = Deno.env.get("GEMINI_API_KEY");
+    const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     if (!apiKey) throw new Error("GEMINI_API_KEY missing");
@@ -216,7 +238,7 @@ Deno.serve(async (req) => {
       }
       const base64 = btoa(binary);
 
-      const text = await extractPdfText(base64, filename, apiKey);
+      const text = await extractPdfText(base64, filename, openrouterApiKey || apiKey || "");
       if (!text || text.length < 30) throw new Error("Could not extract text from PDF");
 
       const pagesAndChunks = parsePagesAndChunk(text, CHUNK_SIZE, CHUNK_OVERLAP);
@@ -251,7 +273,7 @@ Deno.serve(async (req) => {
       const BATCH = 32;
       for (let i = 0; i < rows.length; i += BATCH) {
         const slice = rows.slice(i, i + BATCH);
-        const embeds = await embed(slice.map((r) => r.content), apiKey);
+        const embeds = await embed(slice.map((r) => r.content), openrouterApiKey || apiKey || "");
         slice.forEach((r, j) => (r.embedding = embeds[j]));
       }
 

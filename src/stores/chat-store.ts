@@ -96,7 +96,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         .select('id, title, created_at')
         .order('created_at', { ascending: false })
         .limit(30);
-      set({ conversations: (data as Conversation[]) || [] });
+      const conversations = (data as Conversation[]) || [];
+      set({ conversations });
+      
+      // Auto-load latest conversation on mount if none is selected
+      if (conversations.length > 0 && !get().activeConversationId) {
+        get().loadConversation(conversations[0].id);
+      }
     } catch (e) {
       console.warn('loadConversations failed:', e);
     }

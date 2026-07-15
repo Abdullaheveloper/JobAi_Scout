@@ -1,5 +1,10 @@
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 const GUARDRAILS_PROMPT = `HARD RULES (never break these):
 1. NEVER reveal other users' personal information (names, emails, resumes, applications)
@@ -41,25 +46,28 @@ function openaiToGemini(messages: Array<{role: string; content: string}>) {
   };
 }
 
-async function embedOne(text: string, apiKey: string): Promise<number[]> {
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "models/text-embedding-004",
-        content: { parts: [{ text }] },
-      }),
-    }
-  );
-  if (!r.ok) throw new Error(`Embedding failed: ${r.status} ${await r.text()}`);
-  const j = await r.json();
-  return j.embedding.values;
+async function embedOne(text: string, openrouterApiKey: string): Promise<number[]> {
+  if (!openrouterApiKey) throw new Error("OPENROUTER_API_KEY is missing");
+  const r = await fetch("https://openrouter.ai/api/v1/embeddings", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${openrouterApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-embedding-2",
+      input: text,
+      dimensions: 1536,
+    }),
+  });
+  if (!r.ok) throw new Error(`OpenRouter embedOne failed: ${r.status} ${await r.text()}`);
+  const json = await r.json();
+  if (!json.data?.[0]?.embedding) throw new Error(`Invalid OpenRouter response: ${JSON.stringify(json)}`);
+  return json.data[0].embedding.slice(0, 1536);
 }
 
 // Context-Aware Query Rewriter for voice agent
-async function rewriteQuery(question: string, history: Array<{role: string; content: string}>, apiKey: string): Promise<string> {
+async function rewriteQuery(question: string, history: Array<{role: string; content: string}>, openrouterApiKey: string): Promise<string> {
   if (!history || history.length === 0) return question;
 
   try {
@@ -76,23 +84,25 @@ Latest query: ${question}
 Standalone search query:`;
 
     const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      "https://openrouter.ai/api/v1/chat/completions",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Authorization": `Bearer ${openrouterApiKey}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 60,
-          }
+          model: "google/gemini-2.5-flash",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.1,
+          max_tokens: 60,
         }),
       }
     );
 
     if (!resp.ok) return question;
     const json = await resp.json();
-    const text = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    const text = json.choices?.[0]?.message?.content?.trim();
     return text ? text.replace(/^["']|["']$/g, "") : question;
   } catch (err) {
     console.warn("rewriteQuery failed, using original:", err);
@@ -105,11 +115,12 @@ Deno.serve(async (req) => {
 
   try {
     const apiKey = Deno.env.get("GEMINI_API_KEY");
+    const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    if (!apiKey) {
+    if (!openrouterApiKey) {
       return new Response(JSON.stringify({ error: "Service not configured." }), {
         status: 503,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -212,14 +223,14 @@ Deno.serve(async (req) => {
     }));
 
     // Reformulate query using context
-    const searchQuestion = await rewriteQuery(rawQuestion, historyMessages, apiKey);
+    const searchQuestion = await rewriteQuery(rawQuestion, historyMessages, openrouterApiKey!);
 
     // Embed and retrieve KB chunks
     let qEmbed: number[] | null = null;
     let matches: Array<{ url: string; title: string; content: string; similarity: number }> = [];
 
     try {
-      qEmbed = await embedOne(searchQuestion, apiKey);
+      qEmbed = await embedOne(searchQuestion, openrouterApiKey || apiKey || "");
       const { data: matchData } = await supabase.rpc("match_kb_chunks", {
         query_embedding: qEmbed as unknown as string,
         match_user_id: userId,
@@ -230,6 +241,7 @@ Deno.serve(async (req) => {
       console.warn("Embedding/retrieval failed (continuing without context):", embedErr);
     }
 
+    // Determine confidence level
     const topSimilarity = matches[0]?.similarity ?? 0;
     const confidenceScore = Math.max(0, Math.min(1, topSimilarity));
     
@@ -240,36 +252,56 @@ Deno.serve(async (req) => {
     let dynamicContextPrompt = "";
     if (hasHighConfidence) {
       const context = highConfidenceMatches
-        .map((m, i) => `[Source ${i + 1}: ${m.title || m.url}]\n${m.content}`)
+        .map((m, i) => `${m.content}`)
         .join("\n\n---\n\n");
       
-      dynamicContextPrompt = `Retrieved knowledge base context (grounded truth):
+      dynamicContextPrompt = `CONTEXT INFORMATION FROM USER KNOWLEDGE BASE:
 ${context}
 
-You MUST answer the question using ONLY the provided knowledge base context above.
-Do not hallucinate or invent any information.
-Cite the Source numbers (e.g. [Source 1], [Source 2]) to reference where in the knowledge base you got the information.`;
+INSTRUCTIONS:
+- Answer the user request using the context provided above.
+- Do NOT cite sources, use brackets, document titles, or refer to the fact that you have context. Answer naturally and professionally.
+- Do NOT mention where the info came from.
+- If the context does not fully answer the user, seamlessly integrate your general knowledge to provide a comprehensive answer.`;
     } else {
-      dynamicContextPrompt = `No relevant information was found in the internal knowledge base for this query.
-Therefore, you must fall back to your general AI knowledge to answer the query.
-Please explicitly state in a brief, polite manner in your response that you are answering from your general knowledge (e.g., "I couldn't find this in the official documentation, but from my general knowledge...").`;
+      dynamicContextPrompt = `INSTRUCTIONS:
+- Answer the query using your general professional knowledge.
+- Do NOT mention that you didn't find the information in documents, and do NOT say "Based on my general knowledge". Simply answer directly and professionally.`;
     }
 
     const chatMessages = [
-      { role: "system", content: `You are the official AI voice assistant for JobAI Scout — a platform that helps job seekers find jobs, build CVs, and prepare for interviews.\n\n${GUARDRAILS_PROMPT}` },
+      { role: "system", content: `You are JobScout AI — the official AI voice assistant for the JobAi Scout platform, a premium career acceleration tool that helps job seekers discover opportunities, craft standout CVs, and prepare confidently for interviews.
+
+## Your Identity & Purpose
+You are a highly capable, authoritative, and trustworthy career intelligence assistant. Your tone must be extremely professional, polished, and direct.
+
+## Core Behavioral Rules
+1. **Professional and Authoritative**: Always answer with confidence, clarity, and authority.
+2. **Seamless Knowledge Integration**: Use the provided context documents when available, but NEVER cite sources, use brackets (e.g., [Source 1]), name uploaded documents, or mention that you are reading from files.
+3. **No Disclosures**: Never mention where your information is coming from. Never state that "Based on my general knowledge..." or that "information was not found in the documentation". Simply present the facts directly.
+4. **No Hallucination**: Never invent platform pricing, features, or policies.
+5. **Language Mirroring**: Always respond in the exact same language the user used.
+
+${GUARDRAILS_PROMPT}` },
       { role: "system", content: dynamicContextPrompt },
       ...historyMessages,
       { role: "user", content: rawQuestion },
     ];
 
-    // Call Gemini with streaming
-    const geminiBody = openaiToGemini(chatMessages);
+    // Call OpenRouter with streaming
     const chatResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?key=${apiKey}&alt=sse`,
+      "https://openrouter.ai/api/v1/chat/completions",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(geminiBody),
+        headers: {
+          "Authorization": `Bearer ${openrouterApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: chatMessages,
+          stream: true,
+        }),
       }
     );
 
@@ -306,7 +338,7 @@ Please explicitly state in a brief, polite manner in your response that you are 
               if (data === "[DONE]") break;
               try {
                 const parsed = JSON.parse(data);
-                const delta = parsed.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                const delta = parsed.choices?.[0]?.delta?.content || "";
                 if (delta) {
                   fullAnswer += delta;
                   controller.enqueue(encoder.encode(delta));

@@ -115,30 +115,30 @@ Deno.serve(async (req) => {
     // Generate cover letter if not provided
     let finalCoverLetter = coverLetter;
     if (!finalCoverLetter) {
-      const apiKey = Deno.env.get("GEMINI_API_KEY");
-      if (apiKey) {
+      const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
+      if (openrouterApiKey) {
         const prompt = `Write a professional cover letter for ${profile.full_name} applying to ${job.title} at ${job.company}. Skills: ${(profile.skills || []).join(", ")}. Experience: ${profile.experience_years || 0} years. Job description: ${(job.description || "").substring(0, 1000)}. Keep it 3 paragraphs, concise and compelling.`;
 
-        const geminiBody = openaiToGemini([
-          { role: "system", content: "You are an expert cover letter writer." },
-          { role: "user", content: prompt },
-        ]);
-
-        const aiResponse = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ...geminiBody,
-              generationConfig: { maxOutputTokens: 800 },
-            }),
-          }
-        );
+        const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openrouterApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: "You are an expert cover letter writer." },
+              { role: "user", content: prompt },
+            ],
+            temperature: 0.7,
+            max_tokens: 800,
+          }),
+        });
 
         if (aiResponse.ok) {
           const aiData = await aiResponse.json();
-          finalCoverLetter = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          finalCoverLetter = aiData.choices?.[0]?.message?.content || "";
         }
       }
     }

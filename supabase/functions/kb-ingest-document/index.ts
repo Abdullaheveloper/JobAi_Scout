@@ -1,5 +1,11 @@
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
+
+// ─── CORS Headers ─────────────────────────────────────────────────────────────
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 // ─── Shared Constants ──────────────────────────────────────────────────────────
 const CHUNK_SIZE = 800;
@@ -146,23 +152,30 @@ function parsePagesAndChunk(
 }
 
 // ─── Embedding (single) ───────────────────────────────────────────────────────
-async function embed(texts: string[], apiKey: string): Promise<number[][]> {
+async function embed(texts: string[], openrouterApiKey: string): Promise<number[][]> {
+  if (!openrouterApiKey) throw new Error("OPENROUTER_API_KEY is missing");
   const results: number[][] = [];
-  const BATCH = 32;
+  const BATCH = 16;
   for (let i = 0; i < texts.length; i += BATCH) {
     const batch = texts.slice(i, i + BATCH);
-    for (const text of batch) {
-      const r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ model: "models/text-embedding-004", content: { parts: [{ text }] } }),
-        }
-      );
-      if (!r.ok) throw new Error(`Embed failed: ${r.status} ${await r.text()}`);
-      const j = await r.json();
-      results.push(j.embedding.values);
+    const r = await fetch("https://openrouter.ai/api/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${openrouterApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-embedding-2",
+        input: batch,
+        dimensions: 1536,
+      }),
+    });
+    if (!r.ok) throw new Error(`OpenRouter embed failed: ${r.status} ${await r.text()}`);
+    const json = await r.json();
+    if (!json.data || !Array.isArray(json.data)) throw new Error(`Invalid OpenRouter response: ${JSON.stringify(json)}`);
+    const sorted = [...json.data].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+    for (const item of sorted) {
+      if (item.embedding) results.push(item.embedding.slice(0, 1536));
     }
   }
   return results;
@@ -173,36 +186,47 @@ async function extractWithGemini(
   base64Data: string,
   mimeType: string,
   filename: string,
-  apiKey: string,
+  openrouterApiKey: string,
   isPdf = false
 ): Promise<string> {
+  if (!openrouterApiKey) throw new Error("OPENROUTER_API_KEY is missing");
   const prompt = isPdf
     ? `Extract all readable text from this PDF (${filename}). Preserve order. Insert explicit page markers like "[PAGE 1]", "[PAGE 2]", etc. at the beginning of each page's content. Skip repetitive headers/footers.`
     : `Extract all readable text from this document (${filename}). Preserve structure, paragraphs, headings, and lists. Output ONLY the document text — no commentary, no markdown fences, no summaries.`;
 
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          role: "user",
-          parts: [
-            { text: prompt },
-            { inlineData: { mimeType, data: base64Data } },
-          ],
-        }],
-        systemInstruction: {
-          parts: [{ text: "You extract full readable text from documents. Output ONLY the document text with natural paragraph breaks. No commentary, no markdown fences, no summaries." }],
+  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${openrouterApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        {
+          role: "system",
+          content: "You extract full readable text from documents. Output ONLY the document text with natural paragraph breaks. No commentary, no markdown fences, no summaries."
         },
-        generationConfig: { temperature: 0.1, maxOutputTokens: 32768 },
-      }),
-    }
-  );
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "file",
+              file: {
+                url: `data:${mimeType};base64,${base64Data}`,
+              },
+            },
+          ],
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 8000,
+    }),
+  });
   if (!r.ok) throw new Error(`Gemini extraction failed: ${r.status} ${await r.text()}`);
   const j = await r.json();
-  return (j.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+  return (j.choices?.[0]?.message?.content || "").trim();
 }
 
 // ─── Format-Specific Extractors ───────────────────────────────────────────────
@@ -247,6 +271,7 @@ Deno.serve(async (req) => {
 
   try {
     const apiKey = Deno.env.get("GEMINI_API_KEY");
+    const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
@@ -313,12 +338,12 @@ Deno.serve(async (req) => {
       // Extract text based on format
       if (documentType === "pdf") {
         const base64 = toBase64(buffer);
-        extractedText = await extractWithGemini(base64, "application/pdf", filename, apiKey, true);
+        extractedText = await extractWithGemini(base64, "application/pdf", filename, openrouterApiKey || apiKey || "", true);
       } else if (documentType === "docx" || documentType === "doc") {
         // DOCX: use Gemini multimodal for reliable extraction
         const base64 = toBase64(buffer);
         const docxMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        extractedText = await extractWithGemini(base64, docxMime, filename, apiKey, false);
+        extractedText = await extractWithGemini(base64, docxMime, filename, openrouterApiKey || apiKey || "", false);
       } else if (documentType === "csv") {
         const rawText = extractTxt(buffer);
         extractedText = extractCsv(rawText);
@@ -392,7 +417,7 @@ Deno.serve(async (req) => {
       const EMBED_BATCH = 32;
       for (let i = 0; i < rows.length; i += EMBED_BATCH) {
         const slice = rows.slice(i, i + EMBED_BATCH);
-        const embeds = await embed(slice.map(r => r.content), apiKey);
+        const embeds = await embed(slice.map(r => r.content), openrouterApiKey || apiKey || "");
         slice.forEach((r, j) => (r.embedding = embeds[j]));
       }
 
@@ -403,7 +428,7 @@ Deno.serve(async (req) => {
       }
 
       // Invalidate cache for this user
-      await db.from("voice_cache").delete().eq("user_id", userId).catch(() => {});
+      await db.from("voice_cache").delete().eq("user_id", userId);
 
       // Update source status
       await db.from("kb_sources").update({
@@ -427,7 +452,7 @@ Deno.serve(async (req) => {
         status: "failed",
         error: (e as Error).message,
         last_crawled_at: new Date().toISOString(),
-      }).eq("id", source.id).catch(() => {});
+      }).eq("id", source.id);
       throw e;
     }
   } catch (e) {

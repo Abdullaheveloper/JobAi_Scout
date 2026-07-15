@@ -34,10 +34,10 @@ serve(async (req) => {
     const isPdf = lowerName.endsWith(".pdf");
     const isDocx = lowerName.endsWith(".docx") || lowerName.endsWith(".doc");
 
-    let parts: any[];
+    let userContent: any[];
 
     if (isPdf) {
-      // Send PDF as base64 binary for multimodal parsing
+      // Send PDF as base64 binary
       const arrayBuffer = await fileData.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       let binary = "";
@@ -47,25 +47,31 @@ serve(async (req) => {
         binary += String.fromCharCode.apply(null, Array.from(chunk));
       }
       const base64 = btoa(binary);
-      parts = [
-        { text: `Extract ALL data from this CV/Resume. Only include what is explicitly written - do not make up anything.\n\nFile name: ${fileName}` },
+      userContent = [
         {
-          inlineData: {
-            mimeType: "application/pdf",
-            data: base64,
+          type: "text",
+          text: `Extract ALL data from this CV/Resume. Only include what is explicitly written - do not make up anything.\n\nFile name: ${fileName}`,
+        },
+        {
+          type: "file",
+          file: {
+            url: `data:application/pdf;base64,${base64}`,
           },
         },
       ];
     } else {
       // For DOCX/text files, extract as text
       const text = await fileData.text();
-      parts = [
-        { text: `Extract ALL data from this CV/Resume. Only include what is explicitly written - do not make up anything.\n\nFile name: ${fileName}\n\nCV Content:\n${text.substring(0, 15000)}` },
+      userContent = [
+        {
+          type: "text",
+          text: `Extract ALL data from this CV/Resume. Only include what is explicitly written - do not make up anything.\n\nFile name: ${fileName}\n\nCV Content:\n${text.substring(0, 15000)}`,
+        },
       ];
     }
 
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
+    const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
+    if (!openrouterApiKey) throw new Error("OPENROUTER_API_KEY not configured");
 
     const systemPrompt = `You are an expert CV/Resume data extractor. Extract ALL information from the CV exactly as written. Do NOT invent, assume, or add anything not present in the CV. Only return what is explicitly stated in the document.
 
@@ -103,26 +109,27 @@ You must respond with a JSON object matching this exact schema:
   "cvSummary": "string"
 }`;
 
-    const aiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents: [
-            { role: "user", parts },
-          ],
-          generationConfig: {
-            responseMimeType: "application/json",
-          },
-        }),
-      }
-    );
+    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${openrouterApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.1,
+        max_tokens: 3000,
+      }),
+    });
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
-      console.error("Gemini API error:", aiResponse.status, errText);
+      console.error("OpenRouter API error:", aiResponse.status, errText);
 
       if (aiResponse.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
@@ -133,7 +140,7 @@ You must respond with a JSON object matching this exact schema:
     }
 
     const aiData = await aiResponse.json();
-    const responseText = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
+    const responseText = aiData.choices?.[0]?.message?.content?.trim();
 
     if (!responseText) {
       throw new Error("AI did not return structured data");
