@@ -153,12 +153,5 @@ export const api = {
         body: JSON.stringify(payload)
       }
     );
-  },
-
-  async trackUsage(email, fields, pageUrl) {
-    return makeRequest(`${SUPABASE_URL}/functions/v1/track-extension-usage`, {
-      method: "POST",
-      body: JSON.stringify({ email, fields, page_url: pageUrl })
-    }).catch(() => {});
   }
 };

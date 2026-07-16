@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp, ExternalLink, FileText, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export interface Source {
+interface Source {
   url: string;
   title?: string | null;
   similarity?: number;

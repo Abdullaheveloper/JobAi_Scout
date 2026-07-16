@@ -1,309 +1,67 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { FormEvent, useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowLeft, ArrowRight, Briefcase, CheckCircle2, Eye, EyeOff, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { Briefcase, Lock, Eye, EyeOff, ArrowRight, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { lazy, Suspense } from "react";
-const ParticleSystem3D = lazy(() => import("@/components/3d/ParticleSystem3D"));
 
 export default function ResetPassword() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [ready, setReady] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [confirmError, setConfirmError] = useState("");
+  const [complete, setComplete] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   useEffect(() => {
-    // Handle the PKCE flow: Supabase redirects with tokens in hash or search params
-    const handleAuth = async () => {
-      const hash = window.location.hash;
-      const search = window.location.search;
-
-      // Check for error in URL
-      const urlParams = new URLSearchParams(search);
-      const hashParams = new URLSearchParams(hash.substring(1));
-      const errorDesc = urlParams.get("error_description") || hashParams.get("error_description");
-      if (errorDesc) {
-        setError(errorDesc);
-        return;
-      }
-
-      // Check for recovery tokens in hash (PKCE flow)
-      if (hash && hash.includes("access_token")) {
-        // Supabase has already set the session via the hash fragment
-        // The onAuthStateChange listener will pick it up
-        return;
-      }
-
-      // Check for type=recovery in hash
-      if (hash && hash.includes("type=recovery")) {
-        return;
-      }
-
-      // Check for code in search params (PKCE authorization code flow)
-      const code = urlParams.get("code");
+    let active = true;
+    const fail = (message: string) => active && setError(message);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => { if (event === "PASSWORD_RECOVERY" && active) setReady(true); });
+    const verify = async () => {
+      const search = new URLSearchParams(window.location.search);
+      const hash = new URLSearchParams(window.location.hash.slice(1));
+      const problem = search.get("error_description") || hash.get("error_description");
+      if (problem) return fail(problem.replace(/\+/g, " "));
+      const code = search.get("code");
       if (code) {
-        // Exchange the code for a session
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          setError(error.message);
-        }
+        const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError || !data.session) return fail(exchangeError?.message || "This reset link is no longer valid.");
+        if (active) setReady(true);
         return;
       }
+      if (hash.get("type") !== "recovery") return fail("This password reset link is missing or invalid. Please request a new one.");
+      const { data } = await supabase.auth.getSession();
+      if (data.session && active) setReady(true);
     };
-
-    handleAuth();
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" || (session && !ready)) {
-        setReady(true);
-      }
-    });
-
-    // Also check hash immediately
-    const hash = window.location.hash;
-    if (hash && (hash.includes("type=recovery") || hash.includes("access_token"))) {
-      setReady(true);
-    }
-
-    // Check search params for code
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("code")) {
-      setReady(true);
-    }
-
-    // Fallback: if nothing happens in 3 seconds, show the form anyway
-    // (the session might already be established from a previous step)
-    const fallback = setTimeout(() => {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          setReady(true);
-        }
-      });
-    }, 3000);
-
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(fallback);
-    };
+    verify();
+    return () => { active = false; subscription.unsubscribe(); };
   }, []);
 
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordError("");
-    setConfirmError("");
-
-    if (password.length < 6) {
-      setPasswordError("Password must be at least 6 characters.");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setConfirmError("Passwords do not match.");
-      return;
-    }
-
-    setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (password.length < 8) return setError("Use a password with at least 8 characters.");
+    if (password !== confirmPassword) return setError("The passwords do not match.");
+    setError(""); setLoading(true);
+    const { error: updateError } = await supabase.auth.updateUser({ password });
     setLoading(false);
-
-    if (error) {
-      toast({ title: "Error resetting password", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Password updated successfully!", description: "Please sign in with your new password." });
-      navigate("/login");
-    }
+    if (updateError) return setError(updateError.message);
+    await supabase.auth.signOut();
+    setComplete(true);
   };
 
-  if (error) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#020817] text-white p-6 relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none z-0">
-          <Suspense fallback={null}>
-            <ParticleSystem3D particleCount={300} />
-          </Suspense>
-        </div>
-        <motion.div
-          className="w-full max-w-[420px] relative z-10"
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <div className="auth-card p-8 text-center space-y-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-400 mx-auto">
-              <AlertCircle className="h-6 w-6" />
-            </div>
-            <h2 className="text-xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
-              Reset link invalid
-            </h2>
-            <p className="text-gray-400 text-sm">{error}</p>
-            <a
-              href="/forgot-password"
-              className="inline-flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
-            >
-              Request a new reset link
-            </a>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
+  return <main className="min-h-screen bg-[#f6f6f2] text-[#1c1c1c]">
+    <header className="border-b border-black/10 bg-white"><div className="mx-auto flex h-16 max-w-6xl items-center px-5 sm:px-8"><Link to="/" className="flex items-center gap-2 text-xl font-bold tracking-tight"><span className="flex h-8 w-8 items-center justify-center rounded bg-[#0caa41] text-white"><Briefcase className="h-4 w-4" /></span>JobAI Scout</Link></div></header>
+    <section className="mx-auto flex max-w-6xl justify-center px-5 py-12 sm:py-20"><div className="w-full max-w-[440px] rounded-xl border border-black/15 bg-white p-6 shadow-[0_3px_12px_rgba(0,0,0,0.1)] sm:p-8">
+      {error && !ready ? <InvalidLink message={error} /> : complete ? <div className="text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#d9f7e5] text-[#087332]"><CheckCircle2 className="h-6 w-6" /></div><h1 className="mt-5 text-2xl font-bold">Password updated</h1><p className="mt-3 text-sm leading-6 text-[#5c5c5c]">Your password has been changed. You can now sign in securely.</p><button onClick={() => navigate("/login", { replace: true })} className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#0caa41] text-sm font-bold text-white hover:bg-[#087d30]">Continue to sign in <ArrowRight className="h-4 w-4" /></button></div> : !ready ? <div className="py-10 text-center"><div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-[#0caa41] border-t-transparent" /><p className="mt-4 text-sm text-[#5c5c5c]">Verifying your reset link...</p></div> : <><Link to="/login" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#087332] hover:underline"><ArrowLeft className="h-4 w-4" /> Back to sign in</Link><h1 className="mt-7 text-2xl font-bold tracking-tight">Set a new password</h1><p className="mt-2 text-sm leading-6 text-[#5c5c5c]">Choose a secure password with at least 8 characters.</p>{error && <div className="mt-5 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</div>}<form onSubmit={submit} className="mt-6 space-y-5"><PasswordField label="New password" value={password} onChange={setPassword} visible={showPassword} onToggle={() => setShowPassword((v) => !v)} placeholder="At least 8 characters" /><PasswordField label="Confirm new password" value={confirmPassword} onChange={setConfirmPassword} visible={showConfirm} onToggle={() => setShowConfirm((v) => !v)} placeholder="Re-enter your password" /><button disabled={loading} className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#0caa41] text-sm font-bold text-white hover:bg-[#087d30] disabled:opacity-60">{loading ? "Updating password..." : <>Update password <ArrowRight className="h-4 w-4" /></>}</button></form></>}
+    </div></section>
+  </main>;
+}
 
-  if (!ready) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#020817] text-white relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none z-0">
-          <Suspense fallback={null}>
-            <ParticleSystem3D particleCount={300} />
-          </Suspense>
-        </div>
-        <div className="text-center space-y-4 relative z-10">
-          <div className="h-10 w-10 mx-auto animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-          <p className="text-gray-400 text-sm animate-pulse">Verifying reset link...</p>
-        </div>
-      </div>
-    );
-  }
+function PasswordField({ label, value, onChange, visible, onToggle, placeholder }: { label: string; value: string; onChange: (value: string) => void; visible: boolean; onToggle: () => void; placeholder: string }) {
+  return <label className="block text-sm font-semibold">{label}<span className="relative mt-2 block"><Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#667085]" /><input className="auth-light-input pr-10" type={visible ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoComplete="new-password" /><button type="button" onClick={onToggle} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#667085] hover:text-[#1c1c1c]" aria-label={visible ? "Hide password" : "Show password"}>{visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>;
+}
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-[#020817] text-white p-6 relative overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none z-0">
-        <Suspense fallback={null}>
-          <ParticleSystem3D particleCount={400} />
-        </Suspense>
-      </div>
-
-      <div className="absolute inset-0 bg-gradient-to-br from-[#020817]/70 via-transparent to-indigo-950/20 pointer-events-none" />
-
-      <motion.div
-        className="w-full max-w-[420px] relative z-10"
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <div className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary shadow-lg shadow-indigo-500/40">
-            <Briefcase className="h-5 w-5 text-white" />
-          </div>
-          <span className="font-bold text-xl text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
-            JobAI <span className="text-gradient">Scout</span>
-          </span>
-        </div>
-
-        <div className="auth-card p-8">
-          <div className="mb-6 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl gradient-primary shadow-xl shadow-indigo-500/30">
-              <Lock className="h-5 w-5 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>
-              Set New Password
-            </h2>
-            <p className="text-gray-400 text-sm">
-              Please enter your new password below.
-            </p>
-          </div>
-
-          <form onSubmit={handleUpdate} className="space-y-4" noValidate>
-            <div className="input-wrapper space-y-1.5">
-              <label htmlFor="new-password" className="input-label">New Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none z-10" />
-                <input
-                  id="new-password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter new password"
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); if (passwordError) setPasswordError(""); }}
-                  required
-                  minLength={6}
-                  className={`input-premium w-full pl-10 pr-12 py-3 ${passwordError ? "input-error" : ""}`}
-                  style={{ color: "#f1f5f9", caretColor: "#a5b4fc" }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors p-0.5 rounded"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              {passwordError && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="field-error"
-                >
-                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                  {passwordError}
-                </motion.div>
-              )}
-            </div>
-
-            <div className="input-wrapper space-y-1.5">
-              <label htmlFor="confirm-password" className="input-label">Confirm New Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none z-10" />
-                <input
-                  id="confirm-password"
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Confirm new password"
-                  value={confirmPassword}
-                  onChange={(e) => { setConfirmPassword(e.target.value); if (confirmError) setConfirmError(""); }}
-                  required
-                  className={`input-premium w-full pl-10 pr-12 py-3 ${confirmError ? "input-error" : ""}`}
-                  style={{ color: "#f1f5f9", caretColor: "#a5b4fc" }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors p-0.5 rounded"
-                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              {confirmError && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="field-error"
-                >
-                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                  {confirmError}
-                </motion.div>
-              )}
-            </div>
-
-            <motion.button
-              type="submit"
-              disabled={loading}
-              className="w-full btn-premium py-3.5 text-sm font-semibold flex items-center justify-center gap-2 mt-4 disabled:opacity-60 disabled:cursor-not-allowed"
-              whileHover={{ scale: loading ? 1 : 1.02, y: loading ? 0 : -1 }}
-              whileTap={{ scale: loading ? 1 : 0.98 }}
-            >
-              {loading ? (
-                <>
-                  <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Updating password…
-                </>
-              ) : (
-                <>
-                  Update password
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </motion.button>
-          </form>
-        </div>
-      </motion.div>
-    </div>
-  );
+function InvalidLink({ message }: { message: string }) {
+  return <div className="text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-700"><Lock className="h-5 w-5" /></div><h1 className="mt-5 text-2xl font-bold">This link can’t be used</h1><p className="mt-3 text-sm leading-6 text-[#5c5c5c]">{message}</p><Link to="/forgot-password" className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-md bg-[#0caa41] text-sm font-bold text-white hover:bg-[#087d30]">Request a new link</Link></div>;
 }

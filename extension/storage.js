@@ -25,15 +25,5 @@ export const storage = {
 
   async removeProfile() {
     await chrome.storage.local.remove("profile");
-  },
-
-  async getUseProfile() {
-    const res = await chrome.storage.local.get("useProfile");
-    // Default to true if not explicitly set
-    return res.useProfile !== false;
-  },
-
-  async setUseProfile(useProfile) {
-    await chrome.storage.local.set({ useProfile });
   }
 };

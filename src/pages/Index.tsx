@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
 import {
-  Briefcase, Sparkles, ArrowRight, Upload, Target, Zap, CheckCircle,
+  Briefcase, Sparkles, ArrowRight, Upload, Zap, CheckCircle,
   ChevronLeft, ChevronRight, Mail, Shield, Brain, Globe, Rocket, Users,
-  BarChart3, Star, TrendingUp, Award, ArrowDown, Check, Play,
+  Star, TrendingUp, ArrowDown, Check,
   FileText, Cpu, MousePointerClick
 } from "lucide-react";
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from "framer-motion";

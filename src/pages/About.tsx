@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Briefcase, Users, Target, Award, ArrowLeft, Globe, Zap, Shield, CheckCircle, ArrowRight, Rocket, Heart, Code2, TrendingUp, Mail } from "lucide-react";
+import { Briefcase, Users, Target, Award, ArrowLeft, Globe, Shield, ArrowRight, Rocket, Heart, Code2, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 

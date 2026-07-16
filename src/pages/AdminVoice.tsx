@@ -5,11 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Settings, BarChart3, Globe, Search, AlertTriangle, Loader2,
-  RefreshCw, Trash2, CheckCircle2, Clock, AlertCircle,
-  MessageSquare, Zap, Activity, FileText, Database, ShieldAlert,
+  RefreshCw, Activity, FileText, Database, ShieldAlert,
   Sliders, TrendingUp, Info
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";

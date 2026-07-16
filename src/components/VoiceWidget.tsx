@@ -30,7 +30,6 @@ export function VoiceWidget() {
 
   const recognitionRef = useRef<VoiceRecognition | null>(null);
   const vadRef = useRef<VoiceActivityDetector | null>(null);
-  const audioElRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   

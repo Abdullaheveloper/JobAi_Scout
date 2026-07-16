@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, Legend,
+  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area,
 } from "recharts";
 import {
   Briefcase, MapPin, TrendingUp, Users, Sparkles, Building2, Globe2,

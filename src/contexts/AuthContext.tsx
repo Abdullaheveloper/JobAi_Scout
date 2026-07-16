@@ -13,7 +13,7 @@ interface AuthContextType {
   profile: Tables<"profiles"> | null;
   recruiterProfile: Tables<"recruiter_profiles"> | null;
   signOut: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<Tables<"profiles"> | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,7 +42,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshProfile = async () => {
-    if (user) await fetchUserData(user.id);
+    if (!user) return null;
+    const { data } = await supabase.from("profiles").select("*").eq("user_id", user.id).single();
+    if (data) setProfile(data);
+    return data ?? null;
   };
 
   useEffect(() => {

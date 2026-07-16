@@ -12,7 +12,13 @@ dist
 dist-ssr
 *.local
 .env
+.env.*
+!.env.example
 supabase/.temp/
+*.lnk
+**/.venv/
+__pycache__/
+*.py[cod]
 
 # Editor directories and files
 .vscode/*

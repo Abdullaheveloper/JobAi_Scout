@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Chrome, Download, CheckCircle2, ArrowRight, Zap, Shield, Clock,
   FileText, User, Mail, Phone, MapPin, Linkedin, Github, Globe, Briefcase,
-  Sparkles, ExternalLink,
+  Sparkles,
 } from "lucide-react";
 
 const FEATURES = [

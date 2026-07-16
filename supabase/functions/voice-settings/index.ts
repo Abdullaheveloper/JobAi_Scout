@@ -24,8 +24,16 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action") || "";
 
-    // GET: Fetch settings (global + user preferences)
+    // GET: Fetch settings (global + user preferences or admin stats)
     if (method === "GET") {
+      if (action === "stats") {
+        const { data, error } = await supabase.rpc("get_voice_admin_stats");
+        if (error) throw error;
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       // Get global settings
       const { data: globalSettings } = await adminSupabase
         .from("voice_settings")
@@ -116,15 +124,6 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-    }
-
-    // GET admin stats
-    if (method === "GET" && action === "stats") {
-      const { data, error } = await supabase.rpc("get_voice_admin_stats");
-      if (error) throw error;
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
     return new Response(JSON.stringify({ error: "Method not allowed" }), {

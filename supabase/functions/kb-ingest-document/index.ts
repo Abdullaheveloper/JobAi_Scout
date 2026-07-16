@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { generateEmbeddings } from "../_shared/openrouter-embeddings.ts";
+import { generateGeminiDocumentText } from "../_shared/gemini.ts";
 
 // ─── CORS Headers ─────────────────────────────────────────────────────────────
 const corsHeaders = {
@@ -10,6 +12,30 @@ const corsHeaders = {
 // ─── Shared Constants ──────────────────────────────────────────────────────────
 const CHUNK_SIZE = 800;
 const CHUNK_OVERLAP = 150;
+
+function hasMissingColumnError(error: { message?: string } | null | undefined): boolean {
+  return Boolean(error?.message && /column "?.+"? does not exist/i.test(error.message));
+}
+
+async function insertWithColumnFallback<T extends Record<string, unknown>>(
+  db: { from: (table: string) => { insert: (rows: T | T[]) => { select: () => { single: () => Promise<{ data: any; error: any }> } } } },
+  table: string,
+  rows: T[]
+): Promise<void> {
+  const initialResult = await db.from(table).insert(rows);
+  const { error } = await initialResult.select().single();
+  if (error && hasMissingColumnError(error)) {
+    const fallbackRows = rows.map((row) => {
+      const { document_type: _documentType, ...rest } = row as T & { document_type?: string };
+      return rest as T;
+    });
+    const fallbackResult = await db.from(table).insert(fallbackRows);
+    const { error: fallbackError } = await fallbackResult.select().single();
+    if (fallbackError) throw fallbackError;
+    return;
+  }
+  if (error) throw error;
+}
 
 // ─── Text Cleaning ────────────────────────────────────────────────────────────
 function cleanText(text: string): string {
@@ -152,31 +178,12 @@ function parsePagesAndChunk(
 }
 
 // ─── Embedding (single) ───────────────────────────────────────────────────────
-async function embed(texts: string[], openrouterApiKey: string): Promise<number[][]> {
-  if (!openrouterApiKey) throw new Error("OPENROUTER_API_KEY is missing");
+async function embed(texts: string[], geminiApiKey: string): Promise<number[][]> {
   const results: number[][] = [];
   const BATCH = 16;
   for (let i = 0; i < texts.length; i += BATCH) {
     const batch = texts.slice(i, i + BATCH);
-    const r = await fetch("https://openrouter.ai/api/v1/embeddings", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${openrouterApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-embedding-2",
-        input: batch,
-        dimensions: 1536,
-      }),
-    });
-    if (!r.ok) throw new Error(`OpenRouter embed failed: ${r.status} ${await r.text()}`);
-    const json = await r.json();
-    if (!json.data || !Array.isArray(json.data)) throw new Error(`Invalid OpenRouter response: ${JSON.stringify(json)}`);
-    const sorted = [...json.data].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-    for (const item of sorted) {
-      if (item.embedding) results.push(item.embedding.slice(0, 1536));
-    }
+    results.push(...await generateEmbeddings(batch, geminiApiKey));
   }
   return results;
 }
@@ -186,47 +193,15 @@ async function extractWithGemini(
   base64Data: string,
   mimeType: string,
   filename: string,
-  openrouterApiKey: string,
+  geminiApiKey: string,
   isPdf = false
 ): Promise<string> {
-  if (!openrouterApiKey) throw new Error("OPENROUTER_API_KEY is missing");
+  if (!geminiApiKey) throw new Error("GEMINI_API_KEY is missing");
   const prompt = isPdf
     ? `Extract all readable text from this PDF (${filename}). Preserve order. Insert explicit page markers like "[PAGE 1]", "[PAGE 2]", etc. at the beginning of each page's content. Skip repetitive headers/footers.`
     : `Extract all readable text from this document (${filename}). Preserve structure, paragraphs, headings, and lists. Output ONLY the document text — no commentary, no markdown fences, no summaries.`;
 
-  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${openrouterApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        {
-          role: "system",
-          content: "You extract full readable text from documents. Output ONLY the document text with natural paragraph breaks. No commentary, no markdown fences, no summaries."
-        },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            {
-              type: "file",
-              file: {
-                url: `data:${mimeType};base64,${base64Data}`,
-              },
-            },
-          ],
-        },
-      ],
-      temperature: 0.1,
-      max_tokens: 8000,
-    }),
-  });
-  if (!r.ok) throw new Error(`Gemini extraction failed: ${r.status} ${await r.text()}`);
-  const j = await r.json();
-  return (j.choices?.[0]?.message?.content || "").trim();
+  return generateGeminiDocumentText(geminiApiKey, prompt, base64Data, mimeType);
 }
 
 // ─── Format-Specific Extractors ───────────────────────────────────────────────
@@ -270,11 +245,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
-    const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
+    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
 
     const auth = req.headers.get("Authorization") || "";
     const db = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: auth } } });
@@ -329,7 +302,22 @@ Deno.serve(async (req) => {
       })
       .select()
       .single();
-    if (srcErr) throw new Error(`Could not create source: ${srcErr.message}`);
+    if (srcErr && hasMissingColumnError(srcErr)) {
+      const { data: fallbackSource, error: fallbackErr } = await db
+        .from("kb_sources")
+        .insert({
+          user_id: userId,
+          url: sourceKey,
+          title: filename,
+          status: "crawling",
+        })
+        .select()
+        .single();
+      if (fallbackErr) throw new Error(`Could not create source: ${fallbackErr.message}`);
+      source = fallbackSource;
+    } else if (srcErr) {
+      throw new Error(`Could not create source: ${srcErr.message}`);
+    }
 
     try {
       const buffer = new Uint8Array(await file.arrayBuffer());
@@ -338,12 +326,12 @@ Deno.serve(async (req) => {
       // Extract text based on format
       if (documentType === "pdf") {
         const base64 = toBase64(buffer);
-        extractedText = await extractWithGemini(base64, "application/pdf", filename, openrouterApiKey || apiKey || "", true);
+        extractedText = await extractWithGemini(base64, "application/pdf", filename, geminiApiKey || "", true);
       } else if (documentType === "docx" || documentType === "doc") {
         // DOCX: use Gemini multimodal for reliable extraction
         const base64 = toBase64(buffer);
         const docxMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        extractedText = await extractWithGemini(base64, docxMime, filename, openrouterApiKey || apiKey || "", false);
+        extractedText = await extractWithGemini(base64, docxMime, filename, geminiApiKey || "", false);
       } else if (documentType === "csv") {
         const rawText = extractTxt(buffer);
         extractedText = extractCsv(rawText);
@@ -386,7 +374,7 @@ Deno.serve(async (req) => {
         chunk_index: number;
         page_number: number;
         section_heading: string | null;
-        document_type: string;
+        document_type?: string;
         embedding: number[];
         metadata: Record<string, unknown>;
       };
@@ -417,14 +405,18 @@ Deno.serve(async (req) => {
       const EMBED_BATCH = 32;
       for (let i = 0; i < rows.length; i += EMBED_BATCH) {
         const slice = rows.slice(i, i + EMBED_BATCH);
-        const embeds = await embed(slice.map(r => r.content), openrouterApiKey || apiKey || "");
+        const embeds = await embed(slice.map(r => r.content), geminiApiKey || "");
         slice.forEach((r, j) => (r.embedding = embeds[j]));
       }
 
       // Insert chunks in batches of 100
       for (let i = 0; i < rows.length; i += 100) {
-        const { error } = await db.from("kb_chunks").insert(rows.slice(i, i + 100));
-        if (error) throw new Error(`Failed to insert chunks: ${error.message}`);
+        try {
+          await insertWithColumnFallback(db, "kb_chunks", rows.slice(i, i + 100));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          throw new Error(`Failed to insert chunks: ${message}`);
+        }
       }
 
       // Invalidate cache for this user

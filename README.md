@@ -71,7 +71,8 @@ Go to: **Supabase Dashboard → Edge Functions → Manage Secrets** and add:
 
 | Secret Name | Where to Get It |
 |-------------|----------------|
-| `LOVABLE_API_KEY` | Your Lovable project API settings |
+| `OPENROUTER_API_KEY` | https://openrouter.ai → API Keys |
+| `GEMINI_API_KEY` | Google AI Studio → API Keys |
 | `ELEVENLABS_API_KEY` | https://elevenlabs.io → Profile → API Keys |
 
 ### Step 5 — Run the database migrations
@@ -161,10 +162,10 @@ JobAi_Scout/
 | **Frontend** | React 18, TypeScript, Vite |
 | **UI Library** | Shadcn/ui + Radix UI + Tailwind CSS |
 | **Backend** | Supabase (PostgreSQL + Auth + Edge Functions) |
-| **AI / LLM** | Gemini 2.5 Flash via Lovable AI Gateway |
-| **Speech-to-Text** | OpenAI Whisper via Lovable AI Gateway |
+| **AI / LLM** | Gemini 2.5 Flash via OpenRouter (google/gemini-2.5-flash) |
+| **Speech-to-Text** | OpenAI Whisper via OpenRouter |
 | **Text-to-Speech** | ElevenLabs API |
-| **Embeddings** | OpenAI text-embedding-3-small |
+| **Embeddings** | Gemini Embeddings via OpenRouter |
 | **Vector Search** | pgvector (Supabase) |
 | **State Management** | TanStack Query + React Context |
 | **Routing** | React Router DOM v6 |
@@ -180,7 +181,8 @@ JobAi_Scout/
 |-----|----------|---------|
 | `VITE_SUPABASE_URL` | ✅ Yes | Connect to Supabase database |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | ✅ Yes | Supabase anonymous client key |
-| `LOVABLE_API_KEY` | ✅ Yes | AI chat, transcription, and embeddings |
+| `OPENROUTER_API_KEY` | ✅ Yes | AI chat, CV analysis, and embeddings via OpenRouter |
+| `GEMINI_API_KEY` | ✅ Yes | Google Gemini API key (for Gemini models via OpenRouter) |
 | `ELEVENLABS_API_KEY` | Optional | Voice text-to-speech |
 
 ---
@@ -205,7 +207,7 @@ JobAi_Scout/
 - Run `supabase/migrations/20260622_fix_profiles_missing_columns.sql` in Supabase SQL Editor
 
 **Voice assistant giving errors?**
-- Make sure `LOVABLE_API_KEY` is set in Supabase Edge Function secrets
+- Make sure `OPENROUTER_API_KEY` and `GEMINI_API_KEY` are set in Supabase Edge Function secrets
 
 **Extension not finding profile?**
 - Log into the web app first — the extension uses the same session

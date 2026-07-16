@@ -1,4 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { generateEmbedding } from "../_shared/openrouter-embeddings.ts";
+
+const CHAT_MODEL = "openrouter/free";
 
 // ─── CORS Headers ─────────────────────────────────────────────────────────────
 const corsHeaders = {
@@ -69,38 +72,8 @@ function sanitizeInput(text: string): string {
     .trim();
 }
 
-function openaiToGemini(messages: Array<{role: string; content: string}>) {
-  const systemMsgs = messages.filter(m => m.role === 'system');
-  const chatMsgs = messages.filter(m => m.role !== 'system');
-  return {
-    systemInstruction: systemMsgs.length > 0
-      ? { parts: [{ text: systemMsgs.map(m => m.content).join('\n\n') }] }
-      : undefined,
-    contents: chatMsgs.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    })),
-  };
-}
-
 async function embedOne(text: string, openrouterApiKey: string): Promise<number[]> {
-  if (!openrouterApiKey) throw new Error("OPENROUTER_API_KEY is missing");
-  const r = await fetch("https://openrouter.ai/api/v1/embeddings", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${openrouterApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-embedding-2",
-      input: text,
-      dimensions: 1536,
-    }),
-  });
-  if (!r.ok) throw new Error(`OpenRouter embedOne failed: ${r.status} ${await r.text()}`);
-  const json = await r.json();
-  if (!json.data?.[0]?.embedding) throw new Error(`Invalid OpenRouter response: ${JSON.stringify(json)}`);
-  return json.data[0].embedding.slice(0, 1536);
+  return generateEmbedding(text, openrouterApiKey);
 }
 
 async function rewriteQuery(
@@ -221,6 +194,9 @@ Deno.serve(async (req) => {
     const speed: number = (body.speed as number) || 1.0;
     const streamMode: boolean = (body.stream as boolean) ?? true;
     const language: string = (body.language as string) || "";
+    // The client uploads microphone audio to private Storage before invoking us.
+    // Keep only its path alongside the hidden transcript, never expose it in chat payloads.
+    const userAudioPath: string | null = typeof body.userAudioPath === "string" ? body.userAudioPath : null;
 
     if (!rawQuestion) {
       return new Response(JSON.stringify({ error: "Please say something first." }), {
@@ -282,7 +258,7 @@ Deno.serve(async (req) => {
       });
 
       await supabase.from("voice_messages").insert([
-        { conversation_id: conversationId, user_id: userId, role: "user", content: question },
+        { conversation_id: conversationId, user_id: userId, role: "user", content: question, audio_path: userAudioPath },
         { conversation_id: conversationId, user_id: userId, role: "assistant", content: cached.answer },
       ]);
 
@@ -487,7 +463,7 @@ INSTRUCTIONS:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: CHAT_MODEL,
           messages: chatMessages,
           stream: true,
           temperature: 0.7,
@@ -536,7 +512,7 @@ INSTRUCTIONS:
             // Persist messages
             try {
               await adminSupabase.from("voice_messages").insert([
-                { conversation_id: conversationId, user_id: userId, role: "user", content: question },
+                { conversation_id: conversationId, user_id: userId, role: "user", content: question, audio_path: userAudioPath },
                 { conversation_id: conversationId, user_id: userId, role: "assistant", content: answer || "I couldn't generate a response." },
               ]);
             } catch (e) {
@@ -614,7 +590,7 @@ INSTRUCTIONS:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+          model: CHAT_MODEL,
         messages: chatMessages,
         temperature: 0.7,
         max_tokens: 1024,
@@ -632,7 +608,7 @@ INSTRUCTIONS:
     const answer: string = chatJson.choices?.[0]?.message?.content?.trim() || "I couldn't generate a response. Please try again.";
 
     await supabase.from("voice_messages").insert([
-      { conversation_id: conversationId, user_id: userId, role: "user", content: question },
+      { conversation_id: conversationId, user_id: userId, role: "user", content: question, audio_path: userAudioPath },
       { conversation_id: conversationId, user_id: userId, role: "assistant", content: answer },
     ]);
 

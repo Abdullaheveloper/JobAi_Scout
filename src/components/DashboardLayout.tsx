@@ -3,20 +3,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, useSidebar,
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, FileUp, Briefcase, Bookmark, BarChart3, Users, UserCog, LogOut,
-  Shield, Mic, ClipboardList, Building2, StickyNote, Headphones, ExternalLink, Zap, ChevronRight,
+  Shield, Mic, Headphones, ExternalLink, Zap,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { VoiceWidget } from "@/components/VoiceWidget";
 import { motion } from "framer-motion";
 
 const userNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Upload CV", url: "/dashboard/cv", icon: FileUp },
+  { title: "Browse Jobs", url: "/dashboard/jobs", icon: Briefcase },
   { title: "Saved Jobs", url: "/dashboard/saved", icon: Bookmark },
   { title: "Applied Jobs", url: "/dashboard/applied", icon: ExternalLink },
   { title: "Auto Form Fill", url: "/dashboard/auto-fill", icon: Zap },
@@ -143,6 +143,16 @@ function AppSidebar() {
 }
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const { role } = useAuth();
+  const workspaceTabs = role === "admin"
+    ? [
+        { label: "Admin", url: "/admin", icon: Shield },
+        { label: "Recruitment", url: "/recruiter/jobs", icon: Users },
+      ]
+    : role === "recruiter"
+      ? [{ label: "Recruitment", url: "/recruiter/jobs", icon: Users }]
+      : [];
+
   return (
     <SidebarProvider>
       <div
@@ -153,7 +163,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <div className="flex-1 flex flex-col min-w-0">
           {/* Top Header */}
           <header
-            className="h-14 flex items-center px-4 gap-4"
+            className="flex min-h-14 flex-wrap items-center gap-3 px-4 py-2 sm:flex-nowrap"
             style={{
               background: "rgba(6, 13, 36, 0.9)",
               backdropFilter: "blur(20px)",
@@ -163,11 +173,27 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <SidebarTrigger className="text-gray-500 hover:text-white transition-colors" />
             <div className="h-4 w-px bg-indigo-500/20" />
             <h2
-              className="font-semibold text-white text-sm"
+              className="hidden font-semibold text-white text-sm sm:block"
               style={{ fontFamily: 'Space Grotesk, sans-serif' }}
             >
               AI Job Intelligence Platform
             </h2>
+            {workspaceTabs.length > 0 && (
+              <nav className="flex items-center rounded-lg border border-white/10 bg-black/15 p-1" aria-label="Workspace">
+                {workspaceTabs.map((tab) => (
+                  <NavLink
+                    key={tab.url}
+                    to={tab.url}
+                    end={tab.url === "/admin"}
+                    className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:text-white"
+                    activeClassName="bg-white/10 text-white shadow-sm"
+                  >
+                    <tab.icon className="h-3.5 w-3.5" />
+                    {tab.label}
+                  </NavLink>
+                ))}
+              </nav>
+            )}
             <div className="ml-auto flex items-center gap-2">
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
                 <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -177,7 +203,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 p-6 overflow-auto">
+          <main className="flex-1 overflow-auto p-4 sm:p-6">
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -186,7 +212,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               {children}
             </motion.div>
           </main>
-          <VoiceWidget />
         </div>
       </div>
     </SidebarProvider>

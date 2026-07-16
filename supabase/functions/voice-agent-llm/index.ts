@@ -1,4 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { generateEmbedding } from "../_shared/openrouter-embeddings.ts";
+
+const CHAT_MODEL = "openrouter/free";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,36 +37,8 @@ function sanitizeInput(text: string): string {
     .trim();
 }
 
-function openaiToGemini(messages: Array<{role: string; content: string}>) {
-  const systemMsgs = messages.filter(m => m.role === 'system');
-  const chatMsgs = messages.filter(m => m.role !== 'system');
-  return {
-    systemInstruction: systemMsgs.length > 0 ? { parts: [{ text: systemMsgs.map(m => m.content).join('\n\n') }] } : undefined,
-    contents: chatMsgs.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }]
-    }))
-  };
-}
-
 async function embedOne(text: string, openrouterApiKey: string): Promise<number[]> {
-  if (!openrouterApiKey) throw new Error("OPENROUTER_API_KEY is missing");
-  const r = await fetch("https://openrouter.ai/api/v1/embeddings", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${openrouterApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-embedding-2",
-      input: text,
-      dimensions: 1536,
-    }),
-  });
-  if (!r.ok) throw new Error(`OpenRouter embedOne failed: ${r.status} ${await r.text()}`);
-  const json = await r.json();
-  if (!json.data?.[0]?.embedding) throw new Error(`Invalid OpenRouter response: ${JSON.stringify(json)}`);
-  return json.data[0].embedding.slice(0, 1536);
+  return generateEmbedding(text, openrouterApiKey);
 }
 
 // Context-Aware Query Rewriter for voice agent
@@ -92,7 +67,7 @@ Standalone search query:`;
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: CHAT_MODEL,
           messages: [{ role: "user", content: prompt }],
           temperature: 0.1,
           max_tokens: 60,
@@ -298,7 +273,7 @@ ${GUARDRAILS_PROMPT}` },
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: CHAT_MODEL,
           messages: chatMessages,
           stream: true,
         }),
