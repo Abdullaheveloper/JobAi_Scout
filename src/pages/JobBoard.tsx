@@ -171,7 +171,7 @@ export default function JobBoard() {
     if (data) setRecJobs(data);
 
     const { data: collected } = await supabase.from("jobs").select("*").eq("is_active", true).eq("status" as any, "active").order("posted_at" as any, { ascending: false }).limit(100);
-    if (collected) setCollectedJobs(collected);
+    if (collected) setCollectedJobs(collected.filter((job) => Boolean(job.recruiter_id || job.source_url)));
 
     const { data: saved } = await supabase
       .from("saved_jobs")
@@ -189,15 +189,24 @@ export default function JobBoard() {
     try {
       const role = profile?.desired_roles?.[0] || "";
       const skills = profile?.skills || [];
-      const query = role || (skills.length ? skills.slice(0, 3).join(" ") : "software developer");
+      const query = search.trim() || role || (skills.length ? skills.slice(0, 3).join(" ") : "software developer");
       const userCity = locationFilter.trim() || "";
       const collectionLocation = userCity && !userCity.toLowerCase().includes("pakistan") ? `${userCity}, Pakistan` : (userCity || "Pakistan");
       const { data, error } = await supabase.functions.invoke("collect-jobs", {
-        body: { query, location: collectionLocation, keywords: [query], locations: [collectionLocation], maxItems: 25 },
+        body: {
+          query,
+          location: collectionLocation,
+          keywords: [query],
+          locations: [collectionLocation],
+          jobType: jobTypeFilter,
+          source: sourceFilter,
+          workMode: remoteFilter,
+          maxItems: 25,
+        },
       });
       if (error) throw error;
       await fetchRecommendedJobs();
-      toast({ title: "Job collection complete", description: `Found ${data.found} jobs, added ${data.inserted} new listings.${data.sourceErrors?.length ? ` ${data.sourceErrors.length} source(s) need attention.` : ""}` });
+      toast({ title: "Job collection complete", description: `Found ${data.found} jobs with direct posting links, added ${data.inserted} new listings.${data.skipped ? ` Rejected ${data.skipped} jobs without valid links.` : ""}${data.sourceErrors?.length ? ` ${data.sourceErrors.length} source(s) need attention.` : ""}` });
     } catch (err: any) {
       toast({ title: "Refresh failed", description: err.message || "Could not fetch new jobs", variant: "destructive" });
     } finally {
@@ -224,7 +233,11 @@ export default function JobBoard() {
       toast({ title: "Application submitted" });
       return;
     }
-    if (job.source_url) window.open(job.source_url, "_blank", "noopener,noreferrer");
+    if (job.source_url) {
+      window.open(job.source_url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    toast({ title: "Application link unavailable", description: "This source did not supply a direct application link for this role.", variant: "destructive" });
   };
 
   const filteredCollected = useMemo(() => collectedJobs.filter((job) => {
@@ -298,6 +311,13 @@ export default function JobBoard() {
     setRemoteFilter("all");
   };
   const sourceLabel = (source?: string | null) => (source || "Job board").replace(/[_-]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const sourceOptions = useMemo(() => [
+    { value: "linkedin_apify", label: "LinkedIn" },
+    { value: "indeed_apify", label: "Indeed" },
+    { value: "rss", label: "RSS feeds" },
+    { value: "company_career", label: "Company careers" },
+    ...uniquePortals.filter((source) => !["linkedin_apify", "indeed_apify", "rss", "company_career"].includes(String(source))).map((source) => ({ value: String(source), label: sourceLabel(source) })),
+  ], [uniquePortals]);
   const relativeDate = (date?: string | null) => {
     if (!date) return "Recently added";
     const days = Math.floor((Date.now() - new Date(date).getTime()) / 86_400_000);
@@ -317,7 +337,7 @@ export default function JobBoard() {
               <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">A better way to find your next role.</h1>
               <p className="mt-3 text-sm leading-6 text-muted-foreground md:text-base">Search a clean, deduplicated stream of roles from job boards, employer career pages, recruiter listings, and feeds.</p>
               <div className="mt-5 flex flex-wrap gap-2">
-                {["Indeed", "Multi-board", "Recruiters", "Company careers", "RSS feeds"].map((source) => <Badge key={source} variant="secondary" className="border border-border/70 bg-background/60 px-2.5 py-1 font-normal">{source}</Badge>)}
+                {sourceOptions.map((source) => <Button key={source.value} type="button" variant={sourceFilter === source.value ? "default" : "outline"} size="sm" onClick={() => { setSourceFilter(source.value); setShowFilters(true); }} className="h-8 border-border/70 bg-background/60 px-3 text-xs">{source.label}</Button>)}
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-end">
@@ -349,7 +369,7 @@ export default function JobBoard() {
             {showFilters && (
               <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border/70 pt-4">
                 <Select value={jobTypeFilter} onValueChange={setJobTypeFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder="Job type" /></SelectTrigger><SelectContent><SelectItem value="all">Any job type</SelectItem><SelectItem value="full-time">Full-time</SelectItem><SelectItem value="part-time">Part-time</SelectItem><SelectItem value="contract">Contract</SelectItem><SelectItem value="internship">Internship</SelectItem></SelectContent></Select>
-                <Select value={sourceFilter} onValueChange={setSourceFilter}><SelectTrigger className="w-[170px] bg-background/60"><SelectValue placeholder="Source" /></SelectTrigger><SelectContent><SelectItem value="all">Every source</SelectItem>{uniquePortals.map(p => <SelectItem key={p} value={p}>{sourceLabel(p)}</SelectItem>)}</SelectContent></Select>
+                <Select value={sourceFilter} onValueChange={setSourceFilter}><SelectTrigger className="w-[170px] bg-background/60"><SelectValue placeholder="Source" /></SelectTrigger><SelectContent><SelectItem value="all">Every source</SelectItem>{sourceOptions.map((source) => <SelectItem key={source.value} value={source.value}>{source.label}</SelectItem>)}</SelectContent></Select>
                 <Select value={remoteFilter} onValueChange={setRemoteFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder="Work mode" /></SelectTrigger><SelectContent><SelectItem value="all">Any work mode</SelectItem><SelectItem value="remote">Remote</SelectItem><SelectItem value="hybrid">Hybrid</SelectItem></SelectContent></Select>
                 {hasActiveFilters && <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={clearFilters}><X className="h-3.5 w-3.5" /> Clear filters</Button>}
               </div>
@@ -390,10 +410,10 @@ export default function JobBoard() {
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
                       <Button variant="ghost" size="icon" aria-label={savedJobIds.has(job.id) ? "Remove from saved jobs" : "Save job"} onClick={() => toggleSaveJob(job.id)} className={savedJobIds.has(job.id) ? "text-primary" : "text-muted-foreground"}>{savedJobIds.has(job.id) ? <BookmarkCheck className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}</Button>
-                      {(job.source_url || job.recruiter_id) && <Button size="sm" onClick={() => applyToCollectedJob(job)} className="hidden gap-1.5 sm:inline-flex">{job.recruiter_id ? "Apply" : "View role"}<ArrowUpRight className="h-3.5 w-3.5" /></Button>}
+                      <Button size="sm" onClick={() => applyToCollectedJob(job)} className="hidden gap-1.5 sm:inline-flex">Apply<ArrowUpRight className="h-3.5 w-3.5" /></Button>
                     </div>
                   </div>
-                  {(job.source_url || job.recruiter_id) && <div className="border-t border-border/60 px-5 py-3 sm:hidden"><Button size="sm" className="w-full gap-1.5" onClick={() => applyToCollectedJob(job)}>{job.recruiter_id ? "Apply to this role" : "View role"}<ArrowUpRight className="h-3.5 w-3.5" /></Button></div>}
+                  <div className="border-t border-border/60 px-5 py-3 sm:hidden"><Button size="sm" className="w-full gap-1.5" onClick={() => applyToCollectedJob(job)}>Apply to this role<ArrowUpRight className="h-3.5 w-3.5" /></Button></div>
                 </CardContent>
               </Card>
             ))}

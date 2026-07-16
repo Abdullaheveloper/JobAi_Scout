@@ -19,7 +19,7 @@
     { key: "portfolio",  patterns: [/portfolio|personal (site|website)|website|web url/i] },
     { key: "location",   patterns: [/\b(location|city|address|town|region|where.*based|country)\b/i] },
     { key: "company",    patterns: [/\b(current (company|organization|employer)|employer|organization|company)\b/i] },
-    { key: "experience", patterns: [/years.*(experience|exp)|experience.*years|how many years/i] },
+    { key: "experience", patterns: [/years.*(professional |software |relevant )?(experience|exp)|experience.*years|how many years/i] },
     { key: "summary",    patterns: [/tell.*about (yourself|you)|about (you|yourself)|summary|bio|introduce|why.*hire|cover letter|motivation|message/i] },
     { key: "skills",     patterns: [/skills|technologies|tech stack|competenc/i] },
     { key: "salary",     patterns: [/salary|compensation|expected pay/i] },
@@ -29,9 +29,15 @@
     { key: "work_authorization", patterns: [/work (authorization|permit|visa)|authorized to work|legally authorized|sponsorship|visa status|right to work/i] },
     { key: "willing_to_relocate", patterns: [/willing to relocate|relocation|willing to move/i] },
     { key: "availability",       patterns: [/availability|available to start|start date|when can you start|notice period/i] },
-    { key: "work_type",          patterns: [/work (type|mode|preference)|full[- ]?time|part[- ]?time|remote|onsite|hybrid|contract/i] },
+    { key: "onsite_eligible",    patterns: [/able to work (on[- ]?site|in office)|work on[- ]?site|commute to .*office/i] },
+    { key: "work_type",          patterns: [/work (type|mode|preference)|preferred.*(remote|on[- ]?site|hybrid)|desired.*(remote|on[- ]?site|hybrid)|full[- ]?time|part[- ]?time|contract/i] },
     { key: "hear_about",         patterns: [/how did you hear|referral|source|where did you find|how did you discover/i] },
     { key: "agree_terms",        patterns: [/i (agree|accept)|terms and conditions|privacy policy|consent|acknowledge/i] },
+    // Common screening questions. These are answered only when the profile has
+    // enough information to support the answer; unknown questions are left for
+    // the applicant rather than guessing.
+    { key: "start_within_4_weeks", patterns: [/start within (the next )?(4|four) weeks|available within (the next )?(4|four) weeks/i] },
+    { key: "linux_vps_experience", patterns: [/deployed.*(linux|vps|digitalocean|hetzner)|linux server.*(deploy|debug)|manage.*(linux|vps|server)/i] },
     // File upload specific
     { key: "resume",         patterns: [/resume|cv|curriculum vitae|upload (your )?cv|attach (your )?resume/i] },
     { key: "cover_letter",   patterns: [/cover letter|cover letter upload|attach cover/i] },
@@ -134,6 +140,17 @@
     const ctx = buildContext(el);
     if (!ctx.text) return { key: null, confidence: 0, reason: "no context" };
 
+    // Upload fields frequently contain the word "resume" or "cover letter",
+    // which can otherwise be mistaken for a free-text summary field.
+    if (type === "file") {
+      for (const sem of SEMANTICS.filter((item) => ["resume", "cover_letter", "profile_photo", "document"].includes(item.key))) {
+        if (sem.patterns.some((re) => re.test(ctx.text))) {
+          return { key: sem.key, confidence: 0.99, reason: "file upload label" };
+        }
+      }
+      return { key: "document", confidence: 0.6, reason: "generic file upload" };
+    }
+
     let best = { key: null, confidence: 0, reason: "no match" };
     for (const sem of SEMANTICS) {
       let hit = 0, base = 0;
@@ -142,6 +159,12 @@
       const inLabel = sem.patterns.some(re => ctx.labelTexts.concat(ctx.ancestors).some(t => re.test(String(t))));
       const conf = Math.min(0.99, base + (inLabel ? 0.1 : 0) + (hit > 1 ? 0.03 : 0));
       if (conf > best.confidence) best = { key: sem.key, confidence: conf, reason: `regex:${sem.key}` };
+    }
+    // Employer-specific dropdowns and yes/no controls do not have a universal
+    // field name. Preserve their question context so a user-saved answer can
+    // match them exactly (for example, a Linux deployment question).
+    if (!best.key && (el.tagName === "SELECT" || ["radio", "checkbox"].includes(type))) {
+      return { key: "custom_screening_answer", confidence: 0.6, reason: "screening question" };
     }
     return best;
   }
@@ -159,8 +182,10 @@
   function isFillable(el) {
     if (!el || !el.tagName) return false;
     if (el.disabled || el.readOnly) return false;
-    if (!isVisible(el)) return false;
     const t = (el.type || "").toLowerCase();
+    // Most job sites hide the real file input behind an Upload button. It is
+    // still safe and necessary to populate that input programmatically.
+    if (t !== "file" && !isVisible(el)) return false;
     // File inputs handled separately, skip hidden/submit/button/image/reset
     if (["hidden", "submit", "button", "image", "reset"].includes(t)) return false;
     return true;
@@ -225,6 +250,15 @@
       if (ov === v || ot === v) { match = opt; break; }
       if (!match && (ov.includes(v) || ot.includes(v))) match = opt;
     }
+    // A select often uses human labels such as "Yes, I can" for a profile value
+    // of "yes". Match these predictable boolean labels without choosing an
+    // unrelated option.
+    if (!match && ["yes", "no"].includes(v)) {
+      match = Array.from(el.options).find((opt) => {
+        const optionText = `${opt.value || ""} ${opt.textContent || ""}`.trim().toLowerCase();
+        return v === "yes" ? /^(yes|true|1)\b/.test(optionText) : /^(no|false|0)\b/.test(optionText);
+      }) || null;
+    }
     if (!match) return false;
     nativeSet(el, match.value);
     fireEvents(el);
@@ -273,11 +307,11 @@
 
   function clickRadio(el) {
     el.focus?.();
-    el.checked = true;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "checked")?.set;
+    try { setter ? setter.call(el, true) : (el.checked = true); } catch { el.checked = true; }
     el.dispatchEvent(new Event("focus", { bubbles: true }));
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
-    el.click();
     el.dispatchEvent(new Event("blur", { bubbles: true }));
   }
 
@@ -314,11 +348,11 @@
 
   function clickCheckbox(el, checked) {
     el.focus?.();
-    el.checked = checked;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "checked")?.set;
+    try { setter ? setter.call(el, checked) : (el.checked = checked); } catch { el.checked = checked; }
     el.dispatchEvent(new Event("focus", { bubbles: true }));
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
-    el.click();
     el.dispatchEvent(new Event("blur", { bubbles: true }));
   }
 
@@ -386,7 +420,7 @@
   }
 
   // ── Value Resolution ──
-  function resolveValue(profile, key) {
+  function resolveValue(profile, key, contextText = "") {
     const cleanVal = (val) => {
       if (!val) return "";
       const s = String(val).trim();
@@ -396,6 +430,9 @@
     const [first, ...rest] = (profile.full_name || "").trim().split(/\s+/);
     const last = rest.join(" ");
     const rawPortfolio = cleanVal(profile.portfolio_url) || cleanVal(profile.linkedin_url) || cleanVal(profile.github_url);
+    const customAnswer = resolveCustomAnswer(profile, contextText);
+    if (customAnswer) return customAnswer;
+
     const map = {
       // Text fields
       email:      cleanVal(profile.email),
@@ -420,7 +457,12 @@
       availability:         cleanVal(profile.availability),
       work_type:            cleanVal(profile.work_type || profile.job_type),
       hear_about:           cleanVal(profile.hear_about),
-      agree_terms:          "yes", // Always agree to terms
+      // Terms and privacy consents are intentionally not auto-accepted. The
+      // applicant must review and accept them themselves.
+      agree_terms:          "",
+      onsite_eligible:      resolveOnsiteEligibility(profile, contextText),
+      start_within_4_weeks: resolveStartAvailability(profile),
+      linux_vps_experience: resolveLinuxVpsExperience(profile),
       // File fields (handled separately, return path)
       resume:         profile.resume_url || "",
       cover_letter:   profile.cover_letter_url || "",
@@ -428,6 +470,46 @@
       document:       profile.document_url || "",
     };
     return map[key] || "";
+  }
+
+  function resolveCustomAnswer(profile, contextText) {
+    const answers = profile.application_answers;
+    if (!answers || typeof answers !== "object" || Array.isArray(answers)) return "";
+    const question = String(contextText || "").toLowerCase().replace(/\s+/g, " ").trim();
+    if (!question) return "";
+    for (const [prompt, answer] of Object.entries(answers)) {
+      const key = String(prompt).toLowerCase().replace(/\s+/g, " ").trim();
+      if (!key || answer === null || answer === undefined || String(answer).trim() === "") continue;
+      if (question.includes(key) || key.includes(question)) return String(answer).trim();
+    }
+    return "";
+  }
+
+  function resolveOnsiteEligibility(profile, contextText = "") {
+    const preference = String(profile.work_type || profile.job_type || "").toLowerCase();
+    // Do not claim onsite availability for a remote-only preference.
+    if (/remote/.test(preference) && !/hybrid|on.?site/.test(preference)) return "no";
+    if (!/on.?site|hybrid/.test(preference)) return "";
+    // If the question names a city, only answer yes when it matches the saved
+    // location. This avoids making a claim about a different city.
+    const cityMatches = [...String(contextText).matchAll(/(?:on[- ]?site|in office)\s+(?:in\s+)?([a-z][a-z .'-]{2,}?)(?=[?*|]|$)/ig)];
+    const city = cityMatches.at(-1)?.[1]?.trim();
+    if (city && profile.location && !String(profile.location).toLowerCase().includes(city.toLowerCase())) return "";
+    return "yes";
+  }
+
+  function resolveStartAvailability(profile) {
+    const availability = String(profile.availability || "").toLowerCase();
+    return /immediate|asap|now|2 weeks?|two weeks?|3 weeks?|three weeks?|4 weeks?|four weeks?/.test(availability) ? "yes" : "";
+  }
+
+  function resolveLinuxVpsExperience(profile) {
+    const evidence = [profile.skills, profile.cv_summary, profile.bio, profile.experience_details]
+      .flatMap((value) => Array.isArray(value) ? value : [value])
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return /linux|digitalocean|hetzner|vps|ubuntu|nginx|docker|server deployment/.test(evidence) ? "yes" : "";
   }
 
   // ── Main Fill Pass ──
@@ -460,9 +542,14 @@
         if (currentVal && String(currentVal).trim().length > 0) continue;
       }
 
-      // Skip already-checked radios/checkboxes
-      if (isRadio && el.checked) continue;
+      // Skip an already-selected radio group altogether. Otherwise the next
+      // unselected option in that group would cause a needless re-fill pass.
+      if (isRadio && el.checked) {
+        processedRadioGroups.add(`${el.name}`);
+        continue;
+      }
       if (isCheckbox && el.checked) continue;
+      if (isFile && el.files?.length) continue;
 
       const { key, confidence, reason } = classify(el);
       if (!key || confidence < MIN_CONFIDENCE) continue;
@@ -474,7 +561,7 @@
         processedRadioGroups.add(groupKey);
       }
 
-      const value = resolveValue(profile, key);
+      const value = resolveValue(profile, key, buildContext(el).text);
 
       // Handle file inputs separately
       if (isFile || FILE_TYPES.includes(key)) {
@@ -490,7 +577,7 @@
         continue;
       }
 
-      if (!value && !isRadio && !isCheckbox) { missingKeys.add(key); continue; }
+      if (!value) { missingKeys.add(key); continue; }
 
       try {
         if (isRadio) {
@@ -519,16 +606,14 @@
   async function fillWithRetry(profile, totalMs = 5000, intervalMs = 600) {
     const seen = new Set();
     const missing = new Set();
-    let total = 0;
     const start = Date.now();
     while (Date.now() - start < totalMs) {
       const r = await fillForm(profile);
-      total += r.count;
       for (const f of r.fields) seen.add(f);
       for (const f of r.missing || []) missing.add(f);
       await new Promise(r => setTimeout(r, intervalMs));
     }
-    return { count: total, fields: [...seen], missing: [...missing].filter((key) => !seen.has(key)) };
+    return { count: seen.size, fields: [...seen], missing: [...missing].filter((key) => !seen.has(key)) };
   }
 
   let watcher = null;
@@ -804,6 +889,78 @@
     return upsertRes.json();
   }
 
+  // ── In-page application launcher ───────────────────────────────────────
+  // Browser extensions are not allowed to open their toolbar popup by
+  // themselves. Show this small, in-page launcher instead whenever a genuine
+  // application form is detected, so the user gets an immediate entry point.
+  let launcherHost = null;
+
+  function isLikelyJobApplication() {
+    const url = location.href.toLowerCase();
+    const knownApplicantTrackingSystem = /greenhouse\.io|lever\.co|myworkdayjobs\.com|ashbyhq\.com|smartrecruiters\.com|jobvite\.com|icims\.com|apply\.workable\.com/.test(url);
+    const fields = collectFields();
+    const hasUpload = fields.some((el) => String(el.type || "").toLowerCase() === "file");
+    const hasContactField = fields.some((el) => {
+      const type = String(el.type || "").toLowerCase();
+      return type === "email" || /email|phone|first.?name|last.?name/.test(buildContext(el).text);
+    });
+    const pageText = String(document.body?.innerText || "").slice(0, 18000).toLowerCase();
+    const applicationLanguage = /apply( for this job)?|job application|submit application|additional questions/.test(pageText);
+    return (knownApplicantTrackingSystem && (hasContactField || hasUpload)) || (applicationLanguage && hasContactField && fields.length >= 3);
+  }
+
+  async function loadProfileForLauncher() {
+    const { session } = await chrome.storage.local.get("session");
+    if (!session?.access_token || !session?.user?.id) throw new Error("Sign in to JobAI in the extension first.");
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles?user_id=eq.${encodeURIComponent(session.user.id)}&select=*`,
+      { headers: { "Authorization": `Bearer ${session.access_token}`, "apikey": ANON_KEY } }
+    );
+    if (!res.ok) throw new Error("Could not load your JobAI profile.");
+    const rows = await res.json();
+    return { ...(rows[0] || {}), user_id: session.user.id, email: rows[0]?.email || session.user.email };
+  }
+
+  function createApplicationLauncher() {
+    if (launcherHost || !isLikelyJobApplication()) return;
+    launcherHost = document.createElement("div");
+    launcherHost.id = "jobai-application-launcher";
+    launcherHost.style.cssText = "position:fixed;right:18px;top:18px;z-index:2147483646;";
+    document.documentElement.appendChild(launcherHost);
+    const shadow = launcherHost.attachShadow({ mode: "closed" });
+    shadow.innerHTML = `
+      <style>
+        .card { width: 270px; box-sizing:border-box; background:#10152d; color:#f8fafc; border:1px solid rgba(129,140,248,.42); border-radius:14px; box-shadow:0 16px 40px rgba(15,23,42,.35); padding:14px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; animation:jobai-enter .22s ease-out; }
+        @keyframes jobai-enter { from { opacity:0; transform:translateY(-8px) } to { opacity:1; transform:translateY(0) } }
+        .top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; } .brand { font-weight:750; font-size:15px; letter-spacing:-.2px; } .brand span { color:#a78bfa; } .close { border:0; background:transparent; color:#cbd5e1; font-size:21px; line-height:1; cursor:pointer; padding:0 2px; }
+        p { color:#b7c0d5; font-size:12px; line-height:1.4; margin:0 0 12px; } button.fill { width:100%; border:0; border-radius:9px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:white; padding:10px 12px; font-size:13px; font-weight:700; cursor:pointer; } button.fill:hover { filter:brightness(1.08); } button.fill:disabled { opacity:.65; cursor:wait; } .status { min-height:16px; color:#cbd5e1; font-size:11px; margin-top:9px; } .status.ok { color:#86efac; } .status.err { color:#fda4af; }
+      </style>
+      <section class="card" aria-label="JobAI application helper"><div class="top"><div class="brand">Job<span>AI</span> Form Fill</div><button class="close" aria-label="Close">×</button></div><p>Application detected. Fill your saved profile, answers, and uploaded resume.</p><button class="fill">Auto-fill application</button><div class="status" role="status"></div></section>`;
+    const close = shadow.querySelector(".close");
+    const fill = shadow.querySelector(".fill");
+    const status = shadow.querySelector(".status");
+    close.addEventListener("click", () => { launcherHost?.remove(); launcherHost = null; });
+    fill.addEventListener("click", async () => {
+      fill.disabled = true;
+      fill.textContent = "Filling…";
+      status.className = "status";
+      status.textContent = "Loading your saved profile…";
+      try {
+        const profile = await loadProfileForLauncher();
+        const result = await fillWithRetry(profile, 4000, 500);
+        watchDynamic(profile);
+        status.className = "status ok";
+        status.textContent = `Filled ${result.count} field${result.count === 1 ? "" : "s"}${result.missing.length ? ` · ${result.missing.length} need your input` : ""}.`;
+        fill.textContent = "Fill again";
+        if (result.missing.length) createSidePanel(result, profile);
+      } catch (error) {
+        status.className = "status err";
+        status.textContent = error?.message || "Auto-fill failed.";
+        fill.textContent = "Try again";
+      } finally { fill.disabled = false; }
+    });
+  }
+
   // ── Messages ──
   chrome.runtime.onMessage.addListener((msg, _s, sendResponse) => {
     if (msg?.type === "FILL_FORM") {
@@ -827,4 +984,5 @@
   });
 
   LOG("Auto-fill engine loaded (text, radio, checkbox, file)");
+  setTimeout(createApplicationLauncher, 900);
 })();

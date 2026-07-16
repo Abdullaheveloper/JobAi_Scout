@@ -1,13 +1,26 @@
 import type { NormalizedJob } from "../job-collection.ts";
 import { runApifyActor } from "./apify.ts";
 
-export async function collectLinkedInJobs(keywords: string[], locations: string[], maxItems = 25): Promise<NormalizedJob[]> {
+type LinkedInFilters = { jobType?: string; workMode?: string };
+
+export async function collectLinkedInJobs(keywords: string[], locations: string[], maxItems = 25, filters: LinkedInFilters = {}): Promise<NormalizedJob[]> {
   const actor = Deno.env.get("APIFY_LINKEDIN_ACTOR"); if (!actor) throw new Error("APIFY_LINKEDIN_ACTOR is missing");
-  const cookies = Deno.env.get("LINKEDIN_COOKIES_JSON");
-  if (!cookies) throw new Error("LINKEDIN_COOKIES_JSON is required by the selected LinkedIn actor");
-  let parsedCookies: unknown[]; try { parsedCookies = JSON.parse(cookies); } catch { throw new Error("LINKEDIN_COOKIES_JSON must be a JSON cookie array"); }
-  const keyword = keywords.filter(Boolean).join(" OR "); const location = locations.filter(Boolean)[0] || "";
-  const searchUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(keyword)}&location=${encodeURIComponent(location)}`;
-  const items = await runApifyActor(actor, { cookies: parsedCookies, userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", searchUrl, scrapeJobDetails: true, scrapeSkills: true, scrapeCompany: false, count: maxItems });
-  return items.map((item) => ({ title: String(item.jobTitle || item.title || ""), company: String(item.company || item.companyName || ""), location: item.location ? String(item.location) : null, description: item.description ? String(item.description) : null, skills: Array.isArray(item.skills) ? item.skills.map(String) : [], job_type: item.jobType ? String(item.jobType) : item.employmentType ? String(item.employmentType) : null, work_mode: item.workplaceType ? String(item.workplaceType) : null, experience_level: item.seniorityLevel ? String(item.seniorityLevel) : null, salary_min: null, salary_max: null, salary_currency: null, source: "linkedin_apify", source_job_id: item.jobId ? String(item.jobId) : item.id ? String(item.id) : null, source_url: item.jobUrl ? String(item.jobUrl) : item.url ? String(item.url) : null, recruiter_id: null, posted_at: item.postedDate ? String(item.postedDate) : null }));
+  const jobTypes: Record<string, string> = { "full-time": "fulltime", "part-time": "parttime", contract: "contract", internship: "internship" };
+  const input = {
+    searchTerm: keywords.filter(Boolean).join(" OR "),
+    locations: locations.filter(Boolean),
+    postedWithin: "30d",
+    distance: 25,
+    sortBy: "date",
+    maxItems,
+    maxPagesPerSearch: 2,
+    balanceKeywordCoverage: true,
+    saveOnlyUniqueItems: true,
+    fetchJobDetails: true,
+    jobType: jobTypes[String(filters.jobType || "").toLowerCase()] || "any",
+    workplaceType: ["remote", "hybrid"].includes(String(filters.workMode || "").toLowerCase()) ? String(filters.workMode).toLowerCase() : "any",
+    experienceLevel: "any",
+  };
+  const items = await runApifyActor(actor, input);
+  return items.map((item) => ({ title: String(item.title || item.jobTitle || ""), company: String(item.companyName || item.company || ""), location: item.locationRaw ? String(item.locationRaw) : item.location ? String(item.location) : null, description: item.descriptionText ? String(item.descriptionText) : item.description ? String(item.description) : null, skills: Array.isArray(item.skills) ? item.skills.map(String) : [], job_type: item.employmentType ? String(item.employmentType) : item.jobType ? String(item.jobType) : null, work_mode: item.workplaceType ? String(item.workplaceType) : item.isRemote ? "remote" : null, experience_level: item.seniority ? String(item.seniority) : item.seniorityLevel ? String(item.seniorityLevel) : null, salary_min: typeof item.salaryMin === "number" ? item.salaryMin : null, salary_max: typeof item.salaryMax === "number" ? item.salaryMax : null, salary_currency: item.salaryCurrency ? String(item.salaryCurrency) : null, source: "linkedin_apify", source_job_id: item.jobId ? String(item.jobId) : item.id ? String(item.id) : null, source_url: item.jobUrl ? String(item.jobUrl) : item.url ? String(item.url) : null, recruiter_id: null, posted_at: item.postedAt ? String(item.postedAt) : item.postedDate ? String(item.postedDate) : null }));
 }

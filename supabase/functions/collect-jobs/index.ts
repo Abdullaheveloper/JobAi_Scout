@@ -8,6 +8,16 @@ import { upsertCollectedJobs } from "../_shared/job-collection.ts";
 
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 
+function matchesRequestedFilters(job: any, input: any) {
+  const source = String(input.source || "all").toLowerCase();
+  const jobType = String(input.jobType || "all").toLowerCase();
+  const workMode = String(input.workMode || "all").toLowerCase();
+  if (source !== "all" && String(job.source || "").toLowerCase() !== source) return false;
+  if (jobType !== "all" && !String(job.job_type || "").toLowerCase().includes(jobType)) return false;
+  if (workMode !== "all" && !`${job.work_mode || ""} ${job.location || ""}`.toLowerCase().includes(workMode)) return false;
+  return true;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -21,16 +31,24 @@ Deno.serve(async (req) => {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: sources } = await admin.from("job_sources").select("id, source_type, name, url, config").eq("enabled", true);
     const query = keywords.filter(Boolean).join(" "); const location = locations.filter(Boolean)[0] || "Pakistan";
-    const tasks: Promise<any[]>[] = [collectIndeedJobs(query, location), collectMultiBoardJobs(query, location)];
-    if (Deno.env.get("LINKEDIN_COOKIES_JSON")) tasks.push(collectLinkedInJobs(keywords.filter(Boolean).slice(0, 3), locations.filter(Boolean).slice(0, 3), Math.min(Number(input.maxItems) || 25, 50)));
+    const requestedSource = String(input.source || "all").toLowerCase();
+    const tasks: Promise<any[]>[] = [];
+    if (requestedSource === "all" || requestedSource === "indeed_apify") tasks.push(collectIndeedJobs(query, location));
+    if (requestedSource === "all" || requestedSource.startsWith("multi_")) tasks.push(collectMultiBoardJobs(query, location));
+    if (requestedSource === "all" || requestedSource === "linkedin_apify") {
+      tasks.push(collectLinkedInJobs(keywords.filter(Boolean).slice(0, 3), locations.filter(Boolean).slice(0, 3), Math.min(Number(input.maxItems) || 25, 50), { jobType: input.jobType, workMode: input.workMode }));
+    }
     const trackedSources: Array<{ id: string; task: Promise<any[]> }> = [];
     for (const source of sources || []) {
-      if (!source.url) continue;
+      if (!source.url || (requestedSource !== "all" && requestedSource !== source.source_type)) continue;
       const task = source.source_type === "rss" ? collectRssJobs(source.url, source.name) : source.source_type === "company_career" ? collectCompanyCareerJobs(source.url, source.name) : null;
       if (task) { tasks.push(task); trackedSources.push({ id: source.id, task }); }
     }
     const results = await Promise.allSettled(tasks);
-    const jobs = results.filter((result): result is PromiseFulfilledResult<any[]> => result.status === "fulfilled").flatMap((result) => result.value);
+    const jobs = results
+      .filter((result): result is PromiseFulfilledResult<any[]> => result.status === "fulfilled")
+      .flatMap((result) => result.value)
+      .filter((job) => matchesRequestedFilters(job, input));
     const sourceErrors = results
       .filter((result): result is PromiseRejectedResult => result.status === "rejected")
       .map((result) => result.reason instanceof Error ? result.reason.message : "A source failed");
@@ -41,7 +59,7 @@ Deno.serve(async (req) => {
     }));
     const result = await upsertCollectedJobs(jobs);
     await client.from("job_searches").insert({ user_id: user.id, keyword: keywords.join(", "), location: locations.join(", "), results_count: jobs.length });
-    return new Response(JSON.stringify({ success: true, found: jobs.length, ...result, sourceErrors }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ success: true, found: result.inserted + result.updated, ...result, sourceErrors }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("collect-jobs", error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Collection failed" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });

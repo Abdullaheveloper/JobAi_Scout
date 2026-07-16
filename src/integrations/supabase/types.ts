@@ -573,6 +573,8 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          application_answers: Json
+          availability: string | null
           bio: string | null
           certifications: string[] | null
           created_at: string
@@ -597,9 +599,14 @@ export type Database = {
           skills: string[] | null
           updated_at: string
           user_id: string
+          willing_to_relocate: string | null
+          work_authorization: string | null
+          work_type: string | null
         }
         Insert: {
           avatar_url?: string | null
+          application_answers?: Json
+          availability?: string | null
           bio?: string | null
           certifications?: string[] | null
           created_at?: string
@@ -624,9 +631,14 @@ export type Database = {
           skills?: string[] | null
           updated_at?: string
           user_id: string
+          willing_to_relocate?: string | null
+          work_authorization?: string | null
+          work_type?: string | null
         }
         Update: {
           avatar_url?: string | null
+          application_answers?: Json
+          availability?: string | null
           bio?: string | null
           certifications?: string[] | null
           created_at?: string
@@ -651,6 +663,9 @@ export type Database = {
           skills?: string[] | null
           updated_at?: string
           user_id?: string
+          willing_to_relocate?: string | null
+          work_authorization?: string | null
+          work_type?: string | null
         }
         Relationships: []
       }

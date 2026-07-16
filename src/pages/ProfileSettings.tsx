@@ -148,6 +148,11 @@ export default function ProfileSettings() {
     education: "",
     certifications: "",
     languages: "",
+    work_authorization: "",
+    willing_to_relocate: "",
+    availability: "",
+    work_type: "",
+    application_answers: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -185,6 +190,13 @@ export default function ProfileSettings() {
         education: (profile as any).education || "",
         certifications: ((profile as any).certifications || []).join(", "),
         languages: ((profile as any).languages || []).join(", "),
+        work_authorization: (profile as any).work_authorization || "",
+        willing_to_relocate: (profile as any).willing_to_relocate || "",
+        availability: (profile as any).availability || "",
+        work_type: (profile as any).work_type || "",
+        application_answers: Object.entries(((profile as any).application_answers || {}) as Record<string, unknown>)
+          .map(([question, answer]) => `${question} = ${String(answer)}`)
+          .join("\n"),
       });
     }
   }, [profile]);
@@ -201,6 +213,9 @@ export default function ProfileSettings() {
     if (form.github_url && !isValidUrl(form.github_url)) errs.github_url = "Invalid URL";
     if (form.portfolio_url && !isValidUrl(form.portfolio_url)) errs.portfolio_url = "Invalid URL";
     if (form.phone && form.phone.toLowerCase() !== "no" && !/^[+\d\s()-]*$/.test(form.phone)) errs.phone = "Invalid phone format";
+    for (const [index, line] of form.application_answers.split("\n").entries()) {
+      if (line.trim() && !line.includes("=")) errs.application_answers = `Line ${index + 1} needs: question = answer`;
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -225,6 +240,13 @@ export default function ProfileSettings() {
       location: form.location.trim() || null,
     };
 
+    const applicationAnswers = Object.fromEntries(
+      form.application_answers.split("\n").map(line => line.trim()).filter(Boolean).map(line => {
+        const separator = line.indexOf("=");
+        return [line.slice(0, separator).trim().toLowerCase(), line.slice(separator + 1).trim()];
+      }).filter(([question, answer]) => question && answer)
+    );
+
     const extendedPayload: Record<string, any> = {
       portfolio_url: form.portfolio_url.trim() || null,
       current_company: form.current_company.trim() || null,
@@ -232,6 +254,11 @@ export default function ProfileSettings() {
       education: form.education.trim() || null,
       certifications: form.certifications ? form.certifications.split(",").map(s => s.trim()).filter(Boolean) : [],
       languages: form.languages ? form.languages.split(",").map(s => s.trim()).filter(Boolean) : [],
+      work_authorization: form.work_authorization || null,
+      willing_to_relocate: form.willing_to_relocate || null,
+      availability: form.availability.trim() || null,
+      work_type: form.work_type || null,
+      application_answers: applicationAnswers,
     };
 
     const { error: fullError } = await supabase.from("profiles").update({ ...corePayload, ...extendedPayload }).eq("user_id", user.id);
@@ -582,6 +609,26 @@ export default function ProfileSettings() {
               </Label>
               <ColorInput id="languages" value={form.languages} onChange={e => updateField("languages", e.target.value)} placeholder="English, Spanish, French" inputFocus={A.inputFocus} />
               <p className="text-xs text-slate-500">Comma-separated list of languages you speak</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-card border-indigo-400/30 bg-gradient-to-br from-indigo-500/15 via-violet-500/5 to-transparent">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-display text-indigo-300"><ShieldCheck className="h-5 w-5" /> Application Autofill Preferences</CardTitle>
+            <CardDescription>Used only to answer job-application questions you have confirmed are accurate.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2"><Label htmlFor="work_authorization" className="text-indigo-200">Work authorization</Label><select id="work_authorization" value={form.work_authorization} onChange={e => updateField("work_authorization", e.target.value)} className="flex h-10 w-full rounded-md border border-white/10 bg-[#0d1230]/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose an answer</option><option value="yes">Authorized to work</option><option value="no">Not authorized to work</option></select></div>
+              <div className="space-y-2"><Label htmlFor="willing_to_relocate" className="text-indigo-200">Willing to relocate</Label><select id="willing_to_relocate" value={form.willing_to_relocate} onChange={e => updateField("willing_to_relocate", e.target.value)} className="flex h-10 w-full rounded-md border border-white/10 bg-[#0d1230]/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+              <div className="space-y-2"><Label htmlFor="work_type" className="text-indigo-200">Work preference</Label><select id="work_type" value={form.work_type} onChange={e => updateField("work_type", e.target.value)} className="flex h-10 w-full rounded-md border border-white/10 bg-[#0d1230]/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose a preference</option><option value="onsite">On-site</option><option value="hybrid">Hybrid</option><option value="remote">Remote</option></select></div>
+              <div className="space-y-2"><Label htmlFor="availability" className="text-indigo-200">Availability to start</Label><ColorInput id="availability" value={form.availability} onChange={e => updateField("availability", e.target.value)} placeholder="Immediately, 2 weeks, 4 weeks..." inputFocus="focus-visible:ring-indigo-400/60" /></div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="application_answers" className="text-indigo-200">Employer-specific answers</Label>
+              <ColorTextarea id="application_answers" value={form.application_answers} onChange={e => updateField("application_answers", e.target.value)} placeholder={"deployed and debugged an application on a linux server = Yes\nable to work onsite in Karachi = Yes"} rows={4} inputFocus="focus-visible:ring-indigo-400/60" className={errors.application_answers ? "border-rose-400/50" : ""} />
+              {errors.application_answers ? <p className="text-xs text-rose-400">{errors.application_answers}</p> : <p className="text-xs text-slate-400">One answer per line: <code>question phrase = answer</code>. These answers override automatic guesses.</p>}
             </div>
           </CardContent>
         </Card>

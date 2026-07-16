@@ -15,11 +15,15 @@ export function duplicateKey(job: NormalizedJob): string {
 export function normalizeJob(raw: Partial<NormalizedJob>): NormalizedJob | null {
   const title = raw.title?.trim(); const company = raw.company?.trim();
   if (!title || !company || !raw.source) return null;
+  const sourceUrl = raw.source_url?.trim() || null;
+  // Scraped jobs must lead to a real, external posting. Recruiter jobs are handled
+  // inside the app and therefore do not require an external URL.
+  if (!raw.recruiter_id && (!sourceUrl || !/^https?:\/\//i.test(sourceUrl))) return null;
   return { title, company, location: raw.location?.trim() || null, description: raw.description?.trim() || null,
     skills: [...new Set((raw.skills || []).map((skill) => skill.trim()).filter(Boolean))], job_type: raw.job_type || null,
     work_mode: raw.work_mode || null, experience_level: raw.experience_level || null, salary_min: raw.salary_min ?? null,
     salary_max: raw.salary_max ?? null, salary_currency: raw.salary_currency || null, source: raw.source,
-    source_job_id: raw.source_job_id || null, source_url: raw.source_url || null, recruiter_id: raw.recruiter_id || null,
+    source_job_id: raw.source_job_id || null, source_url: sourceUrl, recruiter_id: raw.recruiter_id || null,
     posted_at: raw.posted_at || null };
 }
 
