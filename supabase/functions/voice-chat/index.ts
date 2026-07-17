@@ -1,7 +1,26 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { generateEmbedding } from "../_shared/openrouter-embeddings.ts";
+import { generateGeminiText, type GeminiMessage } from "../_shared/gemini.ts";
 
-const CHAT_MODEL = "openrouter/free";
+async function geminiChatResponse(apiKey: string, init?: RequestInit): Promise<Response> {
+  const body = JSON.parse(String(init?.body || "{}"));
+  const messages: GeminiMessage[] = (body.messages || []).map((message: { role?: string; content?: string }) => ({
+    role: message.role === "system" ? "system" : message.role === "assistant" ? "assistant" : "user",
+    content: String(message.content || ""),
+  }));
+  const answer = await generateGeminiText(apiKey, messages, {
+    temperature: body.temperature ?? 0.7,
+    maxOutputTokens: body.max_tokens ?? 1024,
+  });
+  if (!body.stream) return new Response(JSON.stringify({ choices: [{ message: { content: answer } }] }), { headers: { "Content-Type": "application/json" } });
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({ start(controller) {
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: answer } }] })}\n\n`));
+    controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+    controller.close();
+  } });
+  return new Response(stream, { headers: { "Content-Type": "text/event-stream" } });
+}
 
 // ─── CORS Headers ─────────────────────────────────────────────────────────────
 const corsHeaders = {
@@ -95,22 +114,7 @@ Latest query: ${question}
 
 Standalone search query:`;
 
-    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${openrouterApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.1,
-        max_tokens: 80,
-      }),
-    });
-    if (!resp.ok) return question;
-    const json = await resp.json();
-    const text = json.choices?.[0]?.message?.content?.trim();
+    const text = await generateGeminiText(openrouterApiKey, [{ role: "user", content: prompt }], { temperature: 0.1, maxOutputTokens: 80 });
     return text ? text.replace(/^[\"']|[\"']$/g, "") : question;
   } catch {
     return question;
@@ -130,22 +134,7 @@ ${history.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`).join("\
 Summary:`;
 
   try {
-    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${openrouterApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
-        max_tokens: 200,
-      }),
-    });
-    if (!resp.ok) return "";
-    const json = await resp.json();
-    return json.choices?.[0]?.message?.content?.trim() || "";
+    return await generateGeminiText(openrouterApiKey, [{ role: "user", content: prompt }], { temperature: 0.3, maxOutputTokens: 200 });
   } catch {
     return "";
   }
@@ -156,16 +145,19 @@ Deno.serve(async (req) => {
 
   try {
     const apiKey = Deno.env.get("GEMINI_API_KEY");
-    const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    if (!openrouterApiKey) {
+    if (!apiKey) {
       return new Response(JSON.stringify({ error: "Service not configured. Contact admin." }), {
         status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const fetch = (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).startsWith("https://openrouter.ai/api/v1/chat/completions")
+        ? geminiChatResponse(apiKey, init)
+        : globalThis.fetch(input, init);
 
     const auth = req.headers.get("Authorization") || "";
     const supabase = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: auth } } });
@@ -312,14 +304,18 @@ Deno.serve(async (req) => {
     if (historyMessages.length > 20) {
       const olderMessages = historyMessages.slice(0, historyMessages.length - 16);
       const recentMessages = historyMessages.slice(historyMessages.length - 16);
-      summaryPrefix = await summarizeConversation(olderMessages, openrouterApiKey!);
+      summaryPrefix = await summarizeConversation(olderMessages, apiKey);
       contextMessages = recentMessages;
     } else {
       contextMessages = historyMessages.slice(-16);
     }
 
-    // Rewrite query for better retrieval
-    const searchQuestion = await rewriteQuery(question, contextMessages, openrouterApiKey!);
+    // Rewriting a short conversation costs an extra model round trip without
+    // improving retrieval enough to justify voice latency. Keep it for longer,
+    // ambiguous conversations only.
+    const searchQuestion = contextMessages.length >= 6
+      ? await rewriteQuery(question, contextMessages, apiKey)
+      : question;
 
     // ── Hybrid Search ────────────────────────────────────────────────────────
     type MatchResult = {
@@ -342,7 +338,7 @@ Deno.serve(async (req) => {
     let qEmbed: number[] | null = null;
 
     try {
-      qEmbed = await embedOne(searchQuestion, openrouterApiKey || apiKey || "");
+      qEmbed = await embedOne(searchQuestion, apiKey);
 
       // Try hybrid search first
       const { data: hybridData, error: hybridErr } = await supabase.rpc("hybrid_search_kb", {
@@ -459,15 +455,14 @@ INSTRUCTIONS:
       const chatResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${openrouterApiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: CHAT_MODEL,
+          model: "gemini-2.5-flash",
           messages: chatMessages,
           stream: true,
           temperature: 0.7,
-          max_tokens: 1024,
+          max_tokens: 480,
           top_p: 0.9,
         }),
       });
@@ -586,14 +581,13 @@ INSTRUCTIONS:
     const chatResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${openrouterApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-          model: CHAT_MODEL,
+          model: "gemini-2.5-flash",
         messages: chatMessages,
         temperature: 0.7,
-        max_tokens: 1024,
+        max_tokens: 480,
         top_p: 0.9,
       }),
     });

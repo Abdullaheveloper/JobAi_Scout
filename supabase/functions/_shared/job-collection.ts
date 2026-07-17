@@ -33,15 +33,31 @@ export async function upsertCollectedJobs(jobs: NormalizedJob[]) {
   for (const job of jobs) {
     const normalized = normalizeJob(job); if (!normalized) { skipped++; continue; }
     const key = duplicateKey(normalized);
-    let query = supabase.from("jobs").select("id").limit(1);
-    if (normalized.source_job_id) query = query.eq("source", normalized.source).eq("source_job_id", normalized.source_job_id);
-    else if (normalized.source_url) query = query.eq("source_url", normalized.source_url);
-    else query = query.eq("duplicate_key", key);
-    const { data: existing, error: findError } = await query.maybeSingle();
-    if (findError) throw new Error(`Job lookup failed: ${findError.message}`);
+    // The same role can be returned by dedicated and multi-board adapters.
+    // Check all stable identities before inserting so the global source_url
+    // constraint never turns a harmless duplicate into a failed collection.
+    let existing: { id: string; source: string; source_job_id: string | null } | null = null;
+    const lookups = [
+      normalized.source_job_id
+        ? supabase.from("jobs").select("id, source, source_job_id").eq("source", normalized.source).eq("source_job_id", normalized.source_job_id).limit(1).maybeSingle()
+        : null,
+      normalized.source_url
+        ? supabase.from("jobs").select("id, source, source_job_id").eq("source_url", normalized.source_url).limit(1).maybeSingle()
+        : null,
+      supabase.from("jobs").select("id, source, source_job_id").eq("duplicate_key", key).limit(1).maybeSingle(),
+    ].filter(Boolean) as Array<PromiseLike<{ data: { id: string; source: string; source_job_id: string | null } | null; error: { message: string } | null }>>;
+
+    for (const lookup of lookups) {
+      const { data, error: findError } = await lookup;
+      if (findError) throw new Error(`Job lookup failed: ${findError.message}`);
+      if (data) { existing = data; break; }
+    }
     const record = { ...normalized, duplicate_key: key, job_url: normalized.source_url, date_posted: normalized.posted_at,
       collected_at: new Date().toISOString(), last_seen_at: new Date().toISOString(), status: "active", is_active: true };
-    const result = existing ? await supabase.from("jobs").update(record).eq("id", existing.id) : await supabase.from("jobs").insert(record);
+    // Keep the first collected source identity for a role matched across sources.
+    // This avoids changing a valid source/job-id pair while refreshing its details.
+    const updateRecord = existing ? { ...record, source: existing.source, source_job_id: existing.source_job_id || normalized.source_job_id } : record;
+    const result = existing ? await supabase.from("jobs").update(updateRecord).eq("id", existing.id) : await supabase.from("jobs").insert(record);
     if (result.error) throw new Error(`Job save failed: ${result.error.message}`);
     if (existing) updated++; else inserted++;
   }

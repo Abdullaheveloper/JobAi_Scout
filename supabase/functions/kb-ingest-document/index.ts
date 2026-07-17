@@ -18,19 +18,19 @@ function hasMissingColumnError(error: { message?: string } | null | undefined): 
 }
 
 async function insertWithColumnFallback<T extends Record<string, unknown>>(
-  db: { from: (table: string) => { insert: (rows: T | T[]) => { select: () => { single: () => Promise<{ data: any; error: any }> } } } },
+  db: { from: (table: string) => { insert: (rows: T | T[]) => Promise<{ error: any }> } },
   table: string,
   rows: T[]
 ): Promise<void> {
-  const initialResult = await db.from(table).insert(rows);
-  const { error } = await initialResult.select().single();
+  // `insert()` already resolves to the Supabase result. Calling `.select()` on
+  // that resolved result caused uploads to fail with "select is not a function".
+  const { error } = await db.from(table).insert(rows);
   if (error && hasMissingColumnError(error)) {
     const fallbackRows = rows.map((row) => {
       const { document_type: _documentType, ...rest } = row as T & { document_type?: string };
       return rest as T;
     });
-    const fallbackResult = await db.from(table).insert(fallbackRows);
-    const { error: fallbackError } = await fallbackResult.select().single();
+    const { error: fallbackError } = await db.from(table).insert(fallbackRows);
     if (fallbackError) throw fallbackError;
     return;
   }

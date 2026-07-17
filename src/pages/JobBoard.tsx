@@ -204,7 +204,11 @@ export default function JobBoard() {
           maxItems: 25,
         },
       });
-      if (error) throw error;
+      if (error) {
+        const response = (error as { context?: Response }).context;
+        const details = response ? await response.clone().json().catch(() => null) : null;
+        throw new Error(details?.error || error.message || "Could not fetch new jobs");
+      }
       await fetchRecommendedJobs();
       toast({ title: "Job collection complete", description: `Found ${data.found} jobs with direct posting links, added ${data.inserted} new listings.${data.skipped ? ` Rejected ${data.skipped} jobs without valid links.` : ""}${data.sourceErrors?.length ? ` ${data.sourceErrors.length} source(s) need attention.` : ""}` });
     } catch (err: any) {

@@ -26,6 +26,8 @@ export function VoiceMode() {
   const stream = useRef<MediaStream | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
   const silence = useRef<number | null>(null);
+  const noSpeech = useRef<number | null>(null);
+  const hasSpoken = useRef(false);
   const documentInput = useRef<HTMLInputElement | null>(null);
   const recognition = useRef<VoiceRecognition | null>(null);
   const browserTranscript = useRef("");
@@ -69,12 +71,15 @@ export function VoiceMode() {
     if (!response.ok) { const result = await response.json().catch(() => ({})); throw new Error(result.error || `TTS request failed (${response.status}).`); }
     const blob = await response.blob();
     const path = `${userId}/${sessionId}/assistant-${crypto.randomUUID()}.mp3`;
-    const upload = await supabase.storage.from("voice-history").upload(path, blob, { contentType: "audio/mpeg" });
-    if (upload.error) throw upload.error;
-    const { data: message } = await supabase.from("voice_messages").select("id").eq("conversation_id", sessionId).eq("role", "assistant").order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (message) await supabase.from("voice_messages").update({ audio_path: path }).eq("id", message.id);
     const player = new Audio(URL.createObjectURL(blob));
     audio.current = player; player.onended = () => setStatus("idle"); setStatus("speaking"); await player.play();
+    // Store history audio after playback starts; storage must not delay the reply.
+    void (async () => {
+      const upload = await supabase.storage.from("voice-history").upload(path, blob, { contentType: "audio/mpeg" });
+      if (upload.error) return;
+      const { data: message } = await supabase.from("voice_messages").select("id").eq("conversation_id", sessionId).eq("role", "assistant").order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (message) await supabase.from("voice_messages").update({ audio_path: path }).eq("id", message.id);
+    })();
   }, [speed]);
 
   const uploadKnowledgeBase = useCallback(async (file: File) => {
@@ -95,36 +100,42 @@ export function VoiceMode() {
       const { data: auth } = await supabase.auth.getSession();
       if (!auth.session) throw new Error("Please sign in to use voice assistant.");
       const extension = blob.type.includes("ogg") ? "ogg" : "webm";
-      const path = `${auth.session.user.id}/${crypto.randomUUID()}/user.${extension}`;
-      const upload = await supabase.storage.from("voice-history").upload(path, blob, { contentType: blob.type || "audio/webm" });
-      if (upload.error) throw new Error(`Audio upload failed: ${upload.error.message}`);
       const headers = await authHeaders();
-      // Chrome/Edge Web Speech is free and avoids requiring OpenRouter audio
-      // credit. Other browsers continue to use the server-side Voxtral fallback.
+      // Chrome/Edge Web Speech is the fastest path. Gemini transcribes only
+      // when the browser does not provide a final transcript.
       let transcript = recognizedText.trim();
       if (!transcript) {
-        const form = new FormData(); form.append("file", blob, `recording.${extension}`);
+        const form = new FormData(); form.append("file", blob, `recording.${extension}`); form.append("language", "en-US");
         const stt = await fetch(`${functionsUrl}/voice-transcribe`, { method: "POST", headers, body: form });
         const transcription = await stt.json().catch(() => ({}));
-        if (!stt.ok || !transcription.text?.trim()) throw new Error(transcription.error || `Transcription failed (${stt.status}). Add at least $0.50 OpenRouter audio balance or use Chrome/Edge browser speech recognition.`);
+        if (!stt.ok || !transcription.text?.trim()) throw new Error(transcription.error || "No speech was detected. Please speak for a little longer and try again.");
         transcript = transcription.text;
       }
+      const audioPath = `${auth.session.user.id}/${crypto.randomUUID()}/user.${extension}`;
+      const uploadAudio = supabase.storage.from("voice-history").upload(audioPath, blob, { contentType: blob.type || "audio/webm" });
       setStatus("thinking");
-      const chat = await fetch(`${functionsUrl}/voice-chat`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ question: transcript, conversationId, userAudioPath: path, stream: false }) });
+      const chat = await fetch(`${functionsUrl}/voice-chat`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ question: transcript, conversationId, stream: false }) });
       const response = await chat.json().catch(() => ({}));
       if (!chat.ok) throw new Error(response.error || `Assistant request failed (${chat.status}).`);
       setConversationId(response.conversationId);
-      await synthesizeAndPlay(response.answer, auth.session.user.id, response.conversationId);
+      void uploadAudio.then(async ({ error }) => {
+        if (error) return;
+        const { data: message } = await supabase.from("voice_messages").select("id").eq("conversation_id", response.conversationId).eq("role", "user").order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (message) await supabase.from("voice_messages").update({ audio_path: audioPath }).eq("id", message.id);
+      });
+      try { await synthesizeAndPlay(response.answer, auth.session.user.id, response.conversationId); }
+      catch { speakFallback(response.answer); }
       await loadHistory();
     } catch (error) {
       console.error("Voice request failed", error);
       setErrorMessage(error instanceof Error ? error.message : "Voice request failed."); setStatus("error");
       window.setTimeout(() => setStatus("idle"), 5000);
     }
-  }, [conversationId, loadHistory, synthesizeAndPlay]);
+  }, [conversationId, loadHistory, speakFallback, synthesizeAndPlay]);
 
   const stopRecording = useCallback(() => {
     if (silence.current) window.clearTimeout(silence.current);
+    if (noSpeech.current) window.clearTimeout(noSpeech.current);
     recognition.current?.stop();
     recognition.current = null;
     if (recorder.current?.state === "recording") recorder.current.stop();
@@ -137,6 +148,7 @@ export function VoiceMode() {
       const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.current = mic; chunks.current = [];
       browserTranscript.current = "";
+      hasSpoken.current = false;
       if (VoiceRecognition.isSupported()) {
         const engine = new VoiceRecognition();
         recognition.current = engine;
@@ -146,17 +158,34 @@ export function VoiceMode() {
       }
       const recording = new MediaRecorder(mic); recorder.current = recording;
       recording.ondataavailable = event => { if (event.data.size) chunks.current.push(event.data); };
-      recording.onstop = () => window.setTimeout(() => processRecording(new Blob(chunks.current, { type: recording.mimeType || "audio/webm" }), browserTranscript.current), 300);
+      // Prefer a browser transcript immediately; Gemini is the fallback when
+      // one is not available after a short final-result grace period.
+      recording.onstop = () => {
+        if (!hasSpoken.current && !browserTranscript.current) return;
+        window.setTimeout(() => processRecording(new Blob(chunks.current, { type: recording.mimeType || "audio/webm" }), browserTranscript.current), browserTranscript.current ? 150 : 600);
+      };
       const context = new AudioContext(); const source = context.createMediaStreamSource(mic); const analyser = context.createAnalyser(); analyser.fftSize = 256; source.connect(analyser);
       const detect = () => {
         if (recorder.current?.state !== "recording") { context.close(); return; }
         const data = new Uint8Array(analyser.frequencyBinCount); analyser.getByteTimeDomainData(data);
         const level = data.reduce((sum, value) => sum + Math.abs(value - 128), 0) / data.length / 128; setVolume(level);
-        if (level > 0.035) { if (silence.current) window.clearTimeout(silence.current); silence.current = null; }
-        else if (!silence.current) silence.current = window.setTimeout(stopRecording, 1400);
+        if (level > 0.035) {
+          hasSpoken.current = true;
+          if (silence.current) window.clearTimeout(silence.current);
+          if (noSpeech.current) window.clearTimeout(noSpeech.current);
+          silence.current = null; noSpeech.current = null;
+        } else if (hasSpoken.current && !silence.current) {
+          // End the turn quickly after the speaker finishes, but never stop
+          // immediately just because they pause before starting to speak.
+          silence.current = window.setTimeout(stopRecording, 2200);
+        }
         requestAnimationFrame(detect);
       };
-      recording.start(); setStatus("listening"); detect();
+      recording.start(); setStatus("listening");
+      noSpeech.current = window.setTimeout(() => {
+        if (!hasSpoken.current) { setErrorMessage("No speech detected. Please try again."); stopRecording(); }
+      }, 3000);
+      detect();
     } catch { setErrorMessage("Microphone access was denied or is unavailable."); setStatus("error"); }
   }, [processRecording, stopPlayback, stopRecording]);
 

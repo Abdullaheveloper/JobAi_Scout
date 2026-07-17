@@ -1,7 +1,23 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { generateEmbedding } from "../_shared/openrouter-embeddings.ts";
+import { generateGeminiText, type GeminiMessage } from "../_shared/gemini.ts";
 
-const CHAT_MODEL = "openrouter/free";
+async function geminiChatResponse(apiKey: string, init?: RequestInit): Promise<Response> {
+  const body = JSON.parse(String(init?.body || "{}"));
+  const messages: GeminiMessage[] = (body.messages || []).map((message: { role?: string; content?: string }) => ({
+    role: message.role === "system" ? "system" : message.role === "assistant" ? "assistant" : "user",
+    content: String(message.content || ""),
+  }));
+  const answer = await generateGeminiText(apiKey, messages, { temperature: body.temperature ?? 0.7, maxOutputTokens: body.max_tokens ?? 1024 });
+  if (!body.stream) return new Response(JSON.stringify({ choices: [{ message: { content: answer } }] }), { headers: { "Content-Type": "application/json" } });
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({ start(controller) {
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: answer } }] })}\n\n`));
+    controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+    controller.close();
+  } });
+  return new Response(stream, { headers: { "Content-Type": "text/event-stream" } });
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,26 +74,7 @@ Latest query: ${question}
 
 Standalone search query:`;
 
-    const resp = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${openrouterApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: CHAT_MODEL,
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.1,
-          max_tokens: 60,
-        }),
-      }
-    );
-
-    if (!resp.ok) return question;
-    const json = await resp.json();
-    const text = json.choices?.[0]?.message?.content?.trim();
+    const text = await generateGeminiText(openrouterApiKey, [{ role: "user", content: prompt }], { temperature: 0.1, maxOutputTokens: 60 });
     return text ? text.replace(/^["']|["']$/g, "") : question;
   } catch (err) {
     console.warn("rewriteQuery failed, using original:", err);
@@ -90,17 +87,20 @@ Deno.serve(async (req) => {
 
   try {
     const apiKey = Deno.env.get("GEMINI_API_KEY");
-    const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    if (!openrouterApiKey) {
+    if (!apiKey) {
       return new Response(JSON.stringify({ error: "Service not configured." }), {
         status: 503,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const fetch = (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).startsWith("https://openrouter.ai/api/v1/chat/completions")
+        ? geminiChatResponse(apiKey, init)
+        : globalThis.fetch(input, init);
 
     const auth = req.headers.get("Authorization") || "";
     const supabase = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: auth } } });
@@ -198,14 +198,14 @@ Deno.serve(async (req) => {
     }));
 
     // Reformulate query using context
-    const searchQuestion = await rewriteQuery(rawQuestion, historyMessages, openrouterApiKey!);
+    const searchQuestion = await rewriteQuery(rawQuestion, historyMessages, apiKey);
 
     // Embed and retrieve KB chunks
     let qEmbed: number[] | null = null;
     let matches: Array<{ url: string; title: string; content: string; similarity: number }> = [];
 
     try {
-      qEmbed = await embedOne(searchQuestion, openrouterApiKey || apiKey || "");
+      qEmbed = await embedOne(searchQuestion, apiKey);
       const { data: matchData } = await supabase.rpc("match_kb_chunks", {
         query_embedding: qEmbed as unknown as string,
         match_user_id: userId,
@@ -269,11 +269,10 @@ ${GUARDRAILS_PROMPT}` },
       {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${openrouterApiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: CHAT_MODEL,
+          model: "gemini-2.5-flash",
           messages: chatMessages,
           stream: true,
         }),

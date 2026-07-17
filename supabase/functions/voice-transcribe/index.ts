@@ -15,11 +15,14 @@ Deno.serve(async (req) => {
     for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
     const response = await fetch(GEMINI_URL, {
       method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: `Transcribe this audio exactly. Return only the spoken words.${language ? ` The expected language is ${language}.` : ""}` }, { inline_data: { mime_type: (file as Blob).type || "audio/webm", data: btoa(binary) } }] }], generationConfig: { temperature: 0 } }),
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: `Transcribe this audio exactly. Return only the spoken words.${language ? ` The expected language is ${language}.` : ""}` }, { inline_data: { mime_type: (file as Blob).type || "audio/webm", data: btoa(binary) } }] }], generationConfig: { temperature: 0, maxOutputTokens: 2048, responseMimeType: "text/plain" } }),
     });
     if (!response.ok) throw new Error(`Gemini transcription failed (${response.status}): ${await response.text()}`);
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text || "").join("").trim() || "";
+    if (!text) {
+      return new Response(JSON.stringify({ error: "No speech was detected in the recording. Please try again." }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     return new Response(JSON.stringify({ text, language: language || null }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("voice-transcribe", error);
