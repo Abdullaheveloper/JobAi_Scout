@@ -14,8 +14,10 @@ export function ProtectedRoute({ children, requiredRole }: { children: React.Rea
 
   if (!user) return <Navigate to="/login" replace />;
   
-  if (requiredRole === "admin" && role !== "admin") return <Navigate to="/dashboard" replace />;
-  if (requiredRole === "recruiter" && role !== "recruiter" && role !== "admin") return <Navigate to="/dashboard" replace />;
+  if (requiredRole && role !== requiredRole) {
+    const fallback = role === "admin" ? "/admin" : role === "recruiter" ? "/recruiter/jobs" : "/dashboard";
+    return <Navigate to={fallback} replace />;
+  }
 
   return <>{children}</>;
 }

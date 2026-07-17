@@ -49,7 +49,7 @@ export default function Contact() {
   };
 
   return (
-    <div className="min-h-screen bg-[#020817] text-white overflow-x-hidden page-enter">
+    <div className="public-page min-h-screen text-white overflow-x-hidden page-enter">
       {/* Navigation */}
       <nav className="sticky top-0 z-50 nav-premium">
         <div className="container mx-auto px-6 flex h-16 items-center justify-between">

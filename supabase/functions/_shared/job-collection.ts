@@ -12,6 +12,12 @@ export function duplicateKey(job: NormalizedJob): string {
   return `${job.title}|${job.company}|${job.location || ""}`.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+function normalizeTimestamp(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
 export function normalizeJob(raw: Partial<NormalizedJob>): NormalizedJob | null {
   const title = raw.title?.trim(); const company = raw.company?.trim();
   if (!title || !company || !raw.source) return null;
@@ -24,7 +30,19 @@ export function normalizeJob(raw: Partial<NormalizedJob>): NormalizedJob | null 
     work_mode: raw.work_mode || null, experience_level: raw.experience_level || null, salary_min: raw.salary_min ?? null,
     salary_max: raw.salary_max ?? null, salary_currency: raw.salary_currency || null, source: raw.source,
     source_job_id: raw.source_job_id || null, source_url: sourceUrl, recruiter_id: raw.recruiter_id || null,
-    posted_at: raw.posted_at || null };
+    posted_at: normalizeTimestamp(raw.posted_at) };
+}
+
+export function deduplicateJobs(jobs: NormalizedJob[]): NormalizedJob[] {
+  const seen = new Set<string>();
+  return jobs.filter((job) => {
+    const normalized = normalizeJob(job);
+    if (!normalized) return true;
+    const identity = normalized.source_url?.toLowerCase() || duplicateKey(normalized);
+    if (seen.has(identity)) return false;
+    seen.add(identity);
+    return true;
+  });
 }
 
 export async function upsertCollectedJobs(jobs: NormalizedJob[]) {
@@ -54,10 +72,10 @@ export async function upsertCollectedJobs(jobs: NormalizedJob[]) {
     }
     const record = { ...normalized, duplicate_key: key, job_url: normalized.source_url, date_posted: normalized.posted_at,
       collected_at: new Date().toISOString(), last_seen_at: new Date().toISOString(), status: "active", is_active: true };
-    // Keep the first collected source identity for a role matched across sources.
-    // This avoids changing a valid source/job-id pair while refreshing its details.
-    const updateRecord = existing ? { ...record, source: existing.source, source_job_id: existing.source_job_id || normalized.source_job_id } : record;
-    const result = existing ? await supabase.from("jobs").update(updateRecord).eq("id", existing.id) : await supabase.from("jobs").insert(record);
+    // Attribute a refreshed role to the source currently being collected. This
+    // ensures a job returned by RSS or Company Careers is visible immediately
+    // when the user has that same source filter selected.
+    const result = existing ? await supabase.from("jobs").update(record).eq("id", existing.id) : await supabase.from("jobs").insert(record);
     if (result.error) throw new Error(`Job save failed: ${result.error.message}`);
     if (existing) updated++; else inserted++;
   }

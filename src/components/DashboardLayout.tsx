@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, FileUp, Briefcase, Bookmark, BarChart3, Users, UserCog, LogOut,
-  Shield, Mic, Headphones, ExternalLink, Zap,
+  Shield, Mic, ExternalLink, Zap, Plus,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
@@ -24,9 +24,11 @@ const userNav = [
 ];
 
 const recruiterNav = [
+  { title: "Company Profile", url: "/recruiter/profile", icon: UserCog },
+  { title: "Post a Job", url: "/recruiter/jobs?new=1", icon: Plus },
   { title: "My Jobs", url: "/recruiter/jobs", icon: Briefcase },
-  { title: "Candidates", url: "/recruiter/candidates", icon: Users },
-  { title: "Profile Settings", url: "/dashboard/settings", icon: UserCog },
+  { title: "Applicants", url: "/recruiter/candidates", icon: Users },
+  { title: "Application Status", url: "/recruiter/application-status", icon: BarChart3 },
 ];
 
 const adminNav = [
@@ -34,7 +36,6 @@ const adminNav = [
   { title: "Manage Users", url: "/admin/users", icon: Users },
   { title: "Manage Jobs", url: "/admin/jobs", icon: Briefcase },
   { title: "Platform Analytics", url: "/admin/analytics", icon: BarChart3 },
-  { title: "Voice Assistant", url: "/admin/voice", icon: Headphones },
 ];
 
 function AppSidebar() {
@@ -144,10 +145,7 @@ function AppSidebar() {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { role } = useAuth();
   const workspaceTabs = role === "admin"
-    ? [
-        { label: "Admin", url: "/admin", icon: Shield },
-        { label: "Recruitment", url: "/recruiter/jobs", icon: Users },
-      ]
+    ? [{ label: "Admin", url: "/admin", icon: Shield }]
     : role === "recruiter"
       ? [{ label: "Recruitment", url: "/recruiter/jobs", icon: Users }]
       : [];

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -41,6 +42,7 @@ export default function RecruiterJobs() {
   const [editId, setEditId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const fetchJobs = async () => {
     if (!user) return;
@@ -49,6 +51,12 @@ export default function RecruiterJobs() {
   };
 
   useEffect(() => { fetchJobs(); }, [user]);
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      setOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleSave = async () => {
     if (!user) return;

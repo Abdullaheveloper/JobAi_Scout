@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node sync-env-to-supabase.js && vite",
+    "setup:https": "powershell.exe -ExecutionPolicy Bypass -File scripts/setup-local-https.ps1",
+    "dev:https": "node sync-env-to-supabase.js && vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",

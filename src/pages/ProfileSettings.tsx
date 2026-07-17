@@ -2,8 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
-import ExtractedDataCard from "@/components/ExtractedDataCard";
-import { profileToExtractedData, hasExtractedCvData } from "@/lib/cv-extracted-data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,8 +68,8 @@ function ColorInput({
       placeholder={placeholder}
       className={`
         transition-all duration-300
-        bg-[#0d1230]/80
-        border-white/[0.08]
+        bg-background
+        border-border
         ${inputFocus}
         focus:shadow-lg
         ${className}
@@ -97,8 +95,8 @@ function ColorTextarea({
       rows={rows}
       className={`
         transition-all duration-300
-        bg-[#0d1230]/80
-        border-white/[0.08]
+        bg-background
+        border-border
         ${inputFocus}
         focus:shadow-lg
         ${className}
@@ -325,9 +323,6 @@ export default function ProfileSettings() {
 
   const skills = profile?.skills || [];
   const roles = profile?.desired_roles || [];
-  const extractedData = profileToExtractedData(profile);
-  const showExtractedData = hasExtractedCvData(extractedData);
-
   const P = SECTION_THEMES.personal;
   const S = SECTION_THEMES.social;
   const K = SECTION_THEMES.skills;
@@ -335,24 +330,23 @@ export default function ProfileSettings() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+      <div className="mx-auto max-w-4xl space-y-6 animate-fade-in">
         {/* ── Page Header ─────────────────────────────────── */}
-        <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/8 via-violet-500/8 to-amber-500/8 rounded-2xl blur-xl" />
-          <div className="relative">
-            <h1 className="font-display text-3xl font-bold text-gradient">Profile Settings</h1>
-            <p className="text-muted-foreground mt-1">Update your details. This data powers job matching and extension auto-fill.</p>
+        <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card px-6 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Your job profile</p>
+            <h1 className="mt-1 font-display text-3xl font-bold tracking-tight">Profile settings</h1>
+            <p className="mt-1 text-muted-foreground">Keep the details that matter for matching and autofill up to date.</p>
           </div>
-        </div>
+          <Badge variant="outline" className="w-fit border-primary/25 bg-primary/10 px-3 py-1 text-primary">{completeness}% complete</Badge>
+        </section>
 
         {/* ── Profile Completeness ────────────────────────── */}
-        <Card className="shadow-card border-cyan-400/20 bg-gradient-to-r from-cyan-500/8 via-violet-500/5 to-emerald-500/5">
-          <CardContent className="pt-6">
+        <Card className="border-border bg-card shadow-card">
+          <CardContent className="py-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="font-display font-semibold text-sm text-cyan-300">Profile Completeness</span>
-              <Badge variant={completeness === 100 ? "default" : "secondary"} className={completeness === 100 ? "gradient-primary border-0 text-primary-foreground" : ""}>
-                {completeness}%
-              </Badge>
+              <span className="font-display font-semibold text-sm">Profile readiness</span>
+              <span className="text-xs text-muted-foreground">{completenessItems.filter(item => !item.done).length ? `${completenessItems.filter(item => !item.done).length} details left` : "Ready to apply"}</span>
             </div>
             <div className="w-full h-2.5 rounded-full bg-muted overflow-hidden">
               <div
@@ -366,17 +360,15 @@ export default function ProfileSettings() {
               />
             </div>
             <div className="flex flex-wrap gap-2 mt-3">
-              {completenessItems.map(item => (
+              {completenessItems.filter(item => !item.done).slice(0, 5).map(item => (
                 <Badge
                   key={item.key}
                   variant="outline"
                   className={`text-xs transition-all duration-300 ${
-                    item.done
-                      ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/25"
-                      : "bg-rose-500/10 text-rose-300 border-rose-500/25"
+                    "bg-muted text-muted-foreground border-border"
                   }`}
                 >
-                  {item.done ? "✓" : "✗"} {item.label}
+                  Add {item.label}
                 </Badge>
               ))}
             </div>
@@ -384,22 +376,13 @@ export default function ProfileSettings() {
         </Card>
 
         {/* ── Extracted CV Data ───────────────────────────── */}
-        {showExtractedData && (
-          <ExtractedDataCard
-            data={extractedData}
-            title="Extracted CV Data"
-            description='Data from your uploaded resume. Fields tagged "AI" were auto-filled; "You" means you edited them manually.'
-            dataSources={dataSources}
-          />
-        )}
-
         {/* ── Personal Information (Cyan) ─────────────────── */}
-        <Card className={`shadow-card transition-all duration-300 bg-gradient-to-br ${P.gradient} ${P.border}`}>
+        <Card className="border-border bg-card shadow-card">
           <CardHeader>
-            <CardTitle className={`flex items-center gap-2 font-display ${P.titleColor}`}>
-              <User className="h-5 w-5" /> Personal Information
+            <CardTitle className="flex items-center gap-2 font-display">
+              <User className="h-5 w-5 text-primary" /> Contact & background
             </CardTitle>
-            <CardDescription className="text-cyan-200/50">Your basic contact details</CardDescription>
+            <CardDescription>Your essential contact and career information.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -414,7 +397,7 @@ export default function ProfileSettings() {
                 <Label htmlFor="email" className="flex items-center gap-1.5 text-slate-300">
                   <Mail className="h-3.5 w-3.5" /> Email
                 </Label>
-                <Input id="email" value={form.email} disabled className="bg-[#0a0e2a] text-slate-400 border-white/[0.05]" />
+                <Input id="email" value={form.email} disabled className="border-border bg-muted/50 text-muted-foreground" />
                 <p className="text-xs text-slate-500">Email cannot be changed here</p>
               </div>
             </div>
@@ -491,12 +474,12 @@ export default function ProfileSettings() {
         </Card>
 
         {/* ── Social Links (Violet) ───────────────────────── */}
-        <Card className={`shadow-card transition-all duration-300 bg-gradient-to-br ${S.gradient} ${S.border}`}>
+        <Card className="border-border bg-card shadow-card">
           <CardHeader>
-            <CardTitle className={`flex items-center gap-2 font-display ${S.titleColor}`}>
-              <Globe className="h-5 w-5" /> Social Links
+            <CardTitle className="flex items-center gap-2 font-display">
+              <Globe className="h-5 w-5 text-primary" /> Professional links
             </CardTitle>
-            <CardDescription className="text-violet-200/50">Used by the browser extension for auto-fill</CardDescription>
+            <CardDescription>Used by the browser extension for application autofill.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -548,12 +531,12 @@ export default function ProfileSettings() {
         </Card>
 
         {/* ── Skills & Roles (Emerald) ────────────────────── */}
-        <Card className={`shadow-card transition-all duration-300 bg-gradient-to-br ${K.gradient} ${K.border}`}>
+        <Card className="border-primary/25 bg-primary/[0.03] shadow-card">
           <CardHeader>
-            <CardTitle className={`flex items-center gap-2 font-display ${K.titleColor}`}>
-              <Sparkles className="h-5 w-5" /> Skills & Roles
+            <CardTitle className="flex items-center gap-2 font-display">
+              <Sparkles className="h-5 w-5 text-primary" /> Matching essentials
             </CardTitle>
-            <CardDescription className="text-emerald-200/50">Comma-separated values. These power AI job matching.</CardDescription>
+            <CardDescription>Skills and target roles have the strongest effect on job matching.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -586,12 +569,12 @@ export default function ProfileSettings() {
         </Card>
 
         {/* ── Additional Info (Amber) ─────────────────────── */}
-        <Card className={`shadow-card transition-all duration-300 bg-gradient-to-br ${A.gradient} ${A.border}`}>
+        <Card className="border-border bg-card shadow-card">
           <CardHeader>
-            <CardTitle className={`flex items-center gap-2 font-display ${A.titleColor}`}>
-              <Award className="h-5 w-5" /> Additional Information
+            <CardTitle className="flex items-center gap-2 font-display">
+              <Award className="h-5 w-5 text-primary" /> Credentials
             </CardTitle>
-            <CardDescription className="text-amber-200/50">Certifications, languages, and more</CardDescription>
+            <CardDescription>Optional details that make your profile more complete.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -613,9 +596,9 @@ export default function ProfileSettings() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-card border-indigo-400/30 bg-gradient-to-br from-indigo-500/15 via-violet-500/5 to-transparent">
+        <Card className="border-border bg-card shadow-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-display text-indigo-300"><ShieldCheck className="h-5 w-5" /> Application Autofill Preferences</CardTitle>
+            <CardTitle className="flex items-center gap-2 font-display"><ShieldCheck className="h-5 w-5 text-primary" /> Application autofill</CardTitle>
             <CardDescription>Used only to answer job-application questions you have confirmed are accurate.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

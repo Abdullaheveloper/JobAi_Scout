@@ -223,3 +223,68 @@
     z-index: 0;
   }
 }
+
+/* Shared authentication experience — deliberately aligned with the product UI. */
+.auth-page { min-height: 100vh; color: hsl(var(--foreground)); background: radial-gradient(900px circle at 10% 10%, rgba(99,102,241,.17), transparent 42%), radial-gradient(700px circle at 92% 88%, rgba(139,92,246,.12), transparent 42%), var(--bg-void); }
+.auth-header { border-bottom: 1px solid rgba(148,163,184,.12); background: rgba(2,8,23,.72); backdrop-filter: blur(18px); }
+.auth-logo { color: #f8fafc; }
+.auth-logo-mark { background: linear-gradient(135deg,#6366f1,#8b5cf6); box-shadow: 0 8px 22px rgba(99,102,241,.28); }
+.auth-muted { color: #94a3b8; }
+.auth-link { color: #a5b4fc; }
+.auth-link:hover { color: #c4b5fd; }
+.auth-hero { color: #e2e8f0; }
+.auth-kicker { border: 1px solid rgba(129,140,248,.24); background: rgba(99,102,241,.12); color: #c7d2fe; }
+.auth-card { border: 1px solid rgba(148,163,184,.16); border-radius: 1rem; background: rgba(15,21,53,.82); box-shadow: 0 24px 70px rgba(0,0,0,.35); backdrop-filter: blur(20px); }
+.auth-card h1, .auth-card h2 { color: #f8fafc; }
+.auth-card label { color: #dbeafe; }
+.auth-input, .auth-light-input { height: 3rem; width: 100%; border: 1px solid rgba(148,163,184,.22); border-radius: .65rem; background: rgba(2,8,23,.72); color: #f8fafc; padding: .625rem .875rem .625rem 3.1rem; font-size: .9375rem; outline: none; transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease; }
+.auth-input::placeholder, .auth-light-input::placeholder { color: #64748b; opacity: 1; }
+.auth-input:hover, .auth-light-input:hover { border-color: rgba(129,140,248,.48); }
+.auth-input:focus, .auth-light-input:focus { border-color: #818cf8; background: rgba(2,8,23,.94); box-shadow: 0 0 0 3px rgba(99,102,241,.18); }
+.auth-input:-webkit-autofill, .auth-input:-webkit-autofill:hover, .auth-input:-webkit-autofill:focus, .auth-light-input:-webkit-autofill, .auth-light-input:-webkit-autofill:hover, .auth-light-input:-webkit-autofill:focus { -webkit-text-fill-color: #f8fafc; -webkit-box-shadow: 0 0 0 1000px #020817 inset; caret-color: #f8fafc; }
+.auth-primary { border: 0; border-radius: .65rem; background: linear-gradient(135deg,#6366f1,#8b5cf6); box-shadow: 0 10px 22px rgba(99,102,241,.22); }
+.auth-primary:hover { background: linear-gradient(135deg,#7477f7,#9a70f7); }
+.auth-alert { border: 1px solid rgba(248,113,113,.32); background: rgba(127,29,29,.24); color: #fecaca; border-radius: .65rem; }
+.auth-success { border: 1px solid rgba(52,211,153,.25); background: rgba(6,78,59,.25); color: #a7f3d0; border-radius: .65rem; }
+
+/* Covers the existing recovery and registration forms while preserving their logic. */
+main:has(input[autocomplete]) { color: #e2e8f0 !important; background: radial-gradient(900px circle at 10% 10%, rgba(99,102,241,.17), transparent 42%), radial-gradient(700px circle at 92% 88%, rgba(139,92,246,.12), transparent 42%), var(--bg-void) !important; }
+main:has(input[autocomplete]) > header { border-color: rgba(148,163,184,.12) !important; background: rgba(2,8,23,.72) !important; backdrop-filter: blur(18px); }
+main:has(input[autocomplete]) header a { color: #f8fafc; }
+main:has(input[autocomplete]) header span { background: linear-gradient(135deg,#6366f1,#8b5cf6) !important; border-radius: .55rem; box-shadow: 0 8px 22px rgba(99,102,241,.28); }
+main:has(input[autocomplete]) [class*="rounded-xl"][class*="bg-white"] { border-color: rgba(148,163,184,.16) !important; background: rgba(15,21,53,.82) !important; box-shadow: 0 24px 70px rgba(0,0,0,.35) !important; backdrop-filter: blur(20px); }
+main:has(input[autocomplete]) h1, main:has(input[autocomplete]) h2 { color: #f8fafc; }
+main:has(input[autocomplete]) p, main:has(input[autocomplete]) label { color: #cbd5e1; }
+main:has(input[autocomplete]) input:not([type="checkbox"]) { border-color: rgba(148,163,184,.22) !important; background: rgba(2,8,23,.78) !important; color: #f8fafc !important; border-radius: .65rem !important; }
+main:has(input[autocomplete]) input::placeholder { color: #64748b !important; }
+main:has(input[autocomplete]) input:focus { border-color: #818cf8 !important; box-shadow: 0 0 0 3px rgba(99,102,241,.18) !important; }
+main:has(input[autocomplete]) input:-webkit-autofill, main:has(input[autocomplete]) input:-webkit-autofill:hover, main:has(input[autocomplete]) input:-webkit-autofill:focus { -webkit-text-fill-color: #f8fafc !important; -webkit-box-shadow: 0 0 0 1000px #020817 inset !important; }
+main:has(input[autocomplete]) button[type="submit"], main:has(input[autocomplete]) a[class*="bg-[#0caa41]"] { background: linear-gradient(135deg,#6366f1,#8b5cf6) !important; box-shadow: 0 10px 22px rgba(99,102,241,.22); border-radius: .65rem !important; }
+main:has(input[autocomplete]) a { color: #a5b4fc; }
+main:has(input[autocomplete]) [role="group"] button { border-color: rgba(148,163,184,.18) !important; background: rgba(2,8,23,.36); }
+main:has(input[autocomplete]) [role="group"] button:hover { border-color: rgba(129,140,248,.55) !important; }
+
+/* Public information pages share the same restrained product language. */
+.public-page { background: radial-gradient(900px circle at 12% 4%, rgba(99,102,241,.16), transparent 40%), radial-gradient(800px circle at 88% 45%, rgba(139,92,246,.12), transparent 44%), var(--bg-void); }
+.public-page .nav-premium { border-bottom: 1px solid rgba(148,163,184,.12); background: rgba(2,8,23,.78); backdrop-filter: blur(18px); }
+.public-page .nav-link-premium { color: #94a3b8; font-size: .875rem; font-weight: 600; transition: color 160ms ease; }
+.public-page .nav-link-premium:hover { color: #e2e8f0; }
+.public-page .btn-premium { display: inline-flex; align-items: center; justify-content: center; border-radius: .7rem; border: 0; background: linear-gradient(135deg,#6366f1,#8b5cf6); color: white; font-weight: 700; padding: .7rem 1rem; box-shadow: 0 10px 24px rgba(99,102,241,.22); transition: transform 160ms ease, filter 160ms ease; }
+.public-page .btn-premium:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.public-page .premium-card, .public-page .glass-card, .public-page .glass-card-sm { border: 1px solid rgba(148,163,184,.15); border-radius: 1rem; background: rgba(15,21,53,.74); box-shadow: 0 18px 45px rgba(0,0,0,.24); backdrop-filter: blur(16px); }
+.public-page .premium-card { transition: border-color 180ms ease, transform 180ms ease, background 180ms ease; }
+.public-page .premium-card:hover { border-color: rgba(129,140,248,.38); background: rgba(20,27,62,.88); }
+.public-page .glass-card-sm { background: rgba(15,21,53,.5); }
+.public-page .badge-premium { border: 1px solid rgba(129,140,248,.26); border-radius: 999px; background: rgba(99,102,241,.1); color: #c7d2fe; padding: .35rem .7rem; font-size: .75rem; font-weight: 700; }
+.public-page .overline { color: #a5b4fc; font-size: .72rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+.public-page .heading-xl { font-family: 'Syne', system-ui, sans-serif; font-size: clamp(2.6rem, 6vw, 4.8rem); font-weight: 700; line-height: 1.04; letter-spacing: -.045em; }
+.public-page .heading-lg { font-family: 'Syne', system-ui, sans-serif; font-size: clamp(2rem, 4vw, 3rem); font-weight: 700; letter-spacing: -.035em; }
+.public-page .heading-md { font-family: 'Syne', system-ui, sans-serif; font-size: clamp(1.65rem, 3vw, 2.25rem); font-weight: 700; letter-spacing: -.03em; }
+.public-page .display-md { font-family: 'Syne', system-ui, sans-serif; font-size: clamp(2rem, 4vw, 3.2rem); font-weight: 700; letter-spacing: -.04em; }
+.public-page .body-lg { font-size: 1.1rem; line-height: 1.75; }
+.public-page .input-premium { border: 1px solid rgba(148,163,184,.22); border-radius: .7rem; background: rgba(2,8,23,.72); color: #f8fafc; outline: none; transition: border-color 160ms ease, box-shadow 160ms ease; }
+.public-page .input-premium::placeholder { color: #64748b; }
+.public-page .input-premium:focus { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(99,102,241,.16); }
+.public-page .footer-premium { border-top: 1px solid rgba(148,163,184,.1); background: rgba(2,8,23,.55); }
+.public-page .dot-bg { background-image: radial-gradient(rgba(165,180,252,.34) 1px, transparent 1px); background-size: 22px 22px; mask-image: linear-gradient(to bottom, black, transparent 80%); }
+.public-page .grid-bg { background-image: linear-gradient(rgba(129,140,248,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(129,140,248,.12) 1px, transparent 1px); background-size: 46px 46px; mask-image: linear-gradient(to bottom, transparent, black 25%, black 75%, transparent); }

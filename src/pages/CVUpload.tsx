@@ -238,18 +238,19 @@ export default function CVUpload() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-gradient">CV Upload & Profile Builder</h1>
-          <p className="text-muted-foreground mt-1">Upload your resume to auto-fill your profile. AI extracts skills, education, certifications, and more.</p>
-        </div>
+      <div className="mx-auto max-w-4xl space-y-6 animate-fade-in">
+        <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card px-6 py-7 sm:px-8">
+          <Badge variant="outline" className="mb-3 border-primary/25 bg-primary/10 text-primary">Step 1 of 2 · Your profile</Badge>
+          <h1 className="font-display text-3xl font-bold tracking-tight">Bring your CV to life.</h1>
+          <p className="mt-2 max-w-2xl text-muted-foreground">Upload one resume and we will extract the information that improves job matching and application autofill.</p>
+        </section>
 
         {/* Profile Completion Bar */}
-        <Card className="shadow-card border-cyan-400/20 bg-gradient-to-r from-cyan-500/8 via-violet-500/5 to-emerald-500/5">
+        <Card className="border-border bg-card shadow-card">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-3">
-              <span className="font-display font-semibold text-sm text-cyan-300">Profile Completion</span>
-              <Badge variant={completionInfo.percent === 100 ? "default" : "secondary"} className={completionInfo.percent === 100 ? "gradient-primary border-0 text-primary-foreground" : ""}>
+              <span className="font-display font-semibold text-sm">Profile readiness</span>
+              <Badge variant="outline" className="border-primary/25 bg-primary/10 text-primary">
                 {completionInfo.percent}%
               </Badge>
             </div>
@@ -277,10 +278,10 @@ export default function CVUpload() {
         </Card>
 
         {/* Upload Section */}
-        <Card className="shadow-card border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-display text-primary">
-              <Upload className="h-5 w-5" /> Upload Resume
+        <Card className="overflow-hidden border-border bg-card shadow-card">
+          <CardHeader className="border-b border-border/70 bg-muted/20">
+            <CardTitle className="flex items-center gap-2 font-display">
+              <Upload className="h-5 w-5 text-primary" /> Upload your resume
             </CardTitle>
             <CardDescription>
               Supported formats: PDF, DOCX — text is extracted (PyMuPDF / pdfplumber / OCR), then AI fills your profile without overwriting existing info
@@ -291,14 +292,14 @@ export default function CVUpload() {
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer ${
-                dragOver ? "border-primary bg-primary/10" : "border-white/[0.1] hover:border-primary/50"
+              className={`rounded-xl border-2 border-dashed p-8 text-center transition-all cursor-pointer sm:p-12 ${
+                dragOver ? "border-primary bg-primary/10" : "border-border bg-muted/20 hover:border-primary/50 hover:bg-primary/[0.03]"
               }`}
               onClick={() => document.getElementById("cv-input")?.click()}
             >
-              <FileUp className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-lg font-medium">{file ? file.name : "Drop your CV here or click to browse"}</p>
-              <p className="text-sm text-muted-foreground mt-1">PDF or DOCX, max 20MB</p>
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10"><FileUp className="h-6 w-6 text-primary" /></div>
+              <p className="text-base font-semibold">{file ? file.name : "Drop your CV here"}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{file ? "Ready for AI review" : "or click to choose a PDF or DOCX"}</p>
               <input
                 id="cv-input"
                 type="file"
@@ -317,7 +318,7 @@ export default function CVUpload() {
             </div>
 
             {file && !extractedData && (
-              <Button onClick={handleUploadAndAnalyze} disabled={uploading || analyzing} className="mt-4 w-full bg-gradient-to-r from-cyan-500 via-violet-500 to-amber-500 border-0">
+              <Button onClick={handleUploadAndAnalyze} disabled={uploading || analyzing} className="mt-4 w-full sm:w-auto">
                 {uploading ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>
                 ) : analyzing ? (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -120,6 +120,7 @@ export default function JobBoard() {
   const { toast } = useToast();
   const [recJobs, setRecJobs] = useState<RecommendedJob[]>([]);
   const [collectedJobs, setCollectedJobs] = useState<any[]>([]);
+  const [collectedTotal, setCollectedTotal] = useState(0);
   const [savedRecIds, setSavedRecIds] = useState<Set<string>>(new Set());
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -133,10 +134,60 @@ export default function JobBoard() {
   const [showFilters, setShowFilters] = useState(false);
   const [collectedPage, setCollectedPage] = useState(1);
 
+  const fetchCollectedJobs = useCallback(async (page = collectedPage) => {
+    if (!user) return;
+    setLoading(true);
+    const pageStart = (page - 1) * COLLECTED_PAGE_SIZE;
+    const terms = [...new Set(search.trim()
+      .replace(/[^a-zA-Z0-9 .+#-]/g, " ")
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((word) => word.length >= 2))].slice(0, 4);
+    const strictSource = sourceFilter === "rss" || sourceFilter === "company_career";
+    const { data, error } = await supabase.rpc("search_collected_jobs" as never, {
+      p_terms: terms,
+      p_source: sourceFilter === "all" ? null : sourceFilter,
+      p_location: locationFilter.trim() || null,
+      p_job_type: jobTypeFilter === "all" ? null : jobTypeFilter,
+      p_work_mode: remoteFilter === "all" ? null : remoteFilter,
+      p_strict_match: strictSource,
+      p_limit: COLLECTED_PAGE_SIZE,
+      p_offset: pageStart,
+    } as never) as { data: any[] | null; error: { message: string } | null };
+
+    if (error) {
+      toast({ title: "Could not load jobs", description: error.message, variant: "destructive" });
+      setCollectedJobs([]);
+      setCollectedTotal(0);
+    } else {
+      const visibleJobs = (data || []).filter((job) => Boolean(job.recruiter_id || job.source_url));
+      setCollectedJobs(visibleJobs);
+      setCollectedTotal(Number(data?.[0]?.total_count || 0));
+    }
+    setLoading(false);
+  }, [collectedPage, jobTypeFilter, locationFilter, remoteFilter, search, sourceFilter, toast, user]);
+
   useEffect(() => {
     if (!user) return;
 
-    fetchRecommendedJobs();
+    const fetchProfileData = async () => {
+      const { data: recommended } = await supabase
+        .from("recommended_jobs")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("match_score", { ascending: false });
+      if (recommended) setRecJobs(recommended);
+
+      const { data: saved } = await supabase
+        .from("saved_jobs")
+        .select("recommended_job_id")
+        .eq("user_id", user.id)
+        .not("recommended_job_id", "is", null);
+      if (saved) setSavedRecIds(new Set(saved.map(s => s.recommended_job_id!).filter(Boolean)));
+      const { data: savedRegular } = await supabase.from("saved_jobs").select("job_id").eq("user_id", user.id).not("job_id", "is", null);
+      if (savedRegular) setSavedJobIds(new Set(savedRegular.map(s => s.job_id!).filter(Boolean)));
+    };
+    fetchProfileData();
 
     // Supabase Realtime subscription to reload jobs automatically
     const channel = supabase
@@ -150,7 +201,7 @@ export default function JobBoard() {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          fetchRecommendedJobs();
+          fetchCollectedJobs(1);
         }
       )
       .subscribe();
@@ -158,38 +209,26 @@ export default function JobBoard() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [fetchCollectedJobs, user]);
 
-  const fetchRecommendedJobs = async () => {
+  useEffect(() => {
     if (!user) return;
-    setLoading(true);
-    const { data } = await supabase
-      .from("recommended_jobs")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("match_score", { ascending: false });
-    if (data) setRecJobs(data);
-
-    const { data: collected } = await supabase.from("jobs").select("*").eq("is_active", true).eq("status" as any, "active").order("posted_at" as any, { ascending: false }).limit(100);
-    if (collected) setCollectedJobs(collected.filter((job) => Boolean(job.recruiter_id || job.source_url)));
-
-    const { data: saved } = await supabase
-      .from("saved_jobs")
-      .select("recommended_job_id")
-      .eq("user_id", user.id)
-      .not("recommended_job_id", "is", null);
-    if (saved) setSavedRecIds(new Set(saved.map(s => s.recommended_job_id!).filter(Boolean)));
-    const { data: savedRegular } = await supabase.from("saved_jobs").select("job_id").eq("user_id", user.id).not("job_id", "is", null);
-    if (savedRegular) setSavedJobIds(new Set(savedRegular.map(s => s.job_id!).filter(Boolean)));
-    setLoading(false);
-  };
+    const timer = window.setTimeout(() => fetchCollectedJobs(), 250);
+    return () => window.clearTimeout(timer);
+  }, [fetchCollectedJobs, user]);
 
   const handleRefresh = async () => {
+    if (sourceFilter === "all") {
+      toast({ title: "Choose a source first", description: "Select LinkedIn, Indeed, RSS feeds, or Company careers above. Each refresh runs one source group to stay fast and reliable." });
+      return;
+    }
+    if (!search.trim()) {
+      toast({ title: "Job title, skill, or company is required", description: "Enter at least one search term before refreshing a job source.", variant: "destructive" });
+      return;
+    }
     setScraping(true);
     try {
-      const role = profile?.desired_roles?.[0] || "";
-      const skills = profile?.skills || [];
-      const query = search.trim() || role || (skills.length ? skills.slice(0, 3).join(" ") : "software developer");
+      const query = search.trim();
       const userCity = locationFilter.trim() || "";
       const collectionLocation = userCity && !userCity.toLowerCase().includes("pakistan") ? `${userCity}, Pakistan` : (userCity || "Pakistan");
       const { data, error } = await supabase.functions.invoke("collect-jobs", {
@@ -209,8 +248,9 @@ export default function JobBoard() {
         const details = response ? await response.clone().json().catch(() => null) : null;
         throw new Error(details?.error || error.message || "Could not fetch new jobs");
       }
-      await fetchRecommendedJobs();
-      toast({ title: "Job collection complete", description: `Found ${data.found} jobs with direct posting links, added ${data.inserted} new listings.${data.skipped ? ` Rejected ${data.skipped} jobs without valid links.` : ""}${data.sourceErrors?.length ? ` ${data.sourceErrors.length} source(s) need attention.` : ""}` });
+      setCollectedPage(1);
+      await fetchCollectedJobs(1);
+      toast({ title: "Job collection complete", description: `Found ${data.found} jobs with direct posting links, added ${data.inserted} new listings.${data.duplicatesRemoved ? ` Removed ${data.duplicatesRemoved} duplicate${data.duplicatesRemoved === 1 ? "" : "s"}.` : ""}${data.skipped ? ` Rejected ${data.skipped} jobs without valid links.` : ""}${data.sourceErrors?.length ? ` ${data.sourceErrors.length} source(s) need attention.` : ""}` });
     } catch (err: any) {
       toast({ title: "Refresh failed", description: err.message || "Could not fetch new jobs", variant: "destructive" });
     } finally {
@@ -244,17 +284,7 @@ export default function JobBoard() {
     toast({ title: "Application link unavailable", description: "This source did not supply a direct application link for this role.", variant: "destructive" });
   };
 
-  const filteredCollected = useMemo(() => collectedJobs.filter((job) => {
-    const term = search.toLowerCase();
-    if (term && !`${job.title} ${job.company}`.toLowerCase().includes(term)) return false;
-    if (locationFilter && !String(job.location || "").toLowerCase().includes(locationFilter.toLowerCase())) return false;
-    if (jobTypeFilter !== "all" && String(job.job_type || "").toLowerCase() !== jobTypeFilter) return false;
-    if (sourceFilter !== "all" && job.source !== sourceFilter) return false;
-    if (remoteFilter !== "all" && String(job.work_mode || job.location || "").toLowerCase().indexOf(remoteFilter) < 0) return false;
-    return true;
-  }), [collectedJobs, search, locationFilter, jobTypeFilter, sourceFilter, remoteFilter]);
-  const collectedTotalPages = Math.max(1, Math.ceil(filteredCollected.length / COLLECTED_PAGE_SIZE));
-  const paginatedCollected = filteredCollected.slice((collectedPage - 1) * COLLECTED_PAGE_SIZE, collectedPage * COLLECTED_PAGE_SIZE);
+  const collectedTotalPages = Math.max(1, Math.ceil(collectedTotal / COLLECTED_PAGE_SIZE));
   useEffect(() => { setCollectedPage(1); }, [search, locationFilter, jobTypeFilter, sourceFilter, remoteFilter]);
 
   const toggleSaveRec = async (recJobId: string) => {
@@ -347,9 +377,10 @@ export default function JobBoard() {
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-end">
               <Button onClick={handleRefresh} disabled={scraping} className="min-w-48 gap-2 gradient-primary border-0 shadow-lg shadow-primary/20">
                 <RefreshCw className={`h-4 w-4 ${scraping ? "animate-spin" : ""}`} />
-                {scraping ? "Collecting roles..." : "Refresh job sources"}
+                {scraping ? "Collecting roles..." : sourceFilter === "all" ? "Choose a source to refresh" : `Refresh ${sourceLabel(sourceFilter)}`}
               </Button>
-              <p className="text-xs text-muted-foreground">{collectedJobs.length} roles currently indexed</p>
+              {sourceFilter === "all" && <p className="max-w-52 text-right text-xs text-muted-foreground">Choose a source above before refreshing. This prevents a slow provider from blocking every source.</p>}
+              <p className="text-xs text-muted-foreground">{collectedTotal} roles currently indexed</p>
             </div>
           </div>
         </section>
@@ -359,7 +390,7 @@ export default function JobBoard() {
             <div className="flex flex-col gap-3 lg:flex-row">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Job title, skill, or company" value={search} onChange={(e) => setSearch(e.target.value)} className="h-11 border-border/80 bg-background/60 pl-11" />
+                <Input aria-required="true" placeholder="Job title, skill, or company (required to refresh)" value={search} onChange={(e) => setSearch(e.target.value)} className="h-11 border-border/80 bg-background/60 pl-11" />
               </div>
               <div className="relative lg:w-64">
                 <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -380,16 +411,16 @@ export default function JobBoard() {
             )}
           </CardContent>
         </Card>
-        {filteredCollected.length > 0 && (
+        {collectedJobs.length > 0 && (
           <section className="space-y-3">
             <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="font-display text-xl font-semibold">Open roles</h2>
-                <p className="mt-0.5 text-sm text-muted-foreground">{filteredCollected.length} matching role{filteredCollected.length !== 1 ? "s" : ""} · Page {collectedPage} of {collectedTotalPages}</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">{collectedTotal} matching role{collectedTotal !== 1 ? "s" : ""} · Page {collectedPage} of {collectedTotalPages}</p>
               </div>
               <Badge variant="secondary" className="w-fit border border-border/70 bg-muted/50 font-normal">Updated from live sources</Badge>
             </div>
-            {paginatedCollected.map((job) => (
+            {collectedJobs.map((job) => (
               <Card key={`modern-${job.id}`} className="group overflow-hidden border-border/80 bg-card shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-card-hover">
                 <CardContent className="p-0">
                   <div className="flex gap-4 p-5 md:gap-5 md:p-6">
@@ -397,6 +428,7 @@ export default function JobBoard() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline" className="border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">{sourceLabel(job.source)}</Badge>
+                        {(job.source === "rss" || job.source === "company_career") && search.trim() && <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">{Math.round(Number(job.match_score || 0))}% match</Badge>}
                         {isNewJob(job.posted_at || job.created_at) && <Badge className="bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 hover:bg-emerald-500/15">New</Badge>}
                       </div>
                       <h3 className="mt-2 font-display text-lg font-semibold leading-snug text-foreground transition-colors group-hover:text-primary md:text-xl">{job.title}</h3>
@@ -425,21 +457,21 @@ export default function JobBoard() {
           </section>
         )}
 
-        {false && filteredCollected.length > 0 && (
+        {false && collectedJobs.length > 0 && (
           <section className="space-y-3">
-            <div className="flex items-center justify-between px-1"><p className="text-sm text-muted-foreground">{filteredCollected.length} collected job{filteredCollected.length !== 1 ? "s" : ""} · Page {collectedPage} of {collectedTotalPages}</p><Badge variant="secondary">All sources</Badge></div>
-            {paginatedCollected.map((job) => (
+            <div className="flex items-center justify-between px-1"><p className="text-sm text-muted-foreground">{collectedTotal} collected job{collectedTotal !== 1 ? "s" : ""} · Page {collectedPage} of {collectedTotalPages}</p><Badge variant="secondary">All sources</Badge></div>
+            {collectedJobs.map((job) => (
               <Card key={job.id} className="shadow-card hover:shadow-card-hover transition-all"><CardContent className="p-5 flex items-start justify-between gap-4"><div className="min-w-0"><h3 className="font-display text-lg font-semibold">{job.title}</h3><div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground flex-wrap"><span className="flex items-center gap-1"><Building2 className="h-3.5 w-3.5" />{job.company}</span>{job.location && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{job.location}</span>}{job.job_type && <span>{job.job_type}</span>}{job.posted_at && <span>Posted {new Date(job.posted_at).toLocaleDateString()}</span>}</div><div className="flex gap-1.5 mt-2"><Badge variant="outline">{job.source}</Badge>{(job.skills || []).slice(0, 4).map((skill: string) => <Badge key={skill} variant="outline">{skill}</Badge>)}</div>{job.description && <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{job.description}</p>}</div><div className="flex flex-col gap-2"><Button variant="ghost" size="icon" onClick={() => toggleSaveJob(job.id)}>{savedJobIds.has(job.id) ? <BookmarkCheck className="h-5 w-5 text-primary" /> : <Bookmark className="h-5 w-5" />}</Button>{(job.source_url || job.recruiter_id) && <Button size="sm" onClick={() => applyToCollectedJob(job)}>{job.recruiter_id ? "Apply" : <>Apply <ExternalLink className="ml-1 h-3.5 w-3.5" /></>}</Button>}</div></CardContent></Card>
             ))}
             {collectedTotalPages > 1 && <div className="flex items-center justify-center gap-3 pt-2"><Button variant="outline" size="sm" disabled={collectedPage === 1} onClick={() => setCollectedPage((page) => Math.max(1, page - 1))}>Previous</Button><span className="text-sm text-muted-foreground">Page {collectedPage} / {collectedTotalPages}</span><Button variant="outline" size="sm" disabled={collectedPage === collectedTotalPages} onClick={() => setCollectedPage((page) => Math.min(collectedTotalPages, page + 1))}>Next</Button></div>}
           </section>
         )}
-        {!loading && collectedJobs.length > 0 && filteredCollected.length === 0 && (
+        {!loading && collectedJobs.length === 0 && collectedTotal === 0 && hasActiveFilters && (
           <Card className="border-dashed border-border/90 bg-card/60 shadow-card">
             <CardContent className="py-12 text-center">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10"><Filter className="h-5 w-5 text-primary" /></div>
               <h3 className="font-display text-xl font-semibold">No roles match this search</h3>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">Your saved collection has {collectedJobs.length} roles. Adjust the filters to bring them back into view.</p>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">RSS and company-career roles need a 30%+ match across title, skills, and description, with at least one term in the title or skills. Try a broader keyword or clear the filters.</p>
               <Button className="mt-5 gap-1.5" variant="outline" onClick={clearFilters}><X className="h-3.5 w-3.5" /> Clear filters</Button>
             </CardContent>
           </Card>
@@ -448,7 +480,7 @@ export default function JobBoard() {
           <div className="flex items-center justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           </div>
-        ) : collectedJobs.length > 0 ? null : filtered.length === 0 ? (
+        ) : collectedTotal > 0 ? null : filtered.length === 0 ? (
           <Card className="shadow-card">
             <CardContent className="py-12 text-center">
               <Briefcase className="mx-auto h-12 w-12 text-muted-foreground mb-4" />

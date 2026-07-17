@@ -239,10 +239,10 @@ export default function Analytics() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
-            <h1 className="font-display text-3xl font-bold text-slate-900">
+            <h1 className="font-display text-3xl font-bold text-foreground">
               {isRecruiter ? "Recruiter Analytics" : "Job Market Analytics"}
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="mt-1 text-sm text-muted-foreground">
               {isRecruiter
                 ? "Track applications, funnel performance, and hiring conversion."
                 : "Live insights from active job listings & your applications."}

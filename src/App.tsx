@@ -34,6 +34,8 @@ const AdminAnalytics = lazy(() => import("./pages/AdminAnalytics"));
 const AdminVoice = lazy(() => import("./pages/AdminVoice"));
 const RecruiterJobs = lazy(() => import("./pages/recruiter/RecruiterJobs"));
 const RecruiterCandidates = lazy(() => import("./pages/recruiter/RecruiterCandidates"));
+const RecruiterProfile = lazy(() => import("./pages/recruiter/RecruiterProfile"));
+const RecruiterApplicationStatus = lazy(() => import("./pages/recruiter/RecruiterApplicationStatus"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -66,21 +68,23 @@ const App = () => (
               <Route path="/contact" element={<Contact />} />
               <Route path="/privacy" element={<Privacy />} />
               {/* Job Seeker routes */}
-              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/dashboard/cv" element={<ProtectedRoute><CVUpload /></ProtectedRoute>} />
-              <Route path="/dashboard/jobs" element={<ProtectedRoute><JobBoard /></ProtectedRoute>} />
-              <Route path="/dashboard/saved" element={<ProtectedRoute><SavedJobs /></ProtectedRoute>} />
-              <Route path="/dashboard/applications" element={<ProtectedRoute><Applications /></ProtectedRoute>} />
-              <Route path="/dashboard/auto-fill" element={<ProtectedRoute><AutoFormFill /></ProtectedRoute>} />
-              <Route path="/dashboard/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-              <Route path="/dashboard/assistant" element={<ProtectedRoute><VoiceAssistant /></ProtectedRoute>} />
-              <Route path="/dashboard/voice-agent" element={<ProtectedRoute><VoiceAgent /></ProtectedRoute>} />
-              <Route path="/dashboard/settings" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
-              <Route path="/dashboard/extension" element={<ProtectedRoute><Extension /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute requiredRole="user"><Dashboard /></ProtectedRoute>} />
+              <Route path="/dashboard/cv" element={<ProtectedRoute requiredRole="user"><CVUpload /></ProtectedRoute>} />
+              <Route path="/dashboard/jobs" element={<ProtectedRoute requiredRole="user"><JobBoard /></ProtectedRoute>} />
+              <Route path="/dashboard/saved" element={<ProtectedRoute requiredRole="user"><SavedJobs /></ProtectedRoute>} />
+              <Route path="/dashboard/applications" element={<ProtectedRoute requiredRole="user"><Applications /></ProtectedRoute>} />
+              <Route path="/dashboard/auto-fill" element={<ProtectedRoute requiredRole="user"><AutoFormFill /></ProtectedRoute>} />
+              <Route path="/dashboard/analytics" element={<ProtectedRoute requiredRole="user"><Analytics /></ProtectedRoute>} />
+              <Route path="/dashboard/assistant" element={<ProtectedRoute requiredRole="user"><VoiceAssistant /></ProtectedRoute>} />
+              <Route path="/dashboard/voice-agent" element={<ProtectedRoute requiredRole="user"><VoiceAgent /></ProtectedRoute>} />
+              <Route path="/dashboard/settings" element={<ProtectedRoute requiredRole="user"><ProfileSettings /></ProtectedRoute>} />
+              <Route path="/dashboard/extension" element={<ProtectedRoute requiredRole="user"><Extension /></ProtectedRoute>} />
               {/* Recruiter routes */}
               <Route path="/recruiter" element={<Navigate to="/recruiter/jobs" replace />} />
+              <Route path="/recruiter/profile" element={<ProtectedRoute requiredRole="recruiter"><RecruiterProfile /></ProtectedRoute>} />
               <Route path="/recruiter/jobs" element={<ProtectedRoute requiredRole="recruiter"><RecruiterJobs /></ProtectedRoute>} />
               <Route path="/recruiter/candidates" element={<ProtectedRoute requiredRole="recruiter"><RecruiterCandidates /></ProtectedRoute>} />
+              <Route path="/recruiter/application-status" element={<ProtectedRoute requiredRole="recruiter"><RecruiterApplicationStatus /></ProtectedRoute>} />
               {/* Admin routes */}
               <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><AdminUsers /></ProtectedRoute>} />
