@@ -6,8 +6,8 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 const certificatePath = path.resolve(__dirname, ".certs/jobai-local.pfx");
-const certificatePassword = process.env.JOBAI_LOCAL_CERT_PASSWORD;
-const localHttps = fs.existsSync(certificatePath) && certificatePassword
+const certificatePassword = process.env.JOBAI_LOCAL_CERT_PASSWORD ?? "jobai-local-dev";
+const localHttps = fs.existsSync(certificatePath)
   ? { pfx: fs.readFileSync(certificatePath), passphrase: certificatePassword }
   : undefined;
 
@@ -15,7 +15,8 @@ export default defineConfig(({ mode }) => ({
   server: {
     // HTTPS is automatically enabled after `npm run setup:https`.
     // It is required for microphone access through a LAN IP address.
-    host: "0.0.0.0",
+    // IPv6 dual-stack binding serves both https://localhost and the LAN IPv4 URL.
+    host: "::",
     port: 5181,
     strictPort: true,
     https: localHttps,

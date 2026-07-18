@@ -23,7 +23,7 @@ if (-not $lanAddress) {
 
 New-Item -ItemType Directory -Force -Path $certificateDirectory | Out-Null
 Remove-Item -LiteralPath $pfxPath, $publicCertificatePath -Force -ErrorAction SilentlyContinue
-$password = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 32 | ForEach-Object { [char]$_ })
+$password = 'jobai-local-dev'
 $securePassword = ConvertTo-SecureString -String $password -AsPlainText -Force
 
 $certificate = New-SelfSignedCertificate `
@@ -40,8 +40,6 @@ $certificate = New-SelfSignedCertificate `
 Export-PfxCertificate -Cert $certificate -FilePath $pfxPath -Password $securePassword | Out-Null
 Export-Certificate -Cert $certificate -FilePath $publicCertificatePath | Out-Null
 Import-Certificate -FilePath $publicCertificatePath -CertStoreLocation 'Cert:\CurrentUser\Root' | Out-Null
-[Environment]::SetEnvironmentVariable('JOBAI_LOCAL_CERT_PASSWORD', $password, 'User')
-$env:JOBAI_LOCAL_CERT_PASSWORD = $password
 
 Write-Host ''
 Write-Host 'Local HTTPS is ready.' -ForegroundColor Green
