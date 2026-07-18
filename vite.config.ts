@@ -6,7 +6,10 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 const certificatePath = path.resolve(__dirname, ".certs/jobai-local.pfx");
-const certificatePassword = process.env.JOBAI_LOCAL_CERT_PASSWORD ?? "jobai-local-dev";
+// The development certificate is generated locally by `npm run setup:https`.
+// Keep its password in sync with that script instead of inheriting a stale
+// machine-level environment variable from another computer.
+const certificatePassword = "jobai-local-dev";
 const localHttps = fs.existsSync(certificatePath)
   ? { pfx: fs.readFileSync(certificatePath), passphrase: certificatePassword }
   : undefined;

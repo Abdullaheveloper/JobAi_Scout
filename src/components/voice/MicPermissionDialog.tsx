@@ -21,10 +21,11 @@ export function MicPermissionDialog({
 }: MicPermissionDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-slate-900 border-white/10 text-white">
+      <DialogContent className="sm:max-w-md overflow-hidden border border-white/10 bg-[#0b1028]/95 text-white shadow-[0_30px_90px_rgba(2,6,23,.7)] backdrop-blur-2xl">
+        <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-300/70 to-transparent" />
         <DialogHeader>
-          <div className="mx-auto w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center mb-4">
-            <Mic className="text-indigo-400" size={24} />
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-300/20 bg-gradient-to-br from-indigo-500/25 to-violet-500/20 shadow-[0_12px_28px_rgba(99,102,241,.2)]">
+            <Mic className="text-indigo-200" size={24} />
           </div>
           <DialogTitle className="text-center text-lg font-bold">{title}</DialogTitle>
           <DialogDescription className="text-center text-white/50 text-sm mt-2">
@@ -32,12 +33,12 @@ export function MicPermissionDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="bg-white/5 rounded-xl p-4 border border-white/10 space-y-3">
+        <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[.045] p-4">
           <div className="flex gap-3">
-            <ShieldCheck size={18} className="text-indigo-400 flex-shrink-0 mt-0.5" />
+            <ShieldCheck size={18} className="mt-0.5 shrink-0 text-indigo-200" />
             <div className="space-y-1">
-              <h4 className="text-xs font-semibold text-white/80">Your voice data</h4>
-              <p className="text-xs text-white/40 leading-relaxed">
+              <h4 className="text-xs font-semibold text-white/90">Your voice data</h4>
+              <p className="text-xs leading-relaxed text-slate-400">
                 Audio is recorded to transcribe your question. Your voice history may be stored privately in your account so you can replay it later.
               </p>
             </div>
@@ -47,7 +48,7 @@ export function MicPermissionDialog({
         <DialogFooter className="sm:justify-center mt-2">
           <Button
             onClick={onRequestPermission}
-            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl px-6 py-2"
+            className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-6 py-2 font-semibold text-white shadow-[0_12px_28px_rgba(99,102,241,.26)] hover:brightness-110 sm:w-auto"
           >
             {actionLabel}
           </Button>

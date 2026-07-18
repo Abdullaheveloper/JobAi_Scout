@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface WaveformVisualizerProps {
@@ -15,6 +16,7 @@ export function WaveformVisualizer({
   barCount = 32,
 }: WaveformVisualizerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     let animId: number;
@@ -26,7 +28,7 @@ export function WaveformVisualizer({
           const bar = bars[i] as HTMLDivElement;
           if (isActive) {
             // Generate some random noise blended with the actual volume input
-            const factor = Math.abs(Math.sin(Date.now() / 150 + i * 0.3));
+            const factor = reducedMotion ? 0.2 : Math.abs(Math.sin(Date.now() / 150 + i * 0.3));
             const level = volume * 0.7 + factor * 0.3;
             // Map 0-1 to height 4px to 64px
             const height = 4 + level * 60;
@@ -36,12 +38,12 @@ export function WaveformVisualizer({
           }
         }
       }
-      animId = requestAnimationFrame(updateBars);
+      if (!reducedMotion) animId = requestAnimationFrame(updateBars);
     };
 
     animId = requestAnimationFrame(updateBars);
     return () => cancelAnimationFrame(animId);
-  }, [isActive, volume]);
+  }, [isActive, volume, reducedMotion]);
 
   const colorClasses = {
     indigo: 'bg-gradient-to-t from-indigo-500 via-indigo-400 to-violet-500',
@@ -52,6 +54,7 @@ export function WaveformVisualizer({
   return (
     <div
       ref={containerRef}
+      aria-hidden="true"
       className="flex items-center justify-center gap-1 h-20 w-full px-4 overflow-hidden"
     >
       {Array.from({ length: barCount }).map((_, i) => (
