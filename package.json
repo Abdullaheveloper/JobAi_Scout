@@ -4,16 +4,18 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node sync-env-to-supabase.js && vite",
+    "dev": "node sync-env-to-supabase.js && node scripts/sync-extension-config.mjs && vite",
     "setup:https": "powershell.exe -ExecutionPolicy Bypass -File scripts/setup-local-https.ps1",
-    "dev:https": "node sync-env-to-supabase.js && vite",
-    "build": "vite build",
+    "dev:https": "node sync-env-to-supabase.js && node scripts/sync-extension-config.mjs && vite",
+    "build": "node scripts/sync-extension-config.mjs && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
     "cv-extractor": "cd services/cv-extractor && python main.py",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "extension:config": "node scripts/sync-extension-config.mjs",
+    "extension:test": "node extension/decision-engine.test.mjs && node extension/content.smoke.test.mjs && node extension/google-forms.test.mjs && node extension/resume-upload.test.mjs"
   },
   "dependencies": {
     "@elevenlabs/react": "^1.9.0",

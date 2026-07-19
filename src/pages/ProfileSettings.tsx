@@ -12,9 +12,15 @@ import { hasValue } from "@/lib/constants";
 import {
   Loader2, Save, User, Phone, Linkedin, Github, Mail, Briefcase, Sparkles,
   MapPin, Globe, Building2, GraduationCap, Award,
-  Languages, DollarSign, AlertCircle, ShieldCheck, Bot,
+  Languages, DollarSign, AlertCircle, ShieldCheck, Bot, ImagePlus, Upload,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import CareerProfileWorkspace from "@/components/profile/CareerProfileWorkspace";
+import {
+  AutofillPreferences, CareerProfile, defaultAutofillPreferences, emptyCareerProfile,
+  normalizeAutofillPreferences, normalizeCareerProfile,
+} from "@/lib/career-profile";
 
 // ── Color-coded section themes ─────────────────────────────────
 const SECTION_THEMES = {
@@ -129,6 +135,8 @@ export default function ProfileSettings() {
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [profileImageUploading, setProfileImageUploading] = useState(false);
+  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -148,6 +156,7 @@ export default function ProfileSettings() {
     languages: "",
     work_authorization: "",
     willing_to_relocate: "",
+    commute_to_office: "",
     availability: "",
     work_type: "",
     application_answers: "",
@@ -155,6 +164,8 @@ export default function ProfileSettings() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [changedFields, setChangedFields] = useState<Set<string>>(new Set());
+  const [careerProfile, setCareerProfile] = useState<CareerProfile>(emptyCareerProfile());
+  const [autofillPreferences, setAutofillPreferences] = useState<AutofillPreferences>(defaultAutofillPreferences());
 
   const dataSources = useMemo(() => {
     try {
@@ -190,14 +201,76 @@ export default function ProfileSettings() {
         languages: ((profile as any).languages || []).join(", "),
         work_authorization: (profile as any).work_authorization || "",
         willing_to_relocate: (profile as any).willing_to_relocate || "",
+        commute_to_office: (profile as any).commute_to_office || "",
         availability: (profile as any).availability || "",
         work_type: (profile as any).work_type || "",
         application_answers: Object.entries(((profile as any).application_answers || {}) as Record<string, unknown>)
           .map(([question, answer]) => `${question} = ${String(answer)}`)
           .join("\n"),
       });
+      setCareerProfile(normalizeCareerProfile((profile as any).career_profile));
+      setAutofillPreferences(normalizeAutofillPreferences((profile as any).autofill_preferences));
     }
   }, [profile]);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    const path = (profile as any)?.avatar_url as string | undefined;
+    if (!path) {
+      setProfileImagePreview(null);
+      return;
+    }
+    if (/^https?:\/\//i.test(path)) {
+      setProfileImagePreview(path);
+      return;
+    }
+    supabase.storage.from("profile-assets").download(path).then(({ data, error }) => {
+      if (cancelled || error || !data) return;
+      objectUrl = URL.createObjectURL(data);
+      setProfileImagePreview(objectUrl);
+    });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [(profile as any)?.avatar_url]);
+
+  const handleProfileImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !user) return;
+    const extension = file.name.toLowerCase().match(/\.(jpe?g|png|webp)$/)?.[1];
+    if (!extension || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast({ title: "Unsupported image", description: "Choose a JPG, PNG, or WEBP profile image.", variant: "destructive" });
+      return;
+    }
+    if (file.size <= 0 || file.size > 5 * 1024 * 1024) {
+      toast({ title: "Image is too large", description: "Your profile image must be smaller than 5 MB.", variant: "destructive" });
+      return;
+    }
+    setProfileImageUploading(true);
+    const normalizedExtension = extension === "jpeg" ? "jpg" : extension;
+    const filePath = `${user.id}/${Date.now()}_profile.${normalizedExtension}`;
+    const { error: uploadError } = await supabase.storage.from("profile-assets").upload(filePath, file, {
+      contentType: file.type,
+      upsert: false,
+    });
+    if (uploadError) {
+      toast({ title: "Image upload failed", description: uploadError.message, variant: "destructive" });
+      setProfileImageUploading(false);
+      return;
+    }
+    const { error: profileError } = await supabase.from("profiles").update({ avatar_url: filePath }).eq("user_id", user.id);
+    if (profileError) {
+      await supabase.storage.from("profile-assets").remove([filePath]);
+      toast({ title: "Image could not be saved", description: profileError.message, variant: "destructive" });
+    } else {
+      await refreshProfile();
+      toast({ title: "Profile image updated", description: "It is ready for supported job-application photo fields." });
+    }
+    setProfileImageUploading(false);
+  };
 
   const updateField = (key: string, value: string | number) => {
     setForm(f => ({ ...f, [key]: value }));
@@ -254,9 +327,12 @@ export default function ProfileSettings() {
       languages: form.languages ? form.languages.split(",").map(s => s.trim()).filter(Boolean) : [],
       work_authorization: form.work_authorization || null,
       willing_to_relocate: form.willing_to_relocate || null,
+      commute_to_office: form.commute_to_office || null,
       availability: form.availability.trim() || null,
       work_type: form.work_type || null,
       application_answers: applicationAnswers,
+      career_profile: careerProfile,
+      autofill_preferences: autofillPreferences,
     };
 
     const { error: fullError } = await supabase.from("profiles").update({ ...corePayload, ...extendedPayload }).eq("user_id", user.id);
@@ -276,7 +352,7 @@ export default function ProfileSettings() {
     if (error) {
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
     } else {
-      const changedKeys = Array.from(changedFields).filter(k => k !== "email");
+      const changedKeys = [...Array.from(changedFields).filter(k => k !== "email"), "career_profile", "autofill_preferences"];
       if (changedKeys.length > 0) {
         try {
           await supabase.rpc("update_profile_data_sources", {
@@ -308,11 +384,13 @@ export default function ProfileSettings() {
       { label: "Roles", key: "desired_roles", done: hasValue(p.desired_roles) },
       { label: "Experience", key: "experience_years", done: hasValue(p.experience_years) },
       { label: "Resume", key: "resume_url", done: hasValue(p.resume_url) },
+      { label: "Profile image", key: "avatar_url", done: hasValue((p as any).avatar_url) },
       { label: "LinkedIn", key: "linkedin_url", done: hasValue(p.linkedin_url) },
       { label: "GitHub", key: "github_url", done: hasValue(p.github_url) },
       { label: "Portfolio", key: "portfolio_url", done: hasValue((p as any).portfolio_url) },
       { label: "Company", key: "current_company", done: hasValue((p as any).current_company) },
       { label: "Education", key: "education", done: hasValue((p as any).education) },
+      { label: "Career history", key: "career_profile", done: normalizeCareerProfile((p as any).career_profile).experiences.length > 0 },
     ];
   }, [profile]);
 
@@ -385,6 +463,19 @@ export default function ProfileSettings() {
             <CardDescription>Your essential contact and career information.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex flex-col gap-4 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 sm:flex-row sm:items-center">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-cyan-300/25 bg-slate-950/40 text-xl font-bold text-cyan-200">
+                {profileImagePreview ? <img src={profileImagePreview} alt="Your profile" className="h-full w-full object-cover" /> : <ImagePlus className="h-7 w-7" aria-hidden="true" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <Label htmlFor="profile-image" className={`font-semibold ${P.titleColor}`}>Application profile image</Label>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">Private JPG, PNG, or WEBP up to 5 MB. The extension uses it only for clearly labelled photo or headshot fields.</p>
+                <input id="profile-image" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" className="sr-only" onChange={handleProfileImageUpload} />
+                <Button type="button" variant="outline" size="sm" className="mt-3 gap-2" disabled={profileImageUploading} asChild={!profileImageUploading}>
+                  {profileImageUploading ? <span><Loader2 className="h-4 w-4 animate-spin" />Uploading…</span> : <label htmlFor="profile-image" className="cursor-pointer"><Upload className="h-4 w-4" />{profileImagePreview ? "Replace image" : "Upload image"}</label>}
+                </Button>
+              </div>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="full_name" className={`flex items-center gap-1.5 ${P.titleColor}`}>
@@ -569,6 +660,14 @@ export default function ProfileSettings() {
         </Card>
 
         {/* ── Additional Info (Amber) ─────────────────────── */}
+        <CareerProfileWorkspace
+          value={careerProfile}
+          onChange={(next) => {
+            setCareerProfile(next);
+            setChangedFields((current) => new Set(current).add("career_profile"));
+          }}
+        />
+
         <Card className="border-border bg-card shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-display">
@@ -599,20 +698,22 @@ export default function ProfileSettings() {
         <Card className="border-border bg-card shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-display"><ShieldCheck className="h-5 w-5 text-primary" /> Application autofill</CardTitle>
-            <CardDescription>Used only to answer job-application questions you have confirmed are accurate.</CardDescription>
+            <CardDescription>Control how the extension uses facts you have personally confirmed. It never invents an answer or accepts legal terms for you.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2"><Label htmlFor="work_authorization" className="text-indigo-200">Work authorization</Label><select id="work_authorization" value={form.work_authorization} onChange={e => updateField("work_authorization", e.target.value)} className="flex h-10 w-full rounded-md border border-white/10 bg-[#0d1230]/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose an answer</option><option value="yes">Authorized to work</option><option value="no">Not authorized to work</option></select></div>
               <div className="space-y-2"><Label htmlFor="willing_to_relocate" className="text-indigo-200">Willing to relocate</Label><select id="willing_to_relocate" value={form.willing_to_relocate} onChange={e => updateField("willing_to_relocate", e.target.value)} className="flex h-10 w-full rounded-md border border-white/10 bg-[#0d1230]/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option></select></div>
               <div className="space-y-2"><Label htmlFor="work_type" className="text-indigo-200">Work preference</Label><select id="work_type" value={form.work_type} onChange={e => updateField("work_type", e.target.value)} className="flex h-10 w-full rounded-md border border-white/10 bg-[#0d1230]/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose a preference</option><option value="onsite">On-site</option><option value="hybrid">Hybrid</option><option value="remote">Remote</option></select></div>
+              <div className="space-y-2"><Label htmlFor="commute_to_office" className="text-indigo-200">Comfortable commuting to an office</Label><select id="commute_to_office" value={form.commute_to_office} onChange={e => updateField("commute_to_office", e.target.value)} className="flex h-10 w-full rounded-md border border-white/10 bg-[#0d1230]/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option><option value="depends">Depends on location</option></select><p className="text-xs text-muted-foreground">Used only for explicit commute questions; location-dependent answers remain for review.</p></div>
               <div className="space-y-2"><Label htmlFor="availability" className="text-indigo-200">Availability to start</Label><ColorInput id="availability" value={form.availability} onChange={e => updateField("availability", e.target.value)} placeholder="Immediately, 2 weeks, 4 weeks..." inputFocus="focus-visible:ring-indigo-400/60" /></div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="application_answers" className="text-indigo-200">Employer-specific answers</Label>
-              <ColorTextarea id="application_answers" value={form.application_answers} onChange={e => updateField("application_answers", e.target.value)} placeholder={"deployed and debugged an application on a linux server = Yes\nable to work onsite in Karachi = Yes"} rows={4} inputFocus="focus-visible:ring-indigo-400/60" className={errors.application_answers ? "border-rose-400/50" : ""} />
-              {errors.application_answers ? <p className="text-xs text-rose-400">{errors.application_answers}</p> : <p className="text-xs text-slate-400">One answer per line: <code>question phrase = answer</code>. These answers override automatic guesses.</p>}
+            <div className="grid gap-4 rounded-xl border border-primary/20 bg-primary/[0.04] p-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+              <div className="space-y-2"><Label htmlFor="text-confidence" className="text-indigo-200">Text-field confidence</Label><Input id="text-confidence" type="number" min="0.75" max="1" step="0.01" value={autofillPreferences.textAutofillConfidence} onChange={event => setAutofillPreferences(current => ({ ...current, textAutofillConfidence: Math.min(1, Math.max(0.75, Number(event.target.value) || 0.75)) }))} className="border-white/10 bg-[#0d1230]/80" /><p className="text-xs text-muted-foreground">Safe text fields are filled at or above this evidence score.</p></div>
+              <div className="space-y-2"><Label htmlFor="checkbox-confidence" className="text-indigo-200">Non-sensitive checkbox threshold</Label><Input id="checkbox-confidence" type="number" min="0.41" max="1" step="0.01" value={autofillPreferences.checkboxConfidence} onChange={event => setAutofillPreferences(current => ({ ...current, checkboxConfidence: Math.min(1, Math.max(0.41, Number(event.target.value) || 0.41)) }))} className="border-white/10 bg-[#0d1230]/80" /><p className="text-xs text-muted-foreground">40% is the minimum suggestion threshold; direct evidence is still required.</p></div>
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-black/15 px-3 py-2.5 text-sm"><Switch checked={autofillPreferences.reviewBeforeSensitiveAnswers} onCheckedChange={checked => setAutofillPreferences(current => ({ ...current, reviewBeforeSensitiveAnswers: checked }))} /><span>Review sensitive suggestions</span></label>
             </div>
+            <div className="rounded-xl border border-amber-400/20 bg-amber-500/[0.06] px-4 py-3 text-sm leading-6 text-amber-100/90"><strong>Always manual:</strong> terms, privacy consent, declarations, diversity/self-identification, CAPTCHA, verification codes, assessments, and final submission. The extension can explain a suggestion but will never click them.</div>
           </CardContent>
         </Card>
 

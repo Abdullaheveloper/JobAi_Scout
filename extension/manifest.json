@@ -1,10 +1,28 @@
 {
   "manifest_version": 3,
   "name": "Job Form Fill",
-  "version": "3.0.0",
-  "description": "Auto-fill job application forms with your profile. Works on LinkedIn, Indeed, Greenhouse, Lever, and any web form.",
-  "permissions": ["activeTab", "storage", "scripting", "identity"],
-  "host_permissions": ["<all_urls>"],
+  "version": "4.3.0",
+  "description": "Evidence-led job application assistance with safe profile filling and applicant review.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "identity"
+  ],
+  "host_permissions": [
+    "https://*.greenhouse.io/*",
+    "https://jobs.lever.co/*",
+    "https://*.myworkdayjobs.com/*",
+    "https://*.ashbyhq.com/*",
+    "https://*.smartrecruiters.com/*",
+    "https://*.jobvite.com/*",
+    "https://*.icims.com/*",
+    "https://apply.workable.com/*",
+    "https://www.linkedin.com/*",
+    "https://*.indeed.com/*",
+    "https://docs.google.com/forms/*",
+    "https://uhvjleclbpseveyeajap.supabase.co/*"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -15,10 +33,24 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_idle",
-      "all_frames": true
+      "matches": [
+        "https://*.greenhouse.io/*",
+        "https://jobs.lever.co/*",
+        "https://*.myworkdayjobs.com/*",
+        "https://*.ashbyhq.com/*",
+        "https://*.smartrecruiters.com/*",
+        "https://*.jobvite.com/*",
+        "https://*.icims.com/*",
+        "https://apply.workable.com/*",
+        "https://www.linkedin.com/*",
+        "https://*.indeed.com/*",
+        "https://docs.google.com/forms/*"
+      ],
+      "js": [
+        "decision-engine.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "icons": {

@@ -26,7 +26,6 @@ const Analytics = lazy(() => import("./pages/Analytics"));
 const VoiceAssistant = lazy(() => import("./pages/VoiceAssistant"));
 const VoiceAgent = lazy(() => import("./pages/VoiceAgent"));
 const ProfileSettings = lazy(() => import("./pages/ProfileSettings"));
-const Extension = lazy(() => import("./pages/Extension"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers"));
 const AdminJobs = lazy(() => import("./pages/AdminJobs"));
@@ -78,7 +77,7 @@ const App = () => (
               <Route path="/dashboard/assistant" element={<ProtectedRoute requiredRole="user"><VoiceAssistant /></ProtectedRoute>} />
               <Route path="/dashboard/voice-agent" element={<ProtectedRoute requiredRole="user"><VoiceAgent /></ProtectedRoute>} />
               <Route path="/dashboard/settings" element={<ProtectedRoute requiredRole="user"><ProfileSettings /></ProtectedRoute>} />
-              <Route path="/dashboard/extension" element={<ProtectedRoute requiredRole="user"><Extension /></ProtectedRoute>} />
+              <Route path="/dashboard/extension" element={<Navigate to="/dashboard/auto-fill" replace />} />
               {/* Recruiter routes */}
               <Route path="/recruiter" element={<Navigate to="/recruiter/jobs" replace />} />
               <Route path="/recruiter/profile" element={<ProtectedRoute requiredRole="recruiter"><RecruiterProfile /></ProtectedRoute>} />

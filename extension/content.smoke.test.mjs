@@ -12,6 +12,7 @@ const dom = new JSDOM(`<!doctype html><form aria-label="Job application">
   <label>Willing to relocate <input id="relocate" type="checkbox"></label>
   <label>Have you deployed and debugged an application on a Linux server?<select id="linux"><option value="">Select</option><option value="yes">Yes</option><option value="no">No</option></select></label>
   <label>Upload resume <input id="resume" type="file"></label>
+  <label>Profile photo <input id="photo" type="file" accept="image/*"></label>
 </form>`, { url: "https://example.com/jobs/apply", runScripts: "outside-only" });
 
 const { window } = dom;
@@ -31,15 +32,22 @@ class FakeDataTransfer {
 }
 window.DataTransfer = FakeDataTransfer;
 Object.defineProperty(window.document.querySelector("#resume"), "files", { configurable: true, writable: true, value: null });
+Object.defineProperty(window.document.querySelector("#photo"), "files", { configurable: true, writable: true, value: null });
 
 let messageListener;
 window.chrome = {
-  runtime: { onMessage: { addListener: (listener) => { messageListener = listener; } } },
+  runtime: {
+    getURL: (path) => `chrome-extension://jobai/${path}`,
+    onMessage: { addListener: (listener) => { messageListener = listener; } },
+  },
   storage: { local: { get: async () => ({ session: { access_token: "test-token", user: { id: "test-user", email: "test@example.com" } } }) } },
 };
 globalThis.chrome = window.chrome;
-window.fetch = async () => ({ ok: true, blob: async () => new window.Blob(["resume"], { type: "application/pdf" }) });
+window.fetch = async (url) => String(url).endsWith("config.local.json")
+  ? { ok: true, json: async () => ({ supabaseUrl: "https://example.supabase.co", anonKey: "test-anon" }) }
+  : { ok: true, blob: async () => new window.Blob(["resume"], { type: "application/pdf" }) };
 
+window.eval(fs.readFileSync(new URL("./decision-engine.js", import.meta.url), "utf8"));
 window.eval(fs.readFileSync(new URL("./content.js", import.meta.url), "utf8"));
 assert.ok(messageListener, "Content script must register its fill message handler");
 
@@ -48,7 +56,8 @@ const result = await new Promise((resolve) => {
     full_name: "Ayesha Khan", email: "ayesha@example.com", experience_years: 4,
     location: "Karachi, Pakistan", work_type: "onsite", availability: "Immediately",
     work_authorization: "yes", willing_to_relocate: "yes", resume_url: "test-user/resume.pdf",
-    application_answers: { "deployed and debugged an application on a linux server": "yes" },
+    avatar_url: "test-user/profile.jpg",
+    skills: ["Linux", "Docker"],
   } }, null, resolve);
   assert.equal(asyncResponse, true);
 });
@@ -56,11 +65,16 @@ const result = await new Promise((resolve) => {
 assert.equal(window.document.querySelector("#name").value, "Ayesha Khan");
 assert.equal(window.document.querySelector("#email").value, "ayesha@example.com");
 assert.equal(window.document.querySelector("#experience").value, "4");
-assert.equal(window.document.querySelector("#onsite").value, "yes");
-assert.equal(window.document.querySelector("#start").value, "yes");
-assert.equal(window.document.querySelector('input[name="authorized"][value="yes"]').checked, true);
+assert.equal(window.document.querySelector("#onsite").value, "", "inferred onsite eligibility stays a review suggestion");
+assert.equal(window.document.querySelector("#start").value, "", "derived start availability stays a review suggestion");
+assert.equal(window.document.querySelector('input[name="authorized"][value="yes"]').checked, true, "explicit work authorization may be filled");
 assert.equal(window.document.querySelector("#relocate").checked, true);
-assert.equal(window.document.querySelector("#linux").value, "yes");
+assert.equal(window.document.querySelector("#linux").value, "", "saved arbitrary answers cannot fill a screening question");
 assert.equal(window.document.querySelector("#resume").files.length, 1);
-assert.equal(result.missing.length, 0);
+assert.equal(window.document.querySelector("#photo").files.length, 1, "saved profile image attaches to a clearly labelled photo field");
+assert.equal(window.document.querySelector("#photo").files[0].name, "profile.jpg");
+assert.ok(result.fields.includes("work_authorization"));
+assert.ok(result.suggestions.some((item) => item.key === "onsite_eligible"));
+assert.ok(result.suggestions.some((item) => item.key === "start_within_4_weeks"));
+assert.ok(result.suggestions.some((item) => item.key === "linux_vps_experience"));
 console.log(`Extension smoke test passed: ${result.count} fields filled.`);

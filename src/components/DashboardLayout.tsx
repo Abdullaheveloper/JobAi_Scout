@@ -18,7 +18,7 @@ const userNav = [
   { title: "Upload CV", url: "/dashboard/cv", icon: FileUp },
   { title: "Browse Jobs", url: "/dashboard/jobs", icon: Briefcase },
   { title: "Saved Jobs", url: "/dashboard/saved", icon: Bookmark },
-  { title: "Auto Form Fill", url: "/dashboard/auto-fill", icon: Zap },
+  { title: "Form Fill", url: "/dashboard/auto-fill", icon: Zap },
   { title: "Voice Assistant", url: "/dashboard/assistant", icon: Mic },
   { title: "Profile Settings", url: "/dashboard/settings", icon: UserCog },
 ];

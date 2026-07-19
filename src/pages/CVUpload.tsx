@@ -39,6 +39,12 @@ function formatValue(val: unknown): string {
   return (val as string) || "";
 }
 
+const MAX_RESUME_BYTES = 10 * 1024 * 1024;
+const isSupportedResume = (candidate: File) => {
+  const name = candidate.name.toLowerCase();
+  return /\.(pdf|docx)$/.test(name) && candidate.size <= MAX_RESUME_BYTES;
+};
+
 export default function CVUpload() {
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
@@ -89,14 +95,14 @@ export default function CVUpload() {
     e.preventDefault();
     setDragOver(false);
     const dropped = e.dataTransfer.files[0];
-    if (dropped && (dropped.type === "application/pdf" || dropped.name.endsWith(".docx") || dropped.name.endsWith(".doc"))) {
+    if (dropped && isSupportedResume(dropped)) {
       setFile(dropped);
       setExtractedData(null);
       setMergeFields([]);
       setApplied(false);
       setExtractionInfo(null);
     } else {
-      toast({ title: "Invalid file", description: "Please upload a PDF or DOCX file.", variant: "destructive" });
+      toast({ title: "Resume not accepted", description: "Choose a PDF or DOCX file up to 10 MB.", variant: "destructive" });
     }
   }, [toast]);
 
@@ -178,50 +184,16 @@ export default function CVUpload() {
         const plan = buildMergePlan(extracted, freshProfile);
         setMergeFields(plan);
 
-        setApplying(true);
-        let savedKeys = _saved?.keys ?? [];
-        let saveFailed = false;
-
-        if (savedKeys.length === 0) {
-          const { updatePayload, filledKeys } = buildProfileUpdateFromExtracted(freshProfile, extracted);
-          if (filledKeys.length > 0) {
-            const { error: saveError, savedKeys: clientSaved } = await applyProfileUpdate(
-              user.id,
-              updatePayload,
-              filledKeys,
-            );
-
-            if (saveError) {
-              console.error("Profile update failed:", saveError);
-              toast({ title: "Auto-fill failed", description: saveError, variant: "destructive" });
-              saveFailed = true;
-            } else {
-              savedKeys = clientSaved;
-            }
-          }
-        }
-
-        setApplying(false);
-
-        if (saveFailed) return;
-
-        if (savedKeys.length > 0) {
-          await refreshProfile();
-          setApplied(true);
-          toast({
-            title: "Profile auto-filled!",
-            description: `${savedKeys.length} field(s) extracted from your CV and added to your profile.`,
-          });
-        } else if (hasExtractedCvData(extracted)) {
-          toast({
-            title: "No profile changes",
-            description: "Extracted CV data is shown below. Empty profile fields were already filled or could not be saved.",
-          });
-        } else {
+        if (!hasExtractedCvData(extracted)) {
           toast({
             title: "No data extracted",
             description: "The AI could not find usable fields in your resume.",
             variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Review ready",
+            description: "Nothing was saved yet. Review the evidence below, then approve the fields you want to add.",
           });
         }
       }
@@ -229,6 +201,33 @@ export default function CVUpload() {
       toast({ title: "Analysis failed", description: err.message || "Could not analyze CV", variant: "destructive" });
     }
     setAnalyzing(false);
+  };
+
+  const handleApplyExtracted = async () => {
+    if (!user || !extractedData || applying) return;
+    setApplying(true);
+    try {
+      const { data: freshProfile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+      if (profileError) throw profileError;
+      const { updatePayload, filledKeys } = buildProfileUpdateFromExtracted(freshProfile, extractedData);
+      if (!filledKeys.length) {
+        toast({ title: "Nothing new to add", description: "Your existing profile already contains these facts." });
+        return;
+      }
+      const { error, savedKeys } = await applyProfileUpdate(user.id, updatePayload, filledKeys);
+      if (error) throw new Error(error);
+      await refreshProfile();
+      setApplied(true);
+      toast({ title: "Profile updated", description: `${savedKeys.length} approved fact(s) were added to your Career Passport.` });
+    } catch (error: any) {
+      toast({ title: "Could not update profile", description: error?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setApplying(false);
+    }
   };
 
   const profileExtractedData = profileToExtractedData(profile);
@@ -284,7 +283,7 @@ export default function CVUpload() {
               <Upload className="h-5 w-5 text-primary" /> Upload your resume
             </CardTitle>
             <CardDescription>
-              Supported formats: PDF, DOCX — text is extracted (PyMuPDF / pdfplumber / OCR), then AI fills your profile without overwriting existing info
+              PDF or DOCX up to 10 MB. We extract facts into a review queue; your profile is never changed until you approve the merge.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -303,15 +302,18 @@ export default function CVUpload() {
               <input
                 id="cv-input"
                 type="file"
-                accept=".pdf,.docx,.doc"
+                accept=".pdf,.docx"
                 className="hidden"
                 onChange={(e) => {
-                  if (e.target.files?.[0]) {
-                    setFile(e.target.files[0]);
+                  const candidate = e.target.files?.[0];
+                  if (candidate && isSupportedResume(candidate)) {
+                    setFile(candidate);
                     setExtractedData(null);
                     setMergeFields([]);
                     setApplied(false);
                     setExtractionInfo(null);
+                  } else if (candidate) {
+                    toast({ title: "Resume not accepted", description: "Choose a PDF or DOCX file up to 10 MB.", variant: "destructive" });
                   }
                 }}
               />
@@ -408,6 +410,18 @@ export default function CVUpload() {
                     <CheckCircle2 className="h-8 w-8 text-success mx-auto mb-2" />
                     <p className="font-medium text-slate-200">All extracted data already exists in your profile!</p>
                     <p className="text-sm text-muted-foreground">No changes needed.</p>
+                  </div>
+                )}
+
+                {mergeFields.some(f => f.action === "fill") && !applied && (
+                  <div className="flex flex-col gap-3 rounded-xl border border-primary/25 bg-primary/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-100">Ready to update your Career Passport?</p>
+                      <p className="text-xs text-muted-foreground">Only empty fields are included. Nothing is saved until you approve.</p>
+                    </div>
+                    <Button onClick={handleApplyExtracted} disabled={applying} className="gradient-primary shrink-0">
+                      {applying ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><ShieldCheck className="mr-2 h-4 w-4" /> Approve &amp; save</>}
+                    </Button>
                   </div>
                 )}
 
