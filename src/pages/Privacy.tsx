@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Briefcase, Shield, ArrowLeft } from "lucide-react";
+import { JobAILogo } from "@/components/brand/JobAILogo";
 
 const sections = [
   {
@@ -52,12 +53,7 @@ export default function Privacy() {
       {/* Nav */}
       <nav className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-lg">
         <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-primary">
-              <Briefcase className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="font-display text-xl font-bold">JobAI</span>
-          </Link>
+          <Link to="/" aria-label="JobAI Scout home"><JobAILogo /></Link>
           <div className="flex items-center gap-3">
             <Button variant="ghost" asChild><Link to="/about">About</Link></Button>
             <Button asChild><Link to="/register">Get Started</Link></Button>

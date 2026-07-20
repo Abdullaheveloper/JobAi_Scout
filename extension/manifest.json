@@ -29,7 +29,13 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Job Form Fill"
+    "default_title": "JobAI Scout — Form Fill",
+    "default_icon": {
+      "16": "icons/jobai-16.png",
+      "32": "icons/jobai-32.png",
+      "48": "icons/jobai-48.png",
+      "128": "icons/jobai-128.png"
+    }
   },
   "content_scripts": [
     {
@@ -54,7 +60,9 @@
     }
   ],
   "icons": {
-    "48": "icon.png",
-    "128": "icon.png"
+    "16": "icons/jobai-16.png",
+    "32": "icons/jobai-32.png",
+    "48": "icons/jobai-48.png",
+    "128": "icons/jobai-128.png"
   }
 }

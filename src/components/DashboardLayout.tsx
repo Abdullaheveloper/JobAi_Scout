@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
+import { JobAILogo } from "@/components/brand/JobAILogo";
 
 const userNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -67,14 +68,8 @@ function AppSidebar() {
       <SidebarContent className="flex flex-col">
         {/* Logo */}
         <div className={`flex items-center gap-3 p-4 border-b border-indigo-500/10 ${collapsed ? "justify-center" : ""}`}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
-            <Briefcase className="h-5 w-5 text-white" />
-          </div>
-          {!collapsed && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <span className="font-bold text-lg text-white" style={{ fontFamily: 'Syne, sans-serif' }}>JobAI Scout</span>
-            </motion.div>
-          )}
+          <JobAILogo showWordmark={false} markClassName="h-9 w-9" />
+          {!collapsed && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><JobAILogo markClassName="hidden" /></motion.div>}
         </div>
 
         {/* Role Badge */}

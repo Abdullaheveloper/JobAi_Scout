@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Briefcase, Users, Target, Award, ArrowLeft, Globe, Shield, ArrowRight, Rocket, Heart, Code2, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
+import { JobAILogo } from "@/components/brand/JobAILogo";
 
 const teamMembers = [
   {
@@ -104,14 +105,7 @@ export default function About() {
       {/* Navigation */}
       <nav className="sticky top-0 z-50 nav-premium">
         <div className="container mx-auto px-6 flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary shadow-lg">
-              <Briefcase className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-bold text-xl text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
-              JobAI <span className="text-gradient">Scout</span>
-            </span>
-          </Link>
+          <Link to="/" aria-label="JobAI Scout home"><JobAILogo /></Link>
           <div className="flex items-center gap-4">
             <Link to="/contact" className="nav-link-premium">Contact</Link>
             <Link to="/register" className="btn-premium text-sm">Get Started <ArrowRight className="inline h-4 w-4 ml-1" /></Link>

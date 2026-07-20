@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Briefcase, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { JobAILogo } from "@/components/brand/JobAILogo";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -36,10 +37,7 @@ export default function Login() {
     <main className="min-h-screen bg-[#f6f6f2] text-[#1c1c1c]">
       <header className="border-b border-black/10 bg-white">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
-          <Link to="/" className="flex items-center gap-2 text-xl font-bold tracking-tight">
-            <span className="flex h-8 w-8 items-center justify-center rounded bg-[#0caa41] text-white"><Briefcase className="h-4 w-4" /></span>
-            JobAI Scout
-          </Link>
+          <Link to="/" aria-label="JobAI Scout home"><JobAILogo markClassName="h-9 w-9" /></Link>
           <p className="text-sm text-[#5c5c5c]">New here? <Link to="/register" className="font-semibold text-[#0c7a35] hover:underline">Create an account</Link></p>
         </div>
       </header>

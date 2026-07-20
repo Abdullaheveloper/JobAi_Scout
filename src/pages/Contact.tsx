@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Briefcase, Mail, Phone, MapPin, ArrowLeft, Send, Clock, MessageSquare, ArrowRight, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { JobAILogo } from "@/components/brand/JobAILogo";
 
 const contactInfo = [
   { icon: Mail, title: "Email Us", detail: "support@jobai.com", sub: "We reply within 24 hours", color: "from-indigo-500 to-violet-600", glow: "rgba(99,102,241,0.3)" },
@@ -53,14 +54,7 @@ export default function Contact() {
       {/* Navigation */}
       <nav className="sticky top-0 z-50 nav-premium">
         <div className="container mx-auto px-6 flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary shadow-lg">
-              <Briefcase className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-bold text-xl text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
-              JobAI <span className="text-gradient">Scout</span>
-            </span>
-          </Link>
+          <Link to="/" aria-label="JobAI Scout home"><JobAILogo /></Link>
           <div className="flex items-center gap-4">
             <Link to="/about" className="nav-link-premium">About</Link>
             <Link to="/register" className="btn-premium text-sm">Get Started <ArrowRight className="inline h-4 w-4 ml-1" /></Link>

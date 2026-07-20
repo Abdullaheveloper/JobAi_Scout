@@ -158,6 +158,21 @@
 }
 
 @layer utilities {
+  .jobai-brand { display: inline-flex; align-items: center; gap: .65rem; min-width: 0; }
+  .jobai-mark { position: relative; display: inline-grid; flex: 0 0 auto; width: 2.45rem; height: 2.45rem; place-items: center; border: 1px solid rgba(165,180,252,.3); border-radius: .85rem; background: radial-gradient(circle at 28% 20%, rgba(103,232,249,.16), transparent 42%), linear-gradient(145deg,#111a45,#080d27); box-shadow: inset 0 1px rgba(255,255,255,.14), 0 10px 28px rgba(79,70,229,.25); }
+  .jobai-mark::after { content: ''; position: absolute; inset: -1px; border-radius: inherit; background: linear-gradient(110deg,transparent 22%,rgba(255,255,255,.2) 48%,transparent 72%); background-size: 240% 100%; opacity: 0; pointer-events: none; }
+  .jobai-mark svg { width: 78%; height: 78%; overflow: visible; }
+  .jobai-wordmark { white-space: nowrap; font-family: 'Syne',system-ui,sans-serif; font-size: 1.05rem; font-weight: 700; letter-spacing: -.035em; }
+  .jobai-wordmark > span { color: #a5b4fc; }
+  .jobai-mark--animated .jobai-mark__halo { transform-origin: center; animation: scout-breathe 4.8s ease-in-out infinite; }
+  .jobai-mark--animated .jobai-mark__satellite { transform-origin: 24px 24px; animation: scout-orbit 7s linear infinite; }
+  .jobai-mark--animated .jobai-mark__signal { animation: scout-signal 2.8s ease-in-out infinite; }
+  .jobai-brand:hover .jobai-mark--animated::after { opacity: 1; animation: scout-shimmer 1.15s ease-out; }
+
+  @keyframes scout-orbit { to { transform: rotate(360deg); } }
+  @keyframes scout-breathe { 0%,100% { opacity:.28; transform:scale(.96); } 50% { opacity:.7; transform:scale(1.04); } }
+  @keyframes scout-signal { 0%,100% { opacity:.7; transform:scale(.8); } 50% { opacity:1; transform:scale(1.25); } }
+  @keyframes scout-shimmer { from { background-position:200% 0; } to { background-position:-40% 0; } }
   /* ─── Gradients ──────────────────────────────── */
   .gradient-primary  { background: var(--gradient-primary); }
   .gradient-hero     { background: var(--gradient-hero); background-size: 200% 200%; }
@@ -222,6 +237,11 @@
     pointer-events: none;
     z-index: 0;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .jobai-mark *, .jobai-mark::after { animation: none !important; transition: none !important; }
 }
 
 /* Shared authentication experience — deliberately aligned with the product UI. */
