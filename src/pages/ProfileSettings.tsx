@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -17,6 +17,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import CareerProfileWorkspace from "@/components/profile/CareerProfileWorkspace";
+import ResumeSuggestionNotification from "@/components/resume/ResumeSuggestionNotification";
+import { useResumeATSAnalysis } from "@/hooks/useResumeATSAnalysis";
 import {
   AutofillPreferences, CareerProfile, defaultAutofillPreferences, emptyCareerProfile,
   normalizeAutofillPreferences, normalizeCareerProfile,
@@ -137,6 +139,10 @@ export default function ProfileSettings() {
   const [saving, setSaving] = useState(false);
   const [profileImageUploading, setProfileImageUploading] = useState(false);
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
+  const [retryingAts, setRetryingAts] = useState(false);
+  const ats = useResumeATSAnalysis(user?.id, profile?.resume_url);
+  const autoAtsAttempted = useRef<string | null>(null);
+  const { acceptResult: acceptAtsResult, setError: setAtsError } = ats;
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -271,6 +277,36 @@ export default function ProfileSettings() {
     }
     setProfileImageUploading(false);
   };
+
+  const retryAtsAnalysis = useCallback(async () => {
+    const resumePath = profile?.resume_url;
+    if (!resumePath || retryingAts) return;
+    setRetryingAts(true);
+    setAtsError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-cv", {
+        body: { fileName: resumePath.split("/").pop(), filePath: resumePath, forceAts: true },
+      });
+      if (error) throw error;
+      const result = (data as { _ats?: unknown } | null)?._ats;
+      const failure = result && typeof result === "object" ? (result as { error?: string }).error : undefined;
+      if (!acceptAtsResult(result)) throw new Error(failure || "ATS suggestions could not be generated.");
+    } catch (error: unknown) {
+      setAtsError(error instanceof Error ? error.message : "ATS suggestions could not be generated. Your profile and resume are unchanged.");
+    } finally {
+      setRetryingAts(false);
+    }
+  }, [acceptAtsResult, profile?.resume_url, retryingAts, setAtsError]);
+
+  // Existing resumes uploaded before ATS suggestions were introduced receive
+  // one background analysis after the initial lookup confirms no result exists.
+  useEffect(() => {
+    const resumePath = profile?.resume_url;
+    if (!resumePath || !ats.loaded || ats.loading || ats.analysis || ats.error) return;
+    if (autoAtsAttempted.current === resumePath) return;
+    autoAtsAttempted.current = resumePath;
+    void retryAtsAnalysis();
+  }, [ats.analysis, ats.error, ats.loaded, ats.loading, profile?.resume_url, retryAtsAnalysis]);
 
   const updateField = (key: string, value: string | number) => {
     setForm(f => ({ ...f, [key]: value }));
@@ -418,6 +454,16 @@ export default function ProfileSettings() {
           </div>
           <Badge variant="outline" className="w-fit border-primary/25 bg-primary/10 px-3 py-1 text-primary">{completeness}% complete</Badge>
         </section>
+
+        <ResumeSuggestionNotification
+          analysis={ats.analysis}
+          loading={ats.loading || retryingAts}
+          error={ats.error}
+          dismissed={ats.isDismissed}
+          onDismiss={ats.dismiss}
+          onRetry={profile?.resume_url ? retryAtsAnalysis : undefined}
+          retrying={retryingAts}
+        />
 
         {/* ── Profile Completeness ────────────────────────── */}
         <Card className="border-border bg-card shadow-card">

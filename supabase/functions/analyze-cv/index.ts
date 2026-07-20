@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { extractCvText, type ExtractionResult } from "../_shared/cv-extraction.ts";
 import { normalizeExtractedData } from "../_shared/cv-profile-merge.ts";
+import { analyzeAndSaveResumeAts } from "../_shared/ats-resume-analysis.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -110,7 +111,7 @@ Deno.serve(async (req) => {
     );
     if (authError || !user) throw new Error("Invalid auth token");
 
-    const { fileName, filePath } = await req.json();
+    const { fileName, filePath, forceAts = false } = await req.json();
     if (typeof filePath !== "string" || !filePath.trim()) throw new Error("No file path provided");
     const normalizedPath = filePath.replace(/\\/g, "/").replace(/^\/+/, "");
     if (!normalizedPath.startsWith(`${user.id}/`)) {
@@ -128,6 +129,11 @@ Deno.serve(async (req) => {
       .from("resumes")
       .download(normalizedPath);
     if (downloadError) throw new Error(`Download failed: ${downloadError.message}`);
+    if (fileData.size <= 0) {
+      return new Response(JSON.stringify({ error: "This resume file is empty. Please upload a PDF or DOCX that contains readable content." }), {
+        status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     if (fileData.size > 10 * 1024 * 1024) {
       return new Response(JSON.stringify({ error: "Your resume is larger than 10 MB. Please upload a smaller PDF or DOCX file." }), {
         status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -147,7 +153,9 @@ Deno.serve(async (req) => {
     });
 
     if (!extraction.text || extraction.text.length < 30) {
-      throw new Error("Could not extract readable text from the resume");
+      return new Response(JSON.stringify({
+        error: "We could not read enough text from this resume. It may be scanned, corrupted, or password protected. Try an unlocked text-based PDF or DOCX.",
+      }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     console.log(
@@ -158,7 +166,29 @@ Deno.serve(async (req) => {
     const result = await extractStructuredData(extraction.text, resolvedFileName, openrouterApiKey);
     const extracted = normalizeExtractedData(result as Record<string, unknown>);
 
-    // Step 3: return suggestions only. The client shows a merge review and
+    // Step 3: ATS feedback is intentionally isolated from the upload/parser
+    // result. A model, timeout, or persistence failure must never undo a
+    // successful resume upload or prevent the merge review from opening.
+    let atsResult: Record<string, unknown>;
+    try {
+      atsResult = await analyzeAndSaveResumeAts({
+        db: supabase,
+        userId: user.id,
+        resumePath: normalizedPath,
+        cvText: extraction.text,
+        structuredData: extracted as unknown as Record<string, unknown>,
+        openrouterApiKey,
+        force: Boolean(forceAts),
+      }) as unknown as Record<string, unknown>;
+    } catch (atsError) {
+      console.error("ATS suggestion analysis failed:", atsError instanceof Error ? atsError.message : atsError);
+      atsResult = {
+        analysis_status: "failed",
+        error: "Your resume was uploaded successfully, but ATS suggestions could not be generated.",
+      };
+    }
+
+    // Step 4: return suggestions only. The client shows a merge review and
     // requires explicit approval before any profile fact is persisted.
     return new Response(
       JSON.stringify({
@@ -170,6 +200,7 @@ Deno.serve(async (req) => {
           charCount: extraction.charCount,
         },
         _saved: { count: 0, keys: [] },
+        _ats: atsResult,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
