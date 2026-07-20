@@ -1,110 +1,338 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Job Form Fill</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JobAI Scout</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; width: 360px; min-height: 420px; color: #1a1a1a; background: #f8fafc; }
-    h1 { font-size: 15px; padding: 14px 16px; display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; margin: 0; }
-    h1 .dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    .content { padding: 16px; }
-    button { padding: 10px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; width: 100%; }
-    button:hover { background: #2563eb; transform: translateY(-1px); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-    button.secondary { background: #f3f4f6; color: #1a1a1a; }
-    button.secondary:hover { background: #e5e7eb; }
-    button.danger { background: #fee2e2; color: #b91c1c; }
-    button.danger:hover { background: #fecaca; }
-    .status { font-size: 12px; color: #10b981; text-align: center; padding: 8px; min-height: 16px; }
-    .status.err { color: #b91c1c; }
-    input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; margin-top: 6px; }
-    label { font-size: 12px; color: #6b7280; display: block; margin-top: 8px; }
-    .card { background: white; border-radius: 10px; border: 1px solid #e5e7eb; padding: 12px; margin-bottom: 10px; }
-    .card h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
-    .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid #f0f0f0; gap: 12px; }
-    .row span:first-child { color: #6b7280; flex-shrink: 0; }
-    .row span:last-child { color: #1a1a1a; font-weight: 500; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
-    .badge-green { background: #dcfce7; color: #166534; }
-    .badge-yellow { background: #fef3c7; color: #92400e; }
-    .badge-blue { background: #dbeafe; color: #1e40af; }
-    .progress { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; margin: 8px 0; }
-    .progress-bar { height: 100%; background: linear-gradient(90deg, #3b82f6, #6366f1); border-radius: 3px; transition: width 0.5s; }
-    .fill-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 16px rgba(59,130,246,0.3); display: flex; align-items: center; justify-content: center; gap: 8px; margin: 12px 0; }
-    .fill-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,0.4); }
-    .fill-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
-    .fill-btn .icon { font-size: 20px; }
-    .empty { text-align: center; padding: 20px 0; color: #6b7280; }
-    .empty .icon { font-size: 28px; margin-bottom: 8px; }
-    .empty p { font-size: 13px; }
-    .skills-wrap { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-    .skill-tag { background: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+    :root {
+      color-scheme: dark;
+      --bg: #070b18;
+      --surface: rgba(17, 24, 49, .78);
+      --surface-strong: #121a35;
+      --line: rgba(148, 163, 184, .16);
+      --line-active: rgba(129, 140, 248, .58);
+      --text: #f7f8ff;
+      --muted: #9ca9c6;
+      --violet: #8b5cf6;
+      --blue: #4f7cff;
+      --cyan: #5eead4;
+      --green: #4ade80;
+      --amber: #fbbf24;
+      --rose: #fb7185;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      width: 382px;
+      min-height: 500px;
+      max-height: 600px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 100% -10%, rgba(99, 102, 241, .28), transparent 34%),
+        radial-gradient(circle at -15% 54%, rgba(79, 124, 255, .14), transparent 35%),
+        var(--bg);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input { font: inherit; }
+    button:focus-visible, input:focus-visible {
+      outline: 3px solid rgba(94, 234, 212, .42);
+      outline-offset: 2px;
+    }
+
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 66px;
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(7, 11, 24, .86);
+      backdrop-filter: blur(18px);
+    }
+    .brand { display: flex; align-items: center; gap: 11px; }
+    .brand-mark {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border: 1px solid rgba(165, 180, 252, .35);
+      border-radius: 12px;
+      color: white;
+      overflow: hidden;
+      background: radial-gradient(circle at 28% 20%, rgba(103,232,249,.2), transparent 42%), linear-gradient(145deg, #111a45, #080d27);
+      box-shadow: 0 8px 26px rgba(79, 70, 229, .35), inset 0 1px rgba(255,255,255,.2);
+    }
+    .brand-mark::after { content:""; position:absolute; inset:-1px; border-radius:inherit; opacity:0; background:linear-gradient(110deg,transparent 20%,rgba(255,255,255,.22) 48%,transparent 74%); background-size:240% 100%; }
+    .brand:hover .brand-mark::after { opacity:1; animation:brandShimmer 1.1s ease-out; }
+    .brand-mark svg { width: 30px; height: 30px; overflow: visible; }
+    .brand-halo { transform-origin:center; animation:brandBreathe 4.8s ease-in-out infinite; }
+    .brand-satellite { transform-origin:24px 24px; animation:brandOrbit 7s linear infinite; }
+    .brand-signal { animation:brandSignal 2.8s ease-in-out infinite; }
+    .brand-name { margin: 0; font-size: 14px; font-weight: 760; letter-spacing: -.01em; }
+    .brand-kicker { margin: 2px 0 0; color: #8ea0c4; font-size: 9px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
+    .secure-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 8px;
+      border: 1px solid rgba(74, 222, 128, .2);
+      border-radius: 999px;
+      color: #a7f3d0;
+      background: rgba(16, 185, 129, .08);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .secure-pill::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+    .content { padding: 16px 18px 18px; }
+    .hero { margin-bottom: 17px; }
+    .eyebrow { margin: 0 0 7px; color: #9ca9ff; font-size: 10px; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
+    .hero h2 { margin: 0; font-size: 22px; line-height: 1.16; letter-spacing: -.04em; }
+    .hero p { margin: 8px 0 0; max-width: 315px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+
+    .card {
+      margin-bottom: 11px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgba(21, 29, 58, .88), rgba(11, 17, 37, .88));
+      box-shadow: inset 0 1px rgba(255,255,255,.025), 0 14px 38px rgba(0,0,0,.16);
+    }
+    .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .card h3 { margin: 0; font-size: 12px; font-weight: 720; letter-spacing: -.01em; }
+    .card-caption { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+
+    .field { margin-bottom: 12px; text-align: left; }
+    .field label { display: block; margin-bottom: 6px; color: #c4cbea; font-size: 10px; font-weight: 680; }
+    input {
+      width: 100%;
+      height: 42px;
+      padding: 0 12px;
+      border: 1px solid rgba(148, 163, 184, .2);
+      border-radius: 11px;
+      color: var(--text);
+      background: rgba(3, 7, 18, .48);
+      font-size: 12px;
+      transition: border-color .18s, box-shadow .18s, background .18s;
+    }
+    input::placeholder { color: #66728e; }
+    input:hover { border-color: rgba(129, 140, 248, .38); }
+    input:focus { border-color: var(--line-active); background: rgba(10, 15, 32, .9); box-shadow: 0 0 0 4px rgba(99, 102, 241, .1); }
+
+    button {
+      min-height: 40px;
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 11px;
+      color: white;
+      background: linear-gradient(135deg, var(--blue), var(--violet));
+      font-size: 12px;
+      font-weight: 720;
+      cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, opacity .18s ease;
+    }
+    button:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(79, 70, 229, .27); }
+    button:active { transform: translateY(0); }
+    button:disabled { opacity: .52; cursor: wait; transform: none; box-shadow: none; }
+    button.secondary { border-color: var(--line); color: #dce3f8; background: rgba(148, 163, 184, .07); }
+    button.secondary:hover { border-color: rgba(129, 140, 248, .36); background: rgba(99, 102, 241, .11); }
+    button.danger { border-color: rgba(251, 113, 133, .13); color: #fda4af; background: rgba(190, 24, 93, .08); }
+
+    .google-button { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 9px; }
+    .google-button svg { width: 15px; height: 15px; }
+    .privacy-note { display: flex; align-items: flex-start; gap: 7px; margin: 13px 3px 0; color: #7f8ca9; font-size: 9px; line-height: 1.45; }
+    .privacy-note svg { flex: 0 0 auto; width: 13px; height: 13px; color: #8797ff; }
+
+    .profile-summary { display: flex; align-items: center; gap: 11px; }
+    .avatar {
+      display: grid;
+      flex: 0 0 auto;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border: 1px solid rgba(165, 180, 252, .25);
+      border-radius: 12px;
+      color: #e0e7ff;
+      background: linear-gradient(145deg, rgba(79,70,229,.45), rgba(124,58,237,.21));
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .avatar img { width:100%;height:100%;object-fit:cover;border-radius:inherit; }
+    .profile-copy { min-width: 0; flex: 1; }
+    .profile-copy strong, .profile-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .profile-copy strong { font-size: 12px; }
+    .profile-copy span { margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .detail {
+      min-width: 0;
+      padding: 9px;
+      border: 1px solid rgba(148, 163, 184, .09);
+      border-radius: 10px;
+      background: rgba(2, 6, 23, .25);
+    }
+    .detail-label { display: block; margin-bottom: 3px; color: #7886a4; font-size: 8px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .detail-value { display: block; overflow: hidden; color: #dfe6f8; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .skills-wrap { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+    .skill-tag, .badge { display: inline-flex; align-items: center; padding: 4px 7px; border-radius: 999px; font-size: 9px; font-weight: 650; }
+    .skill-tag { border: 1px solid rgba(96, 165, 250, .17); color: #bfdbfe; background: rgba(37, 99, 235, .1); }
+
+    .readiness-head { display: flex; align-items: center; justify-content: space-between; }
+    .readiness-score { color: #c7d2fe; font-size: 15px; font-weight: 820; }
+    .progress { height: 6px; margin: 11px 0 8px; overflow: hidden; border-radius: 999px; background: rgba(148, 163, 184, .12); }
+    .progress-bar { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #38bdf8, #6366f1 48%, #a855f7); box-shadow: 0 0 13px rgba(99, 102, 241, .5); transition: width .55s cubic-bezier(.22,1,.36,1); }
+    .readiness-copy { color: var(--muted); font-size: 9px; line-height: 1.4; }
+    .badge-green { color: #a7f3d0; background: rgba(16, 185, 129, .12); }
+    .badge-yellow { color: #fde68a; background: rgba(245, 158, 11, .11); }
+    .badge-blue { color: #bfdbfe; background: rgba(59, 130, 246, .12); }
+    .badge-purple { color: #ddd6fe; background: rgba(139, 92, 246, .13); }
+    .badge-rose { color: #fecdd3; background: rgba(244, 63, 94, .11); }
+
+    .fill-btn { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 48px; margin: 13px 0 11px; border-color: rgba(196, 181, 253, .22); border-radius: 14px; font-size: 13px; box-shadow: 0 10px 28px rgba(79,70,229,.3), inset 0 1px rgba(255,255,255,.19); }
+    .fill-btn svg { width: 17px; height: 17px; }
+    .fill-hint { margin: -3px 0 12px; color: #7785a3; font-size: 9px; line-height: 1.45; text-align: center; }
+
+    .result-card { border-color: rgba(129, 140, 248, .25); }
+    .result-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 12px 0; }
+    .result-stat { padding: 10px 7px; border: 1px solid var(--line); border-radius: 10px; background: rgba(3,7,18,.28); text-align: center; }
+    .result-stat strong, .result-stat span { display: block; }
+    .result-stat strong { font-size: 16px; }
+    .result-stat span { margin-top: 2px; color: var(--muted); font-size: 8px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+    .result-stat.filled strong { color: #6ee7b7; }
+    .result-stat.review strong { color: #fde68a; }
+    .result-stat.protected strong { color: #c4b5fd; }
+    .outcome-group { padding-top: 9px; border-top: 1px solid var(--line); }
+    .outcome-group + .outcome-group { margin-top: 9px; }
+    .outcome-title { margin: 0 0 7px; color: #aab5cf; font-size: 9px; font-weight: 720; letter-spacing: .05em; text-transform: uppercase; }
+    .outcome-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+    .outcome-note { margin: 9px 0 0; color: #8390ab; font-size: 9px; line-height: 1.45; }
+
+    .resume-card { position: relative; overflow: hidden; }
+    .resume-card::after { content: ""; position: absolute; right: -28px; bottom: -40px; width: 100px; height: 100px; border-radius: 50%; background: rgba(99,102,241,.13); filter: blur(12px); pointer-events: none; }
+    .resume-state { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .resume-copy { min-width: 0; }
+    .resume-copy h3 { display: flex; align-items: center; gap: 7px; }
+    .resume-copy h3 svg { width: 15px; height: 15px; color: #a5b4fc; }
+    .resume-copy p { margin: 5px 0 0; color: var(--muted); font-size: 9px; line-height: 1.45; }
+    .resume-action { position: relative; z-index: 1; display: grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items: center; gap: 8px; margin-top: 12px; }
+    .resume-action button { display: inline-flex; flex: 1; align-items: center; justify-content: center; gap: 7px; min-height: 38px; }
+    .resume-action button svg { width: 14px; height: 14px; }
+    .resume-file-name { min-width: 0; margin: 9px 0 0; overflow: hidden; color: #aab7d3; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
+
+    .actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    .actions .danger { width: 42px; padding: 0; }
+    .actions svg { width: 15px; height: 15px; vertical-align: middle; }
+    .status { min-height: 32px; padding: 4px 18px 14px; color: #86efac; font-size: 10px; line-height: 1.4; text-align: center; }
+    .status.err { color: #fda4af; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.25); border-top-color: #fff; border-radius: 50%; animation: spin .65s linear infinite; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes brandOrbit { to { transform: rotate(360deg); } }
+    @keyframes brandBreathe { 0%,100% { opacity:.28;transform:scale(.96); } 50% { opacity:.7;transform:scale(1.04); } }
+    @keyframes brandSignal { 0%,100% { opacity:.7;transform:scale(.8); } 50% { opacity:1;transform:scale(1.25); } }
+    @keyframes brandShimmer { from { background-position:200% 0; } to { background-position:-40% 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+    }
+    @media (max-width: 390px) { body { width: 100vw; } }
   </style>
 </head>
 <body>
-  <h1><span class="dot"></span> Job Form Fill</h1>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><defs><linearGradient id="scoutSignal" x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse"><stop stop-color="#67e8f9"/><stop offset=".43" stop-color="#6374ff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><circle class="brand-halo" cx="24" cy="24" r="20.5" fill="none" stroke="url(#scoutSignal)" stroke-width="1.25" opacity=".42"/><path d="M7.3 28.4C10 39 21.8 44.8 32.2 40.6 42.6 36.5 46.9 24.4 42.1 14.2" fill="none" stroke="url(#scoutSignal)" stroke-width="2" stroke-linecap="round"/><path d="M17.5 10.5v18.2c0 5.8 3.1 8.8 8.4 8.8 5.5 0 8.7-3.3 8.7-9.1v-6.1" fill="none" stroke="white" stroke-width="4.2" stroke-linecap="round"/><path d="m29.7 15.2 5.2-8.6 5.2 8.6-5.2-2.2-5.2 2.2Z" fill="url(#scoutSignal)"/><circle class="brand-signal" cx="8.2" cy="27.3" r="2.75" fill="#67e8f9"/><circle class="brand-satellite" cx="42" cy="14" r="2.15" fill="#c084fc"/></svg></span>
+      <div><h1 class="brand-name">JobAI Scout</h1><p class="brand-kicker">Career copilot</p></div>
+    </div>
+    <span class="secure-pill">Private</span>
+  </header>
 
-  <!-- Login Gate -->
-  <div id="loginGate" class="content" style="padding: 24px 16px; text-align: center;">
-    <div style="margin-bottom: 20px;">
-      <h2 style="font-size: 18px; font-weight: 700; color: #1e3a8a; margin-bottom: 6px;">Sign in to JobAI</h2>
-      <p style="font-size: 12px; color: #64748b; line-height: 1.4;">Use your JobAI account to auto-fill forms with your profile.</p>
-    </div>
-    <div style="text-align: left; margin-bottom: 12px;">
-      <label for="emailInput" style="font-weight: 600; font-size: 11px;">Email Address</label>
-      <input id="emailInput" type="email" placeholder="you@example.com" style="margin-top: 4px;" />
-    </div>
-    <div style="text-align: left; margin-bottom: 16px;">
-      <label for="passInput" style="font-weight: 600; font-size: 11px;">Password</label>
-      <input id="passInput" type="password" placeholder="••••••••" style="margin-top: 4px;" />
-    </div>
-    <button id="loginBtn" style="background: linear-gradient(135deg, #3b82f6, #6366f1); font-weight: 600;">Sign In</button>
-    <button id="googleLoginBtn" class="secondary" style="margin-top: 10px; font-weight: 500;">Continue with Google</button>
-  </div>
-
-  <!-- Main Panel (after login) -->
-  <div id="mainPanel" class="content" style="display:none;">
-    <!-- Profile Card -->
-    <div class="card" id="profileCard">
-      <h3>Your Profile</h3>
-      <div class="row"><span>Signed in as</span><span id="userEmail">-</span></div>
-      <div class="row"><span>Name</span><span id="userName">-</span></div>
-      <div class="row"><span>Phone</span><span id="userPhone">-</span></div>
-      <div class="row"><span>Location</span><span id="userLocation">-</span></div>
-      <div style="margin-top: 6px;">
-        <span style="font-size: 12px; color: #6b7280;">Skills:</span>
-        <div class="skills-wrap" id="userSkills"></div>
+  <main>
+    <section id="loginGate" class="content" aria-labelledby="loginTitle">
+      <div class="hero">
+        <p class="eyebrow">Welcome back</p>
+        <h2 id="loginTitle">Your next application,<br />ready in seconds.</h2>
+        <p>Sign in to use verified details from your Career Passport.</p>
       </div>
-    </div>
-
-    <!-- Profile Completeness -->
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-        <span style="font-size:12px;font-weight:600;">Profile Complete</span>
-        <span class="badge" id="completionBadge">0%</span>
+      <div class="card">
+        <div class="field"><label for="emailInput">Email address</label><input id="emailInput" type="email" autocomplete="email" placeholder="you@example.com" /></div>
+        <div class="field"><label for="passInput">Password</label><input id="passInput" type="password" autocomplete="current-password" placeholder="Enter your password" /></div>
+        <button id="loginBtn" type="button">Sign in securely</button>
+        <button id="googleLoginBtn" type="button" class="secondary google-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285f4" d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.92h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.41Z"/><path fill="#34a853" d="M12 22c2.7 0 4.97-.9 6.63-2.36l-3.24-2.54c-.9.6-2.05.96-3.39.96-2.6 0-4.81-1.76-5.6-4.13H3.06v2.62A10 10 0 0 0 12 22Z"/><path fill="#fbbc05" d="M6.4 13.93A6 6 0 0 1 6.08 12c0-.67.12-1.32.32-1.93V7.45H3.06A10 10 0 0 0 2 12c0 1.61.39 3.14 1.06 4.55l3.34-2.62Z"/><path fill="#ea4335" d="M12 5.94c1.47 0 2.79.5 3.83 1.5l2.87-2.87A9.64 9.64 0 0 0 12 2a10 10 0 0 0-8.94 5.45l3.34 2.62C7.19 7.7 9.4 5.94 12 5.94Z"/></svg>Continue with Google</button>
+        <p class="privacy-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>Your profile stays private. JobAI never submits or accepts sensitive declarations for you.</p>
       </div>
-      <div class="progress"><div class="progress-bar" id="completionBar" style="width:0%"></div></div>
-    </div>
+    </section>
 
-    <!-- Auto Fill Button -->
-    <button class="fill-btn" id="fillBtn">
-      <span class="icon">&#9889;</span> Auto Fill This Form
-    </button>
+    <section id="mainPanel" class="content" style="display:none" aria-label="JobAI Auto Fill">
+      <div class="card" id="profileCard">
+        <div class="profile-summary">
+          <div class="avatar" id="userInitials" aria-hidden="true">JS</div>
+          <div class="profile-copy"><strong id="userName">—</strong><span id="userEmail">—</span></div>
+          <span class="badge badge-green">Synced</span>
+        </div>
+        <div class="detail-grid">
+          <div class="detail"><span class="detail-label">Phone</span><span class="detail-value" id="userPhone">—</span></div>
+          <div class="detail"><span class="detail-label">Location</span><span class="detail-value" id="userLocation">—</span></div>
+        </div>
+        <div class="skills-wrap" id="userSkills" aria-label="Profile skills"></div>
+      </div>
 
-    <!-- Fill Result -->
-    <div id="fillResult" style="display:none;" class="card">
-      <h3 id="fillResultTitle">Fill Complete</h3>
-      <div id="fillResultDetails"></div>
-    </div>
+      <div class="card" aria-labelledby="passportTitle">
+        <div class="readiness-head">
+          <div><h3 id="passportTitle">Career Passport readiness</h3><p class="card-caption" id="passportState">Add verified facts for stronger coverage.</p></div>
+          <span class="readiness-score" id="completionBadge">0%</span>
+        </div>
+        <div class="progress" role="progressbar" aria-label="Career Passport readiness" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-bar" id="completionBar"></div></div>
+        <div class="readiness-copy" id="passportHint">Only verified profile facts are filled automatically.</div>
+      </div>
 
-    <!-- Actions -->
-    <button id="refreshBtn" class="secondary" style="margin-top:8px;">Refresh Profile</button>
-    <button id="logoutBtn" class="danger" style="margin-top:8px;">Sign Out</button>
-  </div>
+      <div class="card resume-card" aria-labelledby="resumeTitle">
+        <div class="resume-state">
+          <div class="resume-copy"><h3 id="resumeTitle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg>Application resume</h3><p>Saved privately and attached whenever a job site exposes a standard resume field.</p></div>
+          <span class="badge badge-yellow" id="resumeBadge">Missing</span>
+        </div>
+        <input class="sr-only" id="resumeInput" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" aria-describedby="resumeHelp" />
+        <div class="resume-action"><button id="resumeUploadBtn" type="button" class="secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg><span id="resumeUploadLabel">Upload resume</span></button><button id="resumeDownloadBtn" type="button" class="secondary" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5"/><path d="M5 21h14"/></svg><span>Get saved file</span></button></div>
+        <p class="resume-file-name" id="resumeHelp">PDF or DOCX, maximum 10 MB.</p>
+      </div>
 
-  <div class="status" id="status"></div>
+      <div class="card resume-card" aria-labelledby="profileImageTitle">
+        <div class="resume-state">
+          <div class="resume-copy"><h3 id="profileImageTitle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Application photo</h3><p>Used only when an application contains a clearly labelled profile photo or headshot field.</p></div>
+          <span class="badge badge-yellow" id="profileImageBadge">Missing</span>
+        </div>
+        <input class="sr-only" id="profileImageInput" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" aria-describedby="profileImageHelp" />
+        <div class="resume-action"><button id="profileImageUploadBtn" type="button" class="secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg><span id="profileImageUploadLabel">Upload image</span></button></div>
+        <p class="resume-file-name" id="profileImageHelp">JPG, PNG, or WEBP, maximum 5 MB.</p>
+      </div>
+
+      <button class="fill-btn" id="fillBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m13 2-9 12h7l-1 8 9-12h-7l1-8Z"/></svg><span>Fill this application</span></button>
+      <p class="fill-hint">You stay in control: review every answer before submitting.</p>
+
+      <div id="fillResult" style="display:none" class="card result-card" aria-live="polite">
+        <div class="card-header"><div><p class="eyebrow">Application check</p><h3 id="fillResultTitle">Fill complete</h3></div><span class="badge badge-blue" id="resultBadge">Ready</span></div>
+        <div id="fillResultDetails"></div>
+      </div>
+
+      <div class="actions">
+        <button id="refreshBtn" type="button" class="secondary" title="Refresh your Career Passport">Refresh Career Passport</button>
+        <button id="logoutBtn" type="button" class="danger" title="Sign out" aria-label="Sign out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/></svg></button>
+      </div>
+    </section>
+  </main>
+
+  <div class="status" id="status" role="status" aria-live="polite"></div>
   <script type="module" src="popup.js"></script>
 </body>
 </html>

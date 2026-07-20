@@ -6,9 +6,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Search, MapPin, DollarSign, Bookmark, BookmarkCheck, ExternalLink, Building2, Clock, RefreshCw, Filter, Download, Chrome, Sparkles, Briefcase, ChevronDown, ChevronUp, ArrowUpRight, X } from "lucide-react";
+import { Search, MapPin, DollarSign, Bookmark, BookmarkCheck, ExternalLink, Building2, Clock, RefreshCw, Filter, Sparkles, Briefcase, ChevronDown, ChevronUp, ArrowUpRight, X, Copy, Check, LoaderCircle } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { PORTAL_COLORS } from "@/lib/constants";
 
@@ -55,66 +57,6 @@ function MatchExplanation({ explanation }: { explanation: any }) {
   );
 }
 
-function ExtensionOnboarding({ hasJobs, onCollect, collecting }: { hasJobs: boolean; onCollect: () => void; collecting: boolean }) {
-  if (hasJobs) return null;
-  const steps = [
-    "Download and install the JobAI Scout extension",
-    "Open chrome://extensions, enable Developer mode",
-    "Click 'Load unpacked' and select the extension folder",
-    "Login with your JobAI credentials in the extension",
-    "Visit LinkedIn, Indeed, or Glassdoor job listings",
-    "Click 'Scan Jobs' to discover matching opportunities",
-    "Matching jobs appear here automatically!",
-  ];
-
-  const handleDownload = () => {
-    fetch("/jobai-extension.zip")
-      .then(res => { if (!res.ok) throw new Error(`Download failed: ${res.status}`); return res.blob(); })
-      .then(blob => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "jobai-extension.zip"; a.click(); URL.revokeObjectURL(a.href); })
-      .catch(() => {});
-  };
-
-  return (
-    <Card className="border-dashed border-2 border-primary/30 bg-primary/5 shadow-card">
-      <CardContent className="p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Chrome className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-display text-lg font-semibold">Connect the Job Scout Extension</h3>
-            <p className="text-sm text-muted-foreground">Install the browser extension to discover and sync matching jobs from LinkedIn, Indeed, Glassdoor & more</p>
-          </div>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          <div>
-            <Button onClick={handleDownload} className="gap-2 mb-3">
-              <Download className="h-4 w-4" /> Download Extension
-            </Button>
-            <Button onClick={onCollect} disabled={collecting} variant="outline" className="gap-2 mb-3 ml-2">
-              <RefreshCw className={`h-4 w-4 ${collecting ? "animate-spin" : ""}`} /> {collecting ? "Collecting…" : "Collect Job Sources"}
-            </Button>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="badge badge-blue px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">v2.0.0</span>
-              <span>Chrome, Edge, Brave, Opera</span>
-            </div>
-          </div>
-          <div>
-            <ol className="space-y-1.5">
-              {steps.map((s, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                  <span className="flex-shrink-0 w-4 h-4 rounded-full bg-primary/10 text-primary text-[10px] font-semibold flex items-center justify-center mt-0.5">{i + 1}</span>
-                  <span>{s}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function JobBoard() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -133,6 +75,10 @@ export default function JobBoard() {
   const [remoteFilter, setRemoteFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [collectedPage, setCollectedPage] = useState(1);
+  const [coverLetterJob, setCoverLetterJob] = useState<Job | null>(null);
+  const [coverLetter, setCoverLetter] = useState("");
+  const [generatingCoverLetterFor, setGeneratingCoverLetterFor] = useState<string | null>(null);
+  const [copiedCoverLetter, setCopiedCoverLetter] = useState(false);
 
   const fetchCollectedJobs = useCallback(async (page = collectedPage) => {
     if (!user) return;
@@ -282,6 +228,47 @@ export default function JobBoard() {
       return;
     }
     toast({ title: "Application link unavailable", description: "This source did not supply a direct application link for this role.", variant: "destructive" });
+  };
+
+  const tailorCoverLetter = async (job: Job) => {
+    if (!user || generatingCoverLetterFor) return;
+
+    setCoverLetterJob(job);
+    setCoverLetter("");
+    setCopiedCoverLetter(false);
+    setGeneratingCoverLetterFor(job.id);
+
+    try {
+      // The edge function uses the signed-in session to read the user's private
+      // profile. The client supplies only the selected, stored job identifier.
+      const { data, error } = await supabase.functions.invoke("generate-cover-letter", {
+        body: { jobId: job.id },
+      });
+      if (error) {
+        const response = (error as { context?: Response }).context;
+        const details = response ? await response.clone().json().catch(() => null) : null;
+        throw new Error(details?.error || error.message || "Could not tailor your cover letter.");
+      }
+      if (!data?.coverLetter) throw new Error("The AI did not return a cover letter. Please try again.");
+      setCoverLetter(data.coverLetter);
+    } catch (err: unknown) {
+      setCoverLetterJob(null);
+      const description = err instanceof Error ? err.message : "Please check your profile and try again.";
+      toast({ title: "Could not tailor the letter", description, variant: "destructive" });
+    } finally {
+      setGeneratingCoverLetterFor(null);
+    }
+  };
+
+  const copyCoverLetter = async () => {
+    if (!coverLetter) return;
+    try {
+      await navigator.clipboard.writeText(coverLetter);
+      setCopiedCoverLetter(true);
+      window.setTimeout(() => setCopiedCoverLetter(false), 1800);
+    } catch {
+      toast({ title: "Copy was blocked", description: "Select the letter and copy it manually.", variant: "destructive" });
+    }
   };
 
   const collectedTotalPages = Math.max(1, Math.ceil(collectedTotal / COLLECTED_PAGE_SIZE));
@@ -446,10 +433,20 @@ export default function JobBoard() {
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
                       <Button variant="ghost" size="icon" aria-label={savedJobIds.has(job.id) ? "Remove from saved jobs" : "Save job"} onClick={() => toggleSaveJob(job.id)} className={savedJobIds.has(job.id) ? "text-primary" : "text-muted-foreground"}>{savedJobIds.has(job.id) ? <BookmarkCheck className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}</Button>
+                      <Button variant="outline" size="sm" onClick={() => void tailorCoverLetter(job)} disabled={Boolean(generatingCoverLetterFor)} className="hidden gap-1.5 border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 sm:inline-flex">
+                        {generatingCoverLetterFor === job.id ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                        {generatingCoverLetterFor === job.id ? "Tailoring..." : "Tailor letter"}
+                      </Button>
                       <Button size="sm" onClick={() => applyToCollectedJob(job)} className="hidden gap-1.5 sm:inline-flex">Apply<ArrowUpRight className="h-3.5 w-3.5" /></Button>
                     </div>
                   </div>
-                  <div className="border-t border-border/60 px-5 py-3 sm:hidden"><Button size="sm" className="w-full gap-1.5" onClick={() => applyToCollectedJob(job)}>Apply to this role<ArrowUpRight className="h-3.5 w-3.5" /></Button></div>
+                  <div className="grid grid-cols-2 gap-2 border-t border-border/60 px-5 py-3 sm:hidden">
+                    <Button variant="outline" size="sm" onClick={() => void tailorCoverLetter(job)} disabled={Boolean(generatingCoverLetterFor)} className="gap-1.5 border-primary/30 bg-primary/5 text-primary">
+                      {generatingCoverLetterFor === job.id ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      Tailor letter
+                    </Button>
+                    <Button size="sm" className="gap-1.5" onClick={() => applyToCollectedJob(job)}>Apply<ArrowUpRight className="h-3.5 w-3.5" /></Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -573,6 +570,32 @@ export default function JobBoard() {
           </div>
         )}
       </div>
+      <Dialog open={Boolean(coverLetterJob)} onOpenChange={(open) => { if (!open && !generatingCoverLetterFor) setCoverLetterJob(null); }}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-primary/20 bg-card p-5 sm:p-6">
+          <DialogHeader>
+            <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><Sparkles className="h-5 w-5" /></div>
+            <DialogTitle className="font-display text-xl">Tailored cover letter</DialogTitle>
+            <DialogDescription>
+              {coverLetterJob ? `Written from your profile for ${coverLetterJob.title} at ${coverLetterJob.company || "this company"}. Review and edit it before applying.` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {generatingCoverLetterFor ? (
+            <div className="flex min-h-52 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-primary/25 bg-primary/5 px-5 text-center">
+              <LoaderCircle className="h-6 w-6 animate-spin text-primary" />
+              <div><p className="font-medium">Reading the role and your profile</p><p className="mt-1 text-sm text-muted-foreground">Creating a specific, truthful letter…</p></div>
+            </div>
+          ) : (
+            <Textarea aria-label="Tailored cover letter" value={coverLetter} onChange={(event) => setCoverLetter(event.target.value)} rows={13} className="resize-y border-white/15 bg-black text-white leading-7 placeholder:text-white/45 focus-visible:ring-primary" />
+          )}
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button type="button" variant="outline" onClick={() => setCoverLetterJob(null)} disabled={Boolean(generatingCoverLetterFor)}>Close</Button>
+            <Button type="button" variant="outline" onClick={() => coverLetterJob && void tailorCoverLetter(coverLetterJob)} disabled={Boolean(generatingCoverLetterFor)} className="gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Regenerate</Button>
+            <Button type="button" onClick={() => void copyCoverLetter()} disabled={!coverLetter || Boolean(generatingCoverLetterFor)} className="gap-1.5 gradient-primary border-0">
+              {copiedCoverLetter ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}{copiedCoverLetter ? "Copied" : "Copy letter"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

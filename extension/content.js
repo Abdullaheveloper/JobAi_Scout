@@ -6,33 +6,73 @@
   window.__JOBAI_CONTENT_LOADED__ = true;
 
   const LOG = (...a) => console.log("%c[JobAI]", "color:#6366f1;font-weight:bold", ...a);
+  const BRAND_MARK = `<svg class="brand-logo" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="jobaiSignal" x1="8" y1="6" x2="40" y2="42"><stop stop-color="#67e8f9"/><stop offset=".43" stop-color="#6374ff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><circle cx="24" cy="24" r="20" fill="#0d1538" stroke="url(#jobaiSignal)"/><path d="M7.5 28.5C10 39 22 44.5 32 40.5 42.5 36.5 47 24 42 14" fill="none" stroke="url(#jobaiSignal)" stroke-width="2"/><path d="M17.5 10.5v18c0 6 3 9 8.5 9s8.5-3.5 8.5-9v-6" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="m30 15 5-8 5 8-5-2-5 2Z" fill="url(#jobaiSignal)"/><circle cx="8" cy="27" r="2.7" fill="#67e8f9"/></svg>`;
   const WARN = (...a) => console.warn("[JobAI]", ...a);
+  const DECISION_ENGINE = globalThis.JobAIFormDecisionEngine || null;
 
   const SEMANTICS = [
+    // Structured repeatable sections are checked before generic matches so a
+    // single career passport can power multiple jobs, degrees and projects.
+    { key: "experience_title", patterns: [/\b(?:job|work|employment|professional)\s+(?:title|role)\b/i, /\btitle\b/i] },
+    { key: "experience_company", patterns: [/\b(?:work|employment|professional)\s+(?:company|employer)\b/i, /\bcompany\s+name\b/i] },
+    { key: "experience_start_date", patterns: [/\b(?:employment|work|job)\s+(?:start|from|begin)\b/i, /\bstart\s+date\b/i] },
+    { key: "experience_end_date", patterns: [/\b(?:employment|work|job)\s+(?:end|to|until)\b/i, /\bend\s+date\b/i] },
+    { key: "experience_description", patterns: [/\b(?:employment|work|job)\s+(?:duties|responsibilities|description)\b/i, /\bjob\s+description\b/i] },
+    { key: "education_institution", patterns: [/\b(?:education|academic)\s+(?:institution|school|university|college)\b/i, /\b(?:university|college|school|institution)\s+name\b/i] },
+    { key: "education_degree", patterns: [/\b(?:education|academic)\s+(?:degree|qualification)\b/i] },
+    { key: "education_field", patterns: [/\b(?:field|area)\s+of\s+study\b/i, /\bmajor\b/i] },
+    { key: "education_start_date", patterns: [/\beducation\s+(?:start|from)\b/i] },
+    { key: "education_end_date", patterns: [/\beducation\s+(?:end|to|graduation)\b/i, /\bgraduation\s+(?:date|year)\b/i, /\byear\s+of\s+graduation\b/i] },
+    { key: "project_name", patterns: [/\bproject\s+(?:name|title)\b/i] },
+    { key: "project_description", patterns: [/\bproject\s+(?:description|summary)\b/i] },
+    { key: "project_url", patterns: [/\bproject\s+(?:url|link|website)\b/i] },
+    { key: "reference_name", patterns: [/\breference\s+(?:full\s+)?name\b/i] },
+    { key: "reference_email", patterns: [/\breference\s+(?:e[\s-]?mail)\b/i] },
+    { key: "reference_phone", patterns: [/\breference\s+(?:phone|mobile)\b/i] },
+    { key: "reference_company", patterns: [/\breference\s+(?:company|employer)\b/i] },
+    { key: "reference_relationship", patterns: [/\breference\s+(?:relationship|relationship\s+to\s+you)\b/i] },
     { key: "email",      patterns: [/\b(e[\s-]?mail|email address|work email|contact email)\b/i] },
     { key: "phone",      patterns: [/\b(phone|tel(ephone)?|mobile|cell|whatsapp|contact number|phone number)\b/i] },
     { key: "first_name", patterns: [/\b(first name|given name|forename|f[\s-]?name|fname)\b/i, /given-name/i] },
     { key: "last_name",  patterns: [/\b(last name|family name|surname|l[\s-]?name|lname)\b/i, /family-name/i] },
-    { key: "full_name",  patterns: [/\b(full name|your name|applicant name|candidate name|legal name|name)\b/i] },
+    { key: "full_name",  patterns: [/\b(full name|your name|applicant name|candidate name|legal name)\b/i] },
     { key: "linkedin",   patterns: [/linked[\s-]?in|linkedin url|linkedin profile/i] },
     { key: "github",     patterns: [/git[\s-]?hub|github url|github profile/i] },
     { key: "portfolio",  patterns: [/portfolio|personal (site|website)|website|web url/i] },
     { key: "location",   patterns: [/\b(location|city|address|town|region|where.*based|country)\b/i] },
-    { key: "company",    patterns: [/\b(current (company|organization|employer)|employer|organization|company)\b/i] },
+    { key: "experience_title", patterns: [/\b(job|position|role) title\b/i, /\btitle.*(?:work|employment|experience)\b/i] },
+    { key: "experience_company", patterns: [/\b(?:employer|company|organization).*(?:work|employment|experience)\b/i, /\b(?:work|employment|experience).*(?:employer|company|organization)\b/i] },
+    { key: "experience_start_date", patterns: [/\b(?:work|employment|experience).*(?:start|from) date\b/i, /\bstart date.*(?:work|employment|experience)\b/i] },
+    { key: "experience_end_date", patterns: [/\b(?:work|employment|experience).*(?:end|to) date\b/i, /\bend date.*(?:work|employment|experience)\b/i] },
+    { key: "experience_description", patterns: [/\b(?:work|employment|experience).*(?:description|responsibilit|achievement|duties)\b/i] },
+    { key: "education_institution", patterns: [/\b(?:school|college|university|institution).*\b(?:education|degree|academic)\b/i, /\b(?:education|degree|academic).*\b(?:school|college|university|institution)\b/i] },
+    { key: "education_degree", patterns: [/\b(?:degree|qualification|major).*\b(?:education|academic)\b/i, /\b(?:education|academic).*\b(?:degree|qualification|major)\b/i] },
+    { key: "education_field", patterns: [/\b(?:field of study|area of study|major|speciali[sz]ation)\b/i] },
+    { key: "education_start_date", patterns: [/\b(?:education|academic).*(?:start|from) date\b/i] },
+    { key: "education_end_date", patterns: [/\b(?:education|academic).*(?:end|graduation|to) date\b/i] },
+    { key: "project_name", patterns: [/\bproject name\b/i] },
+    { key: "project_role", patterns: [/\b(?:project )?(?:role|position)\b/i] },
+    { key: "project_url", patterns: [/\b(?:project|repository|demo).*(?:url|link|website)\b/i] },
+    { key: "project_description", patterns: [/\bproject.*(?:description|summary|details|achievement)\b/i] },
+    { key: "reference_full_name", patterns: [/\b(?:reference|referee).*(?:full )?name\b/i] },
+    { key: "reference_company", patterns: [/\b(?:reference|referee).*(?:company|organization|employer)\b/i] },
+    { key: "reference_email", patterns: [/\b(?:reference|referee).*email\b/i] },
+    { key: "reference_phone", patterns: [/\b(?:reference|referee).*(?:phone|mobile|telephone)\b/i] },
+    { key: "reference_relationship", patterns: [/\b(?:reference|referee).*(?:relationship|relationship to you)\b/i] },
+    { key: "company",    patterns: [/\bcurrent (company|organization|employer)\b/i] },
     { key: "experience", patterns: [/years.*(professional |software |relevant )?(experience|exp)|experience.*years|how many years/i] },
-    { key: "summary",    patterns: [/tell.*about (yourself|you)|about (you|yourself)|summary|bio|introduce|why.*hire|cover letter|motivation|message/i] },
+    { key: "summary",    patterns: [/tell.*about (yourself|you)|about (you|yourself)|summary|bio|introduce|why.*hire|motivation|message/i] },
     { key: "skills",     patterns: [/skills|technologies|tech stack|competenc/i] },
     { key: "salary",     patterns: [/salary|compensation|expected pay/i] },
     { key: "education",  patterns: [/education|degree|university|college|school|academic/i] },
     // Radio/Checkbox specific
-    { key: "gender",             patterns: [/gender|sex\b|male|female|non[-\s]binary/i] },
     { key: "work_authorization", patterns: [/work (authorization|permit|visa)|authorized to work|legally authorized|sponsorship|visa status|right to work/i] },
+    { key: "commute_to_office", patterns: [/comfortable\s+(?:with\s+)?commut(?:e|ing).*office|commut(?:e|ing).*office|travel\s+to.*office/i] },
     { key: "willing_to_relocate", patterns: [/willing to relocate|relocation|willing to move/i] },
     { key: "availability",       patterns: [/availability|available to start|start date|when can you start|notice period/i] },
     { key: "onsite_eligible",    patterns: [/able to work (on[- ]?site|in office)|work on[- ]?site|commute to .*office/i] },
     { key: "work_type",          patterns: [/work (type|mode|preference)|preferred.*(remote|on[- ]?site|hybrid)|desired.*(remote|on[- ]?site|hybrid)|full[- ]?time|part[- ]?time|contract/i] },
     { key: "hear_about",         patterns: [/how did you hear|referral|source|where did you find|how did you discover/i] },
-    { key: "agree_terms",        patterns: [/i (agree|accept)|terms and conditions|privacy policy|consent|acknowledge/i] },
     // Common screening questions. These are answered only when the profile has
     // enough information to support the answer; unknown questions are left for
     // the applicant rather than guessing.
@@ -357,8 +397,23 @@
   }
 
   // ── File Upload Fill ──
-  const SUPABASE_URL = "https://okppdziaslsitmoqduqg.supabase.co";
-  const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rcHBkemlhc2xzaXRtb3FkdXFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5NzE3MTUsImV4cCI6MjA4ODU0NzcxNX0.yAFcwtZL8P2W-gN8ZyBik_CSA8c84cgBo9qJYouvPkc";
+  // Generated from .env at build time so the extension cannot silently use
+  // a stale Supabase project after the application moves environments.
+  let storageConfigPromise = null;
+  async function getStorageConfig() {
+    if (!storageConfigPromise) {
+      storageConfigPromise = fetch(chrome.runtime.getURL("config.local.json"))
+        .then((response) => {
+          if (!response.ok) throw new Error("Extension connection is not configured.");
+          return response.json();
+        })
+        .then((config) => {
+          if (!config?.supabaseUrl || !config?.anonKey) throw new Error("Extension connection is incomplete.");
+          return config;
+        });
+    }
+    return storageConfigPromise;
+  }
 
   async function fillFileInput(el, profile, key) {
     const session = await chrome.storage.local.get("session").then(r => r.session);
@@ -366,6 +421,7 @@
 
     let filePath = null;
     let fileName = "document";
+    let bucket = "resumes";
 
     switch (key) {
       case "resume":
@@ -379,6 +435,7 @@
       case "profile_photo":
         filePath = profile.avatar_url || profile.profile_picture_url;
         fileName = "profile_photo.jpg";
+        bucket = "profile-assets";
         break;
       case "document":
         filePath = profile.document_url;
@@ -389,16 +446,25 @@
     }
 
     if (!filePath) return false;
+    const normalizedFilePath = String(filePath).replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!normalizedFilePath.startsWith(`${session.user.id}/`)) return false;
 
     try {
+      const { supabaseUrl, anonKey } = await getStorageConfig();
       // Fetch file from Supabase storage
-      const fileUrl = `${SUPABASE_URL}/storage/v1/object/resumes/${filePath}`;
+      const fileUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${normalizedFilePath}`;
       const res = await fetch(fileUrl, {
-        headers: { "Authorization": `Bearer ${session.access_token}`, "apikey": ANON_KEY }
+        headers: { "Authorization": `Bearer ${session.access_token}`, "apikey": anonKey }
       });
       if (!res.ok) return false;
 
       const blob = await res.blob();
+      const storedFileName = decodeURIComponent(normalizedFilePath.split("/").pop() || "")
+        .replace(/^\d+_/, "")
+        .replace(/[^a-zA-Z0-9._-]+/g, "_");
+      if (/\.(pdf|docx|doc|jpg|jpeg|png)$/i.test(storedFileName)) {
+        fileName = storedFileName;
+      }
       const file = new File([blob], fileName, { type: blob.type || "application/pdf" });
 
       // Create DataTransfer to set file input
@@ -420,69 +486,169 @@
   }
 
   // ── Value Resolution ──
-  function resolveValue(profile, key, contextText = "") {
-    const cleanVal = (val) => {
-      if (!val) return "";
-      const s = String(val).trim();
-      return s.toLowerCase() === "no" ? "" : s;
-    };
-    const skills = Array.isArray(profile.skills) ? profile.skills.join(", ") : (profile.skills || "");
-    const [first, ...rest] = (profile.full_name || "").trim().split(/\s+/);
-    const last = rest.join(" ");
-    const rawPortfolio = cleanVal(profile.portfolio_url) || cleanVal(profile.linkedin_url) || cleanVal(profile.github_url);
-    const customAnswer = resolveCustomAnswer(profile, contextText);
-    if (customAnswer) return customAnswer;
-
-    const map = {
-      // Text fields
-      email:      cleanVal(profile.email),
-      phone:      cleanVal(profile.phone),
-      first_name: first,
-      last_name:  last,
-      full_name:  profile.full_name,
-      linkedin:   cleanVal(profile.linkedin_url),
-      github:     cleanVal(profile.github_url),
-      portfolio:  rawPortfolio,
-      location:   cleanVal(profile.location),
-      company:    cleanVal(profile.current_company),
-      experience: profile.experience_years ? String(profile.experience_years) : "",
-      summary:    cleanVal(profile.cv_summary || profile.bio),
-      skills:     cleanVal(skills),
-      salary:     cleanVal(profile.expected_salary),
-      education:  cleanVal(profile.education),
-      // Radio/Checkbox fields
-      gender:               cleanVal(profile.gender),
-      work_authorization:   cleanVal(profile.work_authorization),
-      willing_to_relocate:  cleanVal(profile.willing_to_relocate),
-      availability:         cleanVal(profile.availability),
-      work_type:            cleanVal(profile.work_type || profile.job_type),
-      hear_about:           cleanVal(profile.hear_about),
-      // Terms and privacy consents are intentionally not auto-accepted. The
-      // applicant must review and accept them themselves.
-      agree_terms:          "",
-      onsite_eligible:      resolveOnsiteEligibility(profile, contextText),
-      start_within_4_weeks: resolveStartAvailability(profile),
-      linux_vps_experience: resolveLinuxVpsExperience(profile),
-      // File fields (handled separately, return path)
-      resume:         profile.resume_url || "",
-      cover_letter:   profile.cover_letter_url || "",
-      profile_photo:  profile.avatar_url || profile.profile_picture_url || "",
-      document:       profile.document_url || "",
-    };
-    return map[key] || "";
+  // Profile facts are structured. The extension never reuses arbitrary
+  // employer-specific questions and answers across separate applications.
+  function valueText(value) {
+    if (value === null || value === undefined) return "";
+    if (value === true) return "yes";
+    if (value === false) return "no";
+    if (Array.isArray(value)) return value.map(valueText).filter(Boolean).join(", ");
+    return String(value).trim();
   }
 
-  function resolveCustomAnswer(profile, contextText) {
-    const answers = profile.application_answers;
-    if (!answers || typeof answers !== "object" || Array.isArray(answers)) return "";
-    const question = String(contextText || "").toLowerCase().replace(/\s+/g, " ").trim();
-    if (!question) return "";
-    for (const [prompt, answer] of Object.entries(answers)) {
-      const key = String(prompt).toLowerCase().replace(/\s+/g, " ").trim();
-      if (!key || answer === null || answer === undefined || String(answer).trim() === "") continue;
-      if (question.includes(key) || key.includes(question)) return String(answer).trim();
+  async function downloadSavedResume(profile) {
+    const filePath = String(profile?.resume_url || "").replace(/\\/g, "/").replace(/^\/+/, "");
+    const session = await chrome.storage.local.get("session").then((result) => result.session);
+    if (!session || !filePath || !filePath.startsWith(`${session.user.id}/`)) {
+      throw new Error("Upload a resume in the JobAI extension first.");
     }
-    return "";
+    const { supabaseUrl, anonKey } = await getStorageConfig();
+    const response = await fetch(`${supabaseUrl}/storage/v1/object/resumes/${filePath}`, {
+      headers: { Authorization: `Bearer ${session.access_token}`, apikey: anonKey },
+    });
+    if (!response.ok) throw new Error("Could not prepare your saved resume.");
+    const blob = await response.blob();
+    const storedName = decodeURIComponent(filePath.split("/").pop() || "JobAI_resume.pdf")
+      .replace(/^\d+_/, "")
+      .replace(/[^a-zA-Z0-9._-]+/g, "_");
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = /\.(pdf|docx)$/i.test(storedName) ? storedName : "JobAI_resume.pdf";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  }
+
+  function careerData(profile) {
+    const raw = profile?.career_profile;
+    if (!raw) return {};
+    if (typeof raw === "string") {
+      try { return JSON.parse(raw) || {}; } catch { return {}; }
+    }
+    return typeof raw === "object" ? raw : {};
+  }
+
+  function listFromCareer(profile, name) {
+    const value = careerData(profile)[name];
+    return Array.isArray(value) ? value : [];
+  }
+
+  function currentExperience(profile) {
+    const entries = listFromCareer(profile, "experiences");
+    return entries.find((entry) => entry?.isCurrent || entry?.is_current) || entries[0] || {};
+  }
+
+  function educationSummaryFacts(profile) {
+    const summary = valueText(profile?.education);
+    if (!summary) return { institution: "", endDate: "" };
+    const segments = summary.split(/[\n,;|]/).map((part) => part.trim()).filter(Boolean);
+    const institution = segments.find((part) => /university|college|institute|school/i.test(part)) || "";
+    const years = [...summary.matchAll(/\b(?:19|20)\d{2}\b/g)].map((match) => match[0]);
+    return { institution, endDate: years.at(-1) || "" };
+  }
+
+  function dateForField(value, fieldType) {
+    const text = valueText(value);
+    if (fieldType === "date" && /^\d{4}$/.test(text)) return `${text}-01-01`;
+    if (fieldType === "date" && /^\d{4}-\d{2}$/.test(text)) return `${text}-01`;
+    if (fieldType === "month" && /^\d{4}$/.test(text)) return `${text}-01`;
+    return text;
+  }
+
+  function resolveStructuredValue(profile, key, index, fieldType) {
+    const experience = listFromCareer(profile, "experiences")[index] || {};
+    const education = listFromCareer(profile, "education")[index] || {};
+    const project = listFromCareer(profile, "projects")[index] || {};
+    const reference = listFromCareer(profile, "references")[index] || {};
+    const achievements = listFromCareer(profile, "achievements");
+    const values = {
+      experience_title: experience.title,
+      experience_company: experience.company,
+      experience_start_date: dateForField(experience.startDate || experience.start_date, fieldType),
+      experience_end_date: experience.isCurrent || experience.is_current ? "" : dateForField(experience.endDate || experience.end_date, fieldType),
+      experience_description: valueText([experience.summary, ...(Array.isArray(experience.highlights) ? experience.highlights : [])]),
+      education_institution: education.institution || education.school,
+      education_degree: education.degree,
+      education_field: education.fieldOfStudy || education.field_of_study,
+      education_start_date: dateForField(education.startDate || education.start_date, fieldType),
+      education_end_date: dateForField(education.endDate || education.end_date, fieldType),
+      project_name: project.name,
+      project_role: project.role,
+      project_url: project.url,
+      project_description: valueText([project.description, ...(Array.isArray(project.highlights) ? project.highlights : [])]),
+      reference_full_name: reference.permissionToContact || reference.permission_to_contact ? (reference.fullName || reference.full_name || reference.name) : "",
+      reference_company: reference.permissionToContact || reference.permission_to_contact ? reference.company : "",
+      reference_email: reference.permissionToContact || reference.permission_to_contact ? reference.email : "",
+      reference_phone: reference.permissionToContact || reference.permission_to_contact ? reference.phone : "",
+      reference_relationship: reference.permissionToContact || reference.permission_to_contact ? reference.relationship : "",
+      certification: achievements.filter((item) => (item.type || "certification") === "certification").map((item) => item.title),
+    };
+    return valueText(values[key]);
+  }
+
+  function evidenceFor(profile, key) {
+    if (["onsite_eligible", "start_within_4_weeks", "linux_vps_experience"].includes(key)) {
+      return { source: "profile_inference" };
+    }
+    if (profile?.data_sources?.[key] === "ai") return { source: "ai_suggestion" };
+    return { source: "verified_profile" };
+  }
+
+  function resolveValue(profile, key, contextText = "", index = 0, fieldType = "") {
+    const structured = resolveStructuredValue(profile, key, index, fieldType);
+    if (structured) return { value: structured, evidence: evidenceFor(profile, "career_profile") };
+
+    if (key === "commute_to_office") {
+      const explicit = valueText(profile.commute_to_office ?? profile.onsite_eligible);
+      if (explicit) return { value: explicit, evidence: { source: "verified_profile" } };
+      const inferred = resolveOnsiteEligibility(profile, contextText);
+      const requestedPlace = String(contextText).match(/office\s+(?:in|at)\s+([a-z][a-z .'-]{2,}?)(?=[?*|]|$)/i)?.[1]?.trim();
+      const locationMatch = Boolean(requestedPlace && profile.location && String(profile.location).toLowerCase().includes(requestedPlace.toLowerCase()));
+      return {
+        value: inferred,
+        evidence: locationMatch ? { source: "verified_profile" } : { source: "profile_inference" },
+      };
+    }
+
+    const skills = Array.isArray(profile.skills) ? profile.skills.join(", ") : (profile.skills || "");
+    const [first = "", ...rest] = valueText(profile.full_name).split(/\s+/);
+    const latestExperience = currentExperience(profile);
+    const educationFacts = educationSummaryFacts(profile);
+    const map = {
+      email: valueText(profile.email),
+      phone: valueText(profile.phone),
+      first_name: first,
+      last_name: rest.join(" "),
+      full_name: valueText(profile.full_name),
+      linkedin: valueText(profile.linkedin_url),
+      github: valueText(profile.github_url),
+      portfolio: valueText(profile.portfolio_url) || valueText(profile.linkedin_url) || valueText(profile.github_url),
+      location: valueText(profile.location),
+      company: valueText(profile.current_company || latestExperience.company),
+      experience: profile.experience_years === 0 ? "0" : valueText(profile.experience_years),
+      summary: valueText(profile.cv_summary || profile.bio),
+      skills: valueText(skills),
+      salary: valueText(profile.expected_salary),
+      education: valueText(profile.education),
+      education_institution: valueText(educationFacts.institution),
+      education_end_date: dateForField(educationFacts.endDate, fieldType),
+      work_authorization: valueText(profile.work_authorization),
+      willing_to_relocate: valueText(profile.willing_to_relocate),
+      availability: valueText(profile.availability),
+      work_type: valueText(profile.work_type || profile.job_type),
+      onsite_eligible: resolveOnsiteEligibility(profile, contextText),
+      start_within_4_weeks: resolveStartAvailability(profile),
+      linux_vps_experience: resolveLinuxVpsExperience(profile),
+      resume: valueText(profile.resume_url),
+      // A cover letter is job-specific and is never substituted with a CV
+      // summary or uploaded without an explicit applicant action.
+      cover_letter: "",
+      profile_photo: valueText(profile.avatar_url || profile.profile_picture_url),
+      document: "",
+    };
+    return { value: map[key] || "", evidence: evidenceFor(profile, key) };
   }
 
   function resolveOnsiteEligibility(profile, contextText = "") {
@@ -492,7 +658,7 @@
     if (!/on.?site|hybrid/.test(preference)) return "";
     // If the question names a city, only answer yes when it matches the saved
     // location. This avoids making a claim about a different city.
-    const cityMatches = [...String(contextText).matchAll(/(?:on[- ]?site|in office)\s+(?:in\s+)?([a-z][a-z .'-]{2,}?)(?=[?*|]|$)/ig)];
+    const cityMatches = [...String(contextText).matchAll(/(?:on[- ]?site|in office|office\s+(?:in|at))\s+(?:in\s+)?([a-z][a-z .'-]{2,}?)(?=[?*|]|$)/ig)];
     const city = cityMatches.at(-1)?.[1]?.trim();
     if (city && profile.location && !String(profile.location).toLowerCase().includes(city.toLowerCase())) return "";
     return "yes";
@@ -513,16 +679,120 @@
   }
 
   // ── Main Fill Pass ──
-  const MIN_CONFIDENCE = 0.5;
-  const RADIO_CHECK_TYPES = ["radio", "checkbox"];
+  const MIN_CONFIDENCE = 0.4;
   const FILE_TYPES = ["resume", "cover_letter", "profile_photo", "document"];
+  const decisionEngine = globalThis.JobAIFormDecisionEngine;
+  let fillPassInFlight = false;
+  let activeFillPromise = null;
+
+  function normalizedPreferences(profile) {
+    const raw = profile?.autofill_preferences || {};
+    const toRange = (value, fallback) => {
+      const number = Number(value);
+      return Number.isFinite(number) && number >= 0 && number <= 1 ? number : fallback;
+    };
+    return {
+      textAutofillConfidence: Math.max(0.75, toRange(raw.textAutofillConfidence ?? raw.text_autofill_confidence, 0.75)),
+      checkboxConfidence: Math.max(0.41, toRange(raw.checkboxConfidence ?? raw.checkbox_confidence, 0.41)),
+    };
+  }
+
+  function semanticLabel(key) {
+    return String(key || "field").replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  function inferStructuredKey(contextText) {
+    const text = String(contextText || "").toLowerCase();
+    const has = (pattern) => pattern.test(text);
+    const inExperience = has(/work experience|employment history|professional experience|previous employment/);
+    const inEducation = has(/education history|academic history|education details|degree information/);
+    const inProject = has(/project experience|project details|portfolio project/);
+    const inReference = has(/reference|referee/);
+    if (inExperience) {
+      if (has(/(?:job|position|role) title|^title\b/)) return "experience_title";
+      if (has(/company|employer|organization/)) return "experience_company";
+      if (has(/start|from/)) return "experience_start_date";
+      if (has(/end|to date/)) return "experience_end_date";
+      if (has(/description|responsibilit|achievement|duties/)) return "experience_description";
+    }
+    if (inEducation) {
+      if (has(/school|college|university|institution/)) return "education_institution";
+      if (has(/degree|qualification/)) return "education_degree";
+      if (has(/field of study|major|speciali[sz]ation/)) return "education_field";
+      if (has(/start|from/)) return "education_start_date";
+      if (has(/end|graduation|to date/)) return "education_end_date";
+    }
+    if (inProject) {
+      if (has(/project name|^name\b/)) return "project_name";
+      if (has(/role|position/)) return "project_role";
+      if (has(/url|link|website|repository|demo/)) return "project_url";
+      if (has(/description|summary|details|achievement/)) return "project_description";
+    }
+    if (inReference) {
+      if (has(/email/)) return "reference_email";
+      if (has(/phone|mobile|telephone/)) return "reference_phone";
+      if (has(/company|organization|employer/)) return "reference_company";
+      if (has(/relationship/)) return "reference_relationship";
+      if (has(/name/)) return "reference_full_name";
+    }
+    return null;
+  }
+
+  function inferSafeNameKey(contextText) {
+    const text = String(contextText || "").toLowerCase();
+    if (!/\bname\b/.test(text)) return null;
+    if (/company|organization|university|college|school|reference|referee|project|file name|document/.test(text)) return null;
+    return "full_name";
+  }
+
+  function decisionForField({ el, key, context, confidence, value, evidence }) {
+    if (!decisionEngine) return { action: "manual", canFill: false, reason: "safety-engine-unavailable" };
+    return decisionEngine.decide({
+      field: {
+        key,
+        context: context.text,
+        type: (el.type || "").toLowerCase(),
+        tagName: el.tagName,
+        isContentEditable: el.getAttribute?.("contenteditable") === "true",
+      },
+      value,
+      confidence,
+      evidence,
+    });
+  }
+
+  function addOutcome(outcomes, key, item) {
+    if (!key) return;
+    if (!outcomes.some((entry) => entry.key === key && entry.reason === item.reason)) {
+      outcomes.push({ key, label: semanticLabel(key), ...item });
+    }
+  }
+
+  function findGoogleFilePicker() {
+    if (!/docs\.google\.com\/forms/i.test(location.href)) return null;
+    return Array.from(document.querySelectorAll("button, [role='button']")).find((element) => {
+      const context = `${element.textContent || ""} ${ancestorContext(element, 8).join(" ")}`.toLowerCase();
+      return /add file|upload.*(?:resume|cv)|resume.*upload/.test(context);
+    }) || null;
+  }
+
+  function hasManualResumePicker() {
+    return Boolean(findGoogleFilePicker());
+  }
 
   async function fillForm(profile) {
+    if (fillPassInFlight) return { count: 0, fields: [], missing: [], suggestions: [], protected: [], reviewed: [] };
+    fillPassInFlight = true;
     const fields = collectFields();
     LOG(`Scanning ${fields.length} candidate field(s)`);
     let count = 0;
     const filledKeys = new Set();
     const missingKeys = new Set();
+    const suggestions = [];
+    const protectedFields = [];
+    const reviewed = [];
+    const preferences = normalizedPreferences(profile);
+    const structuredIndexes = new Map();
 
     // Track radio groups we've already processed
     const processedRadioGroups = new Set();
@@ -551,8 +821,24 @@
       if (isCheckbox && el.checked) continue;
       if (isFile && el.files?.length) continue;
 
-      const { key, confidence, reason } = classify(el);
-      if (!key || confidence < MIN_CONFIDENCE) continue;
+      const classified = classify(el);
+      const context = buildContext(el);
+      const structuredKey = inferStructuredKey(context.text);
+      const inferredName = !classified.key ? inferSafeNameKey(context.text) : null;
+      const key = structuredKey || classified.key || inferredName;
+      const confidence = structuredKey
+        ? Math.max(classified.confidence, 0.9)
+        : (inferredName ? Math.max(classified.confidence, 0.78) : classified.confidence);
+      const reason = classified.reason;
+
+      // Terms, consent, diversity, verification and final-submit controls
+      // are still surfaced even if semantic matching cannot name the field.
+      if (!key) {
+        const manual = decisionForField({ el, key: "", context, confidence: 0, value: null, evidence: null });
+        if (manual.action === "manual") addOutcome(protectedFields, "manual_review", { reason: manual.reason });
+        continue;
+      }
+      if (confidence < MIN_CONFIDENCE) continue;
 
       // Skip duplicate radio groups
       if (isRadio) {
@@ -561,12 +847,24 @@
         processedRadioGroups.add(groupKey);
       }
 
-      const value = resolveValue(profile, key, buildContext(el).text);
+      const isStructured = /^(experience|education|project|reference)_/.test(key);
+      const index = isStructured ? (structuredIndexes.get(key) || 0) : 0;
+      if (isStructured) structuredIndexes.set(key, index + 1);
+      const resolved = resolveValue(profile, key, context.text, index, type);
+      const value = resolved.value;
 
       // Handle file inputs separately
       if (isFile || FILE_TYPES.includes(key)) {
         if (!isFile) continue; // Only handle actual file inputs
+        if (!["resume", "profile_photo"].includes(key)) {
+          addOutcome(suggestions, key, { reason: key === "cover_letter" ? "tailored-cover-letter-required" : "manual-document-upload" });
+          continue;
+        }
         if (!value) { missingKeys.add(key); continue; }
+        if (confidence < 0.9) {
+          addOutcome(suggestions, key, { reason: `${key}-field-needs-review` });
+          continue;
+        }
         try {
           if (await fillFileInput(el, profile, key)) {
             count++;
@@ -577,7 +875,20 @@
         continue;
       }
 
+      const decision = decisionForField({ el, key, context, confidence, value, evidence: resolved.evidence });
+      if (decision.action === "manual") {
+        addOutcome(protectedFields, key, { reason: decision.reason });
+        continue;
+      }
       if (!value) { missingKeys.add(key); continue; }
+
+      const threshold = isRadio || isCheckbox
+        ? Math.max(0.9, preferences.checkboxConfidence)
+        : preferences.textAutofillConfidence;
+      if (confidence < threshold || decision.action === "suggest" || !decision.canFill) {
+        addOutcome(suggestions, key, { reason: decision.reason || "review-suggestion" });
+        continue;
+      }
 
       try {
         if (isRadio) {
@@ -595,25 +906,58 @@
           await humanType(el, value);
           count++; filledKeys.add(key);
         }
+        if (decision.action === "fill_with_review") addOutcome(reviewed, key, { reason: decision.reason });
         LOG(`Filled: ${key} (${Math.round(confidence * 100)}%) [${reason}]`);
       } catch (e) { WARN("fill failed", e, el); }
     }
 
+    if (hasManualResumePicker()) {
+      addOutcome(suggestions, "resume", { reason: "google-file-picker-required" });
+    }
+
     LOG(`Done — filled ${count} field(s)`);
-    return { count, fields: [...filledKeys], missing: [...missingKeys].filter((key) => !filledKeys.has(key)) };
+    fillPassInFlight = false;
+    return {
+      count,
+      fields: [...filledKeys],
+      missing: [...missingKeys].filter((key) => !filledKeys.has(key)),
+      suggestions,
+      protected: protectedFields,
+      reviewed,
+    };
   }
 
-  async function fillWithRetry(profile, totalMs = 5000, intervalMs = 600) {
+  async function runFillWithRetry(profile, totalMs = 5000, intervalMs = 600) {
     const seen = new Set();
     const missing = new Set();
+    const suggestions = [];
+    const protectedFields = [];
+    const reviewed = [];
     const start = Date.now();
     while (Date.now() - start < totalMs) {
       const r = await fillForm(profile);
       for (const f of r.fields) seen.add(f);
       for (const f of r.missing || []) missing.add(f);
+      for (const item of r.suggestions || []) addOutcome(suggestions, item.key, item);
+      for (const item of r.protected || []) addOutcome(protectedFields, item.key, item);
+      for (const item of r.reviewed || []) addOutcome(reviewed, item.key, item);
       await new Promise(r => setTimeout(r, intervalMs));
     }
-    return { count: seen.size, fields: [...seen], missing: [...missing].filter((key) => !seen.has(key)) };
+    return {
+      count: seen.size,
+      fields: [...seen],
+      missing: [...missing].filter((key) => !seen.has(key)),
+      suggestions,
+      protected: protectedFields,
+      reviewed,
+    };
+  }
+
+  function fillWithRetry(profile, totalMs = 5000, intervalMs = 600) {
+    if (activeFillPromise) return activeFillPromise;
+    activeFillPromise = runFillWithRetry(profile, totalMs, intervalMs)
+      .finally(() => { activeFillPromise = null; });
+    return activeFillPromise;
   }
 
   let watcher = null;
@@ -633,27 +977,6 @@
   }
 
   // ── Side Panel ──
-  const FIELD_LABELS = {
-    email: "Email address", phone: "Phone number", first_name: "First name",
-    last_name: "Last name", full_name: "Full name", linkedin: "LinkedIn URL",
-    github: "GitHub URL", portfolio: "Portfolio URL", location: "Location",
-    company: "Current company", experience: "Years of experience",
-    summary: "Profile summary / bio", skills: "Skills", salary: "Expected salary",
-    education: "Education", gender: "Gender", work_authorization: "Work authorization",
-    willing_to_relocate: "Willing to relocate", availability: "Availability",
-    work_type: "Work type preference", hear_about: "How did you hear about us",
-  };
-
-  const KEY_TO_DB = {
-    email: "email", phone: "phone", first_name: "full_name", last_name: "full_name",
-    full_name: "full_name", linkedin: "linkedin_url", github: "github_url",
-    portfolio: "portfolio_url", location: "location", company: "current_company",
-    experience: "experience_years", summary: "bio", skills: "skills", salary: "expected_salary",
-    education: "education", gender: "gender", work_authorization: "work_authorization",
-    willing_to_relocate: "willing_to_relocate", availability: "availability",
-    work_type: "work_type", hear_about: "hear_about",
-  };
-
   let panelHost = null;
   let highlightedEls = [];
 
@@ -688,13 +1011,100 @@
     clearHighlights();
   }
 
-  function normalizeList(value) {
-    if (Array.isArray(value)) return value.map(v => String(v).trim()).filter(Boolean);
-    if (typeof value === "string") return value.split(",").map(v => v.trim()).filter(Boolean);
-    return [];
+  function escapePanelText(value) {
+    return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;");
   }
 
-  function createSidePanel(fillResult, profile) {
+  function humanReason(reason) {
+    const text = String(reason || "");
+    if (/manual-legal/.test(text)) return "Terms, consent, or a declaration — you must decide.";
+    if (/manual-sensitive/.test(text)) return "Personal or diversity information — intentionally left to you.";
+    if (/manual-protected/.test(text)) return "Verification, assessment, or final submission — never automated.";
+    if (/tailored-cover-letter/.test(text)) return "Create a tailored letter for this job before adding it.";
+    if (/missing-value/.test(text)) return "Add this fact to your Career Passport first.";
+    if (/direct-evidence/.test(text)) return "A saved fact needs your review before it can be used.";
+    if (/confidence/.test(text) || /review/.test(text) || /suggest/.test(text)) return "Suggestion only — review it before using it.";
+    if (/document-upload/.test(text)) return "Choose this document yourself.";
+    if (/google-file-picker/.test(text)) return "Google requires you to choose the resume in its signed-in file picker.";
+    return "Needs your review.";
+  }
+
+  function outcomeList(items, emptyText, tone) {
+    if (!items?.length) return `<p class="empty">${escapePanelText(emptyText)}</p>`;
+    return `<ul class="outcomes ${tone}">${items.map((item) => `<li><strong>${escapePanelText(item.label || semanticLabel(item.key))}</strong><span>${escapePanelText(humanReason(item.reason))}</span></li>`).join("")}</ul>`;
+  }
+
+  function createSidePanel(fillResult, profile = {}) {
+    removePanel();
+    const missing = fillResult?.missing || [];
+    const suggestions = fillResult?.suggestions || [];
+    const protectedFields = fillResult?.protected || [];
+    const reviewed = fillResult?.reviewed || [];
+    const googlePickerRequired = suggestions.some((item) => item?.reason === "google-file-picker-required");
+    highlightMissingFields(missing);
+
+    panelHost = document.createElement("div");
+    panelHost.id = "jobai-side-panel-host";
+    panelHost.style.cssText = "position:fixed;top:0;right:0;z-index:2147483647;pointer-events:none;";
+    document.documentElement.appendChild(panelHost);
+    const shadow = panelHost.attachShadow({ mode: "closed" });
+    shadow.innerHTML = `
+      <style>
+        :host { pointer-events:auto; }
+        .panel { position:fixed; top:16px; right:16px; width:min(360px,calc(100vw - 32px)); max-height:calc(100vh - 32px); overflow:auto; box-sizing:border-box; color:#edf2ff; background:linear-gradient(160deg,#111936 0%,#0b1125 58%,#14103b 100%); border:1px solid rgba(139,92,246,.36); border-radius:18px; box-shadow:0 26px 70px rgba(2,6,23,.52); font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; animation:jobai-review-enter .24s ease-out; }
+        @keyframes jobai-review-enter { from { transform:translateY(-10px);opacity:0 } to { transform:translateY(0);opacity:1 } }
+        .header { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:18px 18px 14px; border-bottom:1px solid rgba(148,163,184,.16); } .header-brand { display:flex;align-items:center;gap:10px; } .brand-logo { width:34px;height:34px;flex:none;filter:drop-shadow(0 6px 12px rgba(99,102,241,.3)); }
+        .eyebrow { color:#a5b4fc; font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; margin:0 0 5px; } h3 { margin:0; font-size:16px; letter-spacing:-.02em; } .close { appearance:none;border:0;background:rgba(148,163,184,.12);color:#e2e8f0;width:28px;height:28px;border-radius:9px;font-size:19px;cursor:pointer; } .close:hover,.close:focus-visible { background:rgba(139,92,246,.28);outline:2px solid #a78bfa;outline-offset:2px; }
+        .summary { padding:14px 18px 4px; font-size:12px; line-height:1.5; color:#cbd5e1; } .stats { display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 18px 4px; } .stat { border:1px solid rgba(148,163,184,.16);border-radius:12px;padding:9px 7px;background:rgba(15,23,42,.44);text-align:center; } .stat strong { display:block;font-size:18px; } .stat span { display:block;margin-top:2px;font-size:10px;color:#aab8d5; }
+        .body { padding:8px 18px 18px; } .group { margin-top:13px; } .group h4 { margin:0 0 7px;color:#dbeafe;font-size:11px;letter-spacing:.08em;text-transform:uppercase; } .outcomes { margin:0;padding:0;list-style:none;display:grid;gap:6px; } .outcomes li { padding:9px 10px;border-radius:10px;border:1px solid rgba(148,163,184,.13);background:rgba(15,23,42,.38); } .outcomes li strong { display:block;font-size:12px; } .outcomes li span { display:block;margin-top:3px;color:#aab8d5;font-size:11px;line-height:1.35; } .outcomes.warn li { border-color:rgba(245,158,11,.25); } .outcomes.manual li { border-color:rgba(244,114,182,.28); } .empty { color:#94a3b8;font-size:11px;margin:0;line-height:1.45; } .google-help { margin-top:12px;padding:12px;border:1px solid rgba(96,165,250,.3);border-radius:12px;background:rgba(37,99,235,.09); } .google-help strong { display:block;font-size:12px;color:#dbeafe; } .google-help p { margin:5px 0 10px;font-size:11px;line-height:1.4;color:#b9c6df; } .google-actions { display:grid;grid-template-columns:1fr 1fr;gap:7px; } .google-actions button { border:1px solid rgba(129,140,248,.38);border-radius:9px;background:rgba(99,102,241,.16);color:#eef2ff;padding:8px;font-size:10px;font-weight:700;cursor:pointer; } .google-actions button:hover,.google-actions button:focus-visible { background:rgba(99,102,241,.3);outline:2px solid #a78bfa;outline-offset:1px; } .google-status { min-height:14px;margin-top:7px;color:#a7f3d0;font-size:10px; } .footer { padding:13px 18px;border-top:1px solid rgba(148,163,184,.16);font-size:11px;color:#b9c6df;line-height:1.45; } .footer strong { color:#e0e7ff; }
+      </style>
+      <section class="panel" role="dialog" aria-label="JobAI fill review" aria-modal="false">
+        <header class="header"><div class="header-brand">${BRAND_MARK}<div><p class="eyebrow">JobAI Scout · Evidence-led review</p><h3>Application ready for your review</h3></div></div><button class="close" type="button" aria-label="Close review">×</button></header>
+        <p class="summary">JobAI filled only supported profile facts. It never submits an application or accepts legal, consent, diversity, or verification fields for you.</p>
+        <div class="stats"><div class="stat"><strong>${Number(fillResult?.count || 0)}</strong><span>filled</span></div><div class="stat"><strong>${suggestions.length + reviewed.length}</strong><span>review</span></div><div class="stat"><strong>${protectedFields.length}</strong><span>protected</span></div></div>
+        <div class="body">
+          <section class="group"><h4>Missing from Career Passport</h4>${outcomeList(missing.map((key) => ({ key, label: semanticLabel(key), reason: "missing-value" })), "No missing supported facts detected.", "warn")}</section>
+          <section class="group"><h4>Suggestions to review</h4>${outcomeList([...reviewed, ...suggestions], "No suggestions need your approval.", "warn")}</section>
+          ${googlePickerRequired ? `<section class="google-help"><strong>Google file upload</strong><p>Google protects this picker. Download your saved JobAI resume, then choose it in Google's signed-in window.</p><div class="google-actions"><button class="download-resume" type="button" ${profile?.resume_url ? "" : "disabled"}>1. Get resume</button><button class="open-google-picker" type="button">2. Open picker</button></div><div class="google-status" role="status"></div></section>` : ""}
+          <section class="group"><h4>Kept under your control</h4>${outcomeList(protectedFields, "No protected fields detected on this screen.", "manual")}</section>
+        </div>
+        <footer class="footer"><strong>Privacy first:</strong> update your Career Passport in JobAI Scout, then run fill again. Employer-specific questions are never stored as reusable answers.</footer>
+      </section>`;
+    shadow.querySelector(".close")?.addEventListener("click", removePanel);
+    shadow.querySelector(".download-resume")?.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      const status = shadow.querySelector(".google-status");
+      button.disabled = true;
+      status.textContent = "Preparing your saved resume…";
+      try {
+        await downloadSavedResume(profile);
+        status.textContent = "Downloaded. Now open Google's picker and select the file.";
+      } catch (error) {
+        status.textContent = error?.message || "Could not prepare your resume.";
+      } finally {
+        button.disabled = false;
+      }
+    });
+    shadow.querySelector(".open-google-picker")?.addEventListener("click", () => {
+      const picker = findGoogleFilePicker();
+      const status = shadow.querySelector(".google-status");
+      if (!picker) {
+        status.textContent = "The Google picker is not visible. Scroll to the file question and try again.";
+        return;
+      }
+      picker.scrollIntoView({ behavior: "smooth", block: "center" });
+      picker.focus?.();
+      picker.click();
+      status.textContent = "Choose the downloaded resume in Google's signed-in picker.";
+    });
+  }
+
+  function createLegacySidePanel(fillResult, profile) {
+    // Retained only to avoid breaking old injected-page instances. New runs
+    // always use the read-only evidence review above and never write a portal
+    // value back into the permanent profile.
+    return createSidePanel(fillResult);
+
     removePanel();
     const { count, fields: filledKeys, missing } = fillResult;
     if (!missing || !missing.length) return;
@@ -851,42 +1261,8 @@
     });
   }
 
-  async function saveProfileFromContent(patch) {
-    const { session } = await chrome.storage.local.get("session");
-    if (!session) throw new Error("Not signed in");
-    const userId = session.user.id;
-    const headers = {
-      "Content-Type": "application/json",
-      "apikey": ANON_KEY,
-      "Authorization": `Bearer ${session.access_token}`,
-      "Prefer": "return=representation",
-    };
-    const patchRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/profiles?user_id=eq.${encodeURIComponent(userId)}&select=*`,
-      { method: "PATCH", headers, body: JSON.stringify(patch) }
-    );
-    if (patchRes.ok) return patchRes.json();
-    const upsertHeaders = { ...headers, "Prefer": "resolution=merge-duplicates,return=representation" };
-    const payload = { user_id: userId, email: session.user.email, ...patch };
-    const upsertRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/profiles?on_conflict=user_id&select=*`,
-      { method: "POST", headers: upsertHeaders, body: JSON.stringify(payload) }
-    );
-    if (!upsertRes.ok) {
-      const errData = await upsertRes.json().catch(() => ({}));
-      const errMsg = [errData.message, errData.details, errData.hint].filter(Boolean).join(" ");
-      const colMatch = errMsg.match(/'([^']+)'\s+column/i) || errMsg.match(/column\s+"([^"]+)"/i);
-      if (colMatch && colMatch[1] in payload) {
-        delete payload[colMatch[1]];
-        const retryRes = await fetch(
-          `${SUPABASE_URL}/rest/v1/profiles?on_conflict=user_id&select=*`,
-          { method: "POST", headers: upsertHeaders, body: JSON.stringify(payload) }
-        );
-        if (retryRes.ok) return retryRes.json();
-      }
-      throw new Error(errData.message || `HTTP ${upsertRes.status}`);
-    }
-    return upsertRes.json();
+  async function saveProfileFromContent() {
+    throw new Error("Portal values cannot be saved to your Career Passport from an employer site.");
   }
 
   // ── In-page application launcher ───────────────────────────────────────
@@ -910,15 +1286,11 @@
   }
 
   async function loadProfileForLauncher() {
-    const { session } = await chrome.storage.local.get("session");
-    if (!session?.access_token || !session?.user?.id) throw new Error("Sign in to JobAI in the extension first.");
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/profiles?user_id=eq.${encodeURIComponent(session.user.id)}&select=*`,
-      { headers: { "Authorization": `Bearer ${session.access_token}`, "apikey": ANON_KEY } }
-    );
-    if (!res.ok) throw new Error("Could not load your JobAI profile.");
-    const rows = await res.json();
-    return { ...(rows[0] || {}), user_id: session.user.id, email: rows[0]?.email || session.user.email };
+    const response = await chrome.runtime.sendMessage({ type: "GET_APPLICATION_PROFILE" });
+    if (!response?.ok || !response.profile) {
+      throw new Error(response?.error || "Could not load your JobAI profile.");
+    }
+    return response.profile;
   }
 
   function createApplicationLauncher() {
@@ -932,10 +1304,10 @@
       <style>
         .card { width: 270px; box-sizing:border-box; background:#10152d; color:#f8fafc; border:1px solid rgba(129,140,248,.42); border-radius:14px; box-shadow:0 16px 40px rgba(15,23,42,.35); padding:14px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; animation:jobai-enter .22s ease-out; }
         @keyframes jobai-enter { from { opacity:0; transform:translateY(-8px) } to { opacity:1; transform:translateY(0) } }
-        .top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; } .brand { font-weight:750; font-size:15px; letter-spacing:-.2px; } .brand span { color:#a78bfa; } .close { border:0; background:transparent; color:#cbd5e1; font-size:21px; line-height:1; cursor:pointer; padding:0 2px; }
+        .top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; } .brand { display:flex;align-items:center;gap:8px;font-weight:750;font-size:14px;letter-spacing:-.2px; } .brand-logo { width:30px;height:30px;filter:drop-shadow(0 5px 10px rgba(99,102,241,.32)); } .brand span { color:#a78bfa; } .close { border:0; background:transparent; color:#cbd5e1; font-size:21px; line-height:1; cursor:pointer; padding:0 2px; }
         p { color:#b7c0d5; font-size:12px; line-height:1.4; margin:0 0 12px; } button.fill { width:100%; border:0; border-radius:9px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:white; padding:10px 12px; font-size:13px; font-weight:700; cursor:pointer; } button.fill:hover { filter:brightness(1.08); } button.fill:disabled { opacity:.65; cursor:wait; } .status { min-height:16px; color:#cbd5e1; font-size:11px; margin-top:9px; } .status.ok { color:#86efac; } .status.err { color:#fda4af; }
       </style>
-      <section class="card" aria-label="JobAI application helper"><div class="top"><div class="brand">Job<span>AI</span> Form Fill</div><button class="close" aria-label="Close">×</button></div><p>Application detected. Fill your saved profile, answers, and uploaded resume.</p><button class="fill">Auto-fill application</button><div class="status" role="status"></div></section>`;
+      <section class="card" aria-label="JobAI application helper"><div class="top"><div class="brand">${BRAND_MARK}<span>JobAI Scout</span></div><button class="close" aria-label="Close">×</button></div><p>Application detected. Fill your saved profile, answers, and uploaded resume.</p><button class="fill">Auto-fill application</button><div class="status" role="status"></div></section>`;
     const close = shadow.querySelector(".close");
     const fill = shadow.querySelector(".fill");
     const status = shadow.querySelector(".status");
@@ -951,8 +1323,10 @@
         watchDynamic(profile);
         status.className = "status ok";
         status.textContent = `Filled ${result.count} field${result.count === 1 ? "" : "s"}${result.missing.length ? ` · ${result.missing.length} need your input` : ""}.`;
+        const reviewCount = (result.missing?.length || 0) + (result.suggestions?.length || 0) + (result.protected?.length || 0);
+        status.textContent = `Filled ${result.count} field${result.count === 1 ? "" : "s"}${reviewCount ? ` · ${reviewCount} review item${reviewCount === 1 ? "" : "s"}` : ""}.`;
         fill.textContent = "Fill again";
-        if (result.missing.length) createSidePanel(result, profile);
+        if (reviewCount || result.reviewed?.length) createSidePanel(result, profile);
       } catch (error) {
         status.className = "status err";
         status.textContent = error?.message || "Auto-fill failed.";
@@ -967,7 +1341,18 @@
       const profile = msg.profile || {};
       fillWithRetry(profile).then((r) => {
         watchDynamic(profile);
-        sendResponse({ ok: true, count: r.count, fields: r.fields, missing: r.missing, url: location.href });
+        const reviewCount = (r.missing?.length || 0) + (r.suggestions?.length || 0) + (r.protected?.length || 0) + (r.reviewed?.length || 0);
+        if (reviewCount) createSidePanel(r, profile);
+        sendResponse({
+          ok: true,
+          count: r.count,
+          fields: r.fields,
+          missing: r.missing,
+          suggestions: r.suggestions,
+          protected: r.protected,
+          reviewed: r.reviewed,
+          url: location.href,
+        });
       });
       return true;
     }

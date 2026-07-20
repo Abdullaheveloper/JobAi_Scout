@@ -10,7 +10,7 @@ double_confirm_changes = false
 enable_confirmations = false
 
 [functions.analyze-cv]
-verify_jwt = false
+verify_jwt = true
 
 [functions.career-chat]
 verify_jwt = false
@@ -37,7 +37,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.extension-profile]
-verify_jwt = false
+verify_jwt = true
 
 [functions.track-extension-usage]
 verify_jwt = false

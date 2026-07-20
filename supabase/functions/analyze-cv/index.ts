@@ -1,9 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { extractCvText, type ExtractionResult } from "../_shared/cv-extraction.ts";
-import {
-  normalizeExtractedData,
-  buildProfileUpdateFromExtracted,
-} from "../_shared/cv-profile-merge.ts";
+import { normalizeExtractedData } from "../_shared/cv-profile-merge.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -114,18 +111,34 @@ Deno.serve(async (req) => {
     if (authError || !user) throw new Error("Invalid auth token");
 
     const { fileName, filePath } = await req.json();
-    if (!filePath) throw new Error("No file path provided");
+    if (typeof filePath !== "string" || !filePath.trim()) throw new Error("No file path provided");
+    const normalizedPath = filePath.replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!normalizedPath.startsWith(`${user.id}/`)) {
+      return new Response(JSON.stringify({ error: "You can only analyze a resume stored in your own account." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!/\.(pdf|docx)$/i.test(fileName || normalizedPath)) {
+      return new Response(JSON.stringify({ error: "Please upload a PDF or DOCX resume." }), {
+        status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data: fileData, error: downloadError } = await supabase.storage
       .from("resumes")
-      .download(filePath);
+      .download(normalizedPath);
     if (downloadError) throw new Error(`Download failed: ${downloadError.message}`);
+    if (fileData.size > 10 * 1024 * 1024) {
+      return new Response(JSON.stringify({ error: "Your resume is larger than 10 MB. Please upload a smaller PDF or DOCX file." }), {
+        status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
     if (!openrouterApiKey) throw new Error("OPENROUTER_API_KEY not configured");
 
     const extractorUrl = Deno.env.get("CV_EXTRACTOR_URL");
-    const resolvedFileName = fileName || filePath;
+    const resolvedFileName = fileName || normalizedPath;
 
     // Step 1: Text extraction (PyMuPDF / pdfplumber / OCR via Python service, or Deno fallback)
     const extraction: ExtractionResult = await extractCvText(fileData, resolvedFileName, {
@@ -145,79 +158,8 @@ Deno.serve(async (req) => {
     const result = await extractStructuredData(extraction.text, resolvedFileName, openrouterApiKey);
     const extracted = normalizeExtractedData(result as Record<string, unknown>);
 
-    // Step 3: Persist extracted fields into profile (only fill empty fields)
-    let savedKeys: string[] = [];
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-
-    const { updatePayload, filledKeys } = buildProfileUpdateFromExtracted(profile, extracted);
-
-    if (filledKeys.length > 0) {
-      const coreKeys = [
-        "full_name",
-        "email",
-        "phone",
-        "location",
-        "linkedin_url",
-        "github_url",
-        "skills",
-        "desired_roles",
-        "experience_years",
-      ];
-      const corePayload: Record<string, unknown> = {};
-      for (const key of coreKeys) {
-        if (updatePayload[key] !== undefined) corePayload[key] = updatePayload[key];
-      }
-
-      // An UPDATE matching no rows has no PostgREST error. Use upsert so a
-      // missing profile (for example, from an older account without the signup
-      // trigger) is created and the client can reliably load the extracted data.
-      const profilePayload = {
-        ...updatePayload,
-        user_id: user.id,
-        email: profile?.email || user.email || updatePayload.email || null,
-      };
-      const { data: savedProfile, error: updateError } = await supabase
-        .from("profiles")
-        .upsert(profilePayload, { onConflict: "user_id" })
-        .select("user_id")
-        .maybeSingle();
-
-      if ((updateError || !savedProfile) && Object.keys(corePayload).length > 0) {
-        console.error("Full profile save failed, trying core-only:", updateError?.message || "no profile row returned");
-        const { data: coreProfile, error: coreError } = await supabase
-          .from("profiles")
-          .upsert({ ...corePayload, user_id: user.id, email: profile?.email || user.email || null }, { onConflict: "user_id" })
-          .select("user_id")
-          .maybeSingle();
-
-        if (!coreError && coreProfile) {
-          savedKeys = filledKeys.filter((key) => coreKeys.includes(key));
-        } else {
-          console.error("Core profile save failed:", coreError?.message || "no profile row returned");
-        }
-      } else if (!updateError && savedProfile) {
-        savedKeys = filledKeys;
-      } else {
-        console.error("Server-side profile save failed:", updateError?.message || "no profile row returned");
-      }
-
-      if (savedKeys.length > 0) {
-        try {
-          await supabase.rpc("update_profile_data_sources", {
-            p_user_id: user.id,
-            p_field_names: savedKeys,
-            p_source: "ai",
-          });
-        } catch (rpcErr) {
-          console.error("update_profile_data_sources failed:", rpcErr);
-        }
-      }
-    }
-
+    // Step 3: return suggestions only. The client shows a merge review and
+    // requires explicit approval before any profile fact is persisted.
     return new Response(
       JSON.stringify({
         ...extracted,
@@ -227,10 +169,7 @@ Deno.serve(async (req) => {
           ocrUsed: extraction.ocrUsed,
           charCount: extraction.charCount,
         },
-        _saved: {
-          count: savedKeys.length,
-          keys: savedKeys,
-        },
+        _saved: { count: 0, keys: [] },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

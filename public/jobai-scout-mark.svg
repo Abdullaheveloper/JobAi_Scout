@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="48" y1="22" x2="466" y2="492" gradientUnits="userSpaceOnUse"><stop stop-color="#111A45"/><stop offset="1" stop-color="#060B22"/></linearGradient>
+    <linearGradient id="signal" x1="68" y1="54" x2="440" y2="456" gradientUnits="userSpaceOnUse"><stop stop-color="#67E8F9"/><stop offset=".43" stop-color="#6374FF"/><stop offset="1" stop-color="#A855F7"/></linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="13" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="202" fill="none" stroke="url(#signal)" stroke-width="12" opacity=".3"/>
+  <path d="M76 300c29 113 156 176 268 130 112-45 158-175 106-282" fill="none" stroke="url(#signal)" stroke-width="22" stroke-linecap="round"/>
+  <path d="M187 112v194c0 62 33 94 90 94 59 0 93-35 93-97v-65" fill="none" stroke="#fff" stroke-width="45" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m318 161 56-92 56 92-56-24-56 24Z" fill="url(#signal)" filter="url(#glow)"/>
+  <circle cx="86" cy="288" r="29" fill="#67E8F9" filter="url(#glow)"/>
+  <circle cx="450" cy="148" r="21" fill="#C084FC"/>
+</svg>

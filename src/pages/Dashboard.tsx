@@ -115,7 +115,7 @@ export default function Dashboard() {
     { icon: Briefcase, title: "Browse Jobs", desc: "Explore AI-matched opportunities", to: "/dashboard/jobs", gradient: "from-cyan-500 to-blue-600", delay: 0.35 },
     { icon: Bookmark, title: "Saved Jobs", desc: "Review your bookmarked positions", to: "/dashboard/saved", gradient: "from-emerald-500 to-teal-600", delay: 0.4 },
     { icon: Mic, title: "Voice Assistant", desc: "Get career guidance hands-free", to: "/dashboard/assistant", gradient: "from-violet-500 to-purple-600", delay: 0.45 },
-    { icon: Zap, title: "Auto Form Fill", desc: "Apply to jobs in one click", to: "/dashboard/auto-fill", gradient: "from-amber-500 to-orange-600", delay: 0.5 },
+    { icon: Zap, title: "Form Fill", desc: "Apply to jobs in one click", to: "/dashboard/auto-fill", gradient: "from-amber-500 to-orange-600", delay: 0.5 },
     { icon: BarChart3, title: "Analytics", desc: "Track your application progress", to: "/dashboard/analytics", gradient: "from-rose-500 to-pink-600", delay: 0.55 },
   ];
 

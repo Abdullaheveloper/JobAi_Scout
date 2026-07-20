@@ -14,12 +14,14 @@ dist-ssr
 .env
 .env.*
 !.env.example
+extension/config.local.json
 .certs/
 supabase/.temp/
 *.lnk
 **/.venv/
 __pycache__/
 *.py[cod]
+~$*.docx
 
 # Editor directories and files
 .vscode/*
@@ -31,3 +33,4 @@ __pycache__/
 *.njsproj
 *.sln
 *.sw?
+.vercel

@@ -12,13 +12,14 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
+import { JobAILogo } from "@/components/brand/JobAILogo";
 
 const userNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Upload CV", url: "/dashboard/cv", icon: FileUp },
   { title: "Browse Jobs", url: "/dashboard/jobs", icon: Briefcase },
   { title: "Saved Jobs", url: "/dashboard/saved", icon: Bookmark },
-  { title: "Auto Form Fill", url: "/dashboard/auto-fill", icon: Zap },
+  { title: "Form Fill", url: "/dashboard/auto-fill", icon: Zap },
   { title: "Voice Assistant", url: "/dashboard/assistant", icon: Mic },
   { title: "Profile Settings", url: "/dashboard/settings", icon: UserCog },
 ];
@@ -67,14 +68,8 @@ function AppSidebar() {
       <SidebarContent className="flex flex-col">
         {/* Logo */}
         <div className={`flex items-center gap-3 p-4 border-b border-indigo-500/10 ${collapsed ? "justify-center" : ""}`}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
-            <Briefcase className="h-5 w-5 text-white" />
-          </div>
-          {!collapsed && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <span className="font-bold text-lg text-white" style={{ fontFamily: 'Syne, sans-serif' }}>JobAI Scout</span>
-            </motion.div>
-          )}
+          <JobAILogo showWordmark={false} markClassName="h-9 w-9" />
+          {!collapsed && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><JobAILogo markClassName="hidden" /></motion.div>}
         </div>
 
         {/* Role Badge */}
