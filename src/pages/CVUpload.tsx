@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
 import ExtractedDataCard from "@/components/ExtractedDataCard";
+import ResumeSuggestionNotification from "@/components/resume/ResumeSuggestionNotification";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ import {
   Languages, ArrowRight, ShieldCheck, ExternalLink, AlertTriangle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useResumeATSAnalysis } from "@/hooks/useResumeATSAnalysis";
 
 type MergeField = {
   key: string;
@@ -40,10 +42,14 @@ function formatValue(val: unknown): string {
 }
 
 const MAX_RESUME_BYTES = 10 * 1024 * 1024;
-const isSupportedResume = (candidate: File) => {
+function validateResume(candidate: File): string | null {
   const name = candidate.name.toLowerCase();
-  return /\.(pdf|docx)$/.test(name) && candidate.size <= MAX_RESUME_BYTES;
-};
+  if (!candidate.name.includes(".")) return "The file has no extension. Choose a PDF or DOCX resume.";
+  if (!/\.(pdf|docx)$/.test(name)) return "Unsupported resume format. Please upload a PDF or DOCX file.";
+  if (candidate.size <= 0) return "This file is empty. Choose a resume that contains readable content.";
+  if (candidate.size > MAX_RESUME_BYTES) return "Your resume is larger than 10 MB. Choose a smaller file.";
+  return null;
+}
 
 export default function CVUpload() {
   const { user, profile, refreshProfile } = useAuth();
@@ -56,12 +62,20 @@ export default function CVUpload() {
   const [mergeFields, setMergeFields] = useState<MergeField[]>([]);
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [activeResumePath, setActiveResumePath] = useState<string | null>(profile?.resume_url || null);
+  const [retryingAts, setRetryingAts] = useState(false);
   const [extractionInfo, setExtractionInfo] = useState<{
     method: string;
     pages: number;
     ocrUsed: boolean;
     charCount: number;
   } | null>(null);
+  const ats = useResumeATSAnalysis(user?.id, activeResumePath);
+  const clearAts = ats.clear;
+
+  useEffect(() => {
+    if (profile?.resume_url) setActiveResumePath(profile.resume_url);
+  }, [profile?.resume_url]);
 
   useEffect(() => {
     if (user) refreshProfile();
@@ -95,16 +109,18 @@ export default function CVUpload() {
     e.preventDefault();
     setDragOver(false);
     const dropped = e.dataTransfer.files[0];
-    if (dropped && isSupportedResume(dropped)) {
+    const validationError = dropped ? validateResume(dropped) : "No resume file was selected.";
+    if (dropped && !validationError) {
       setFile(dropped);
       setExtractedData(null);
       setMergeFields([]);
       setApplied(false);
       setExtractionInfo(null);
+      clearAts();
     } else {
-      toast({ title: "Resume not accepted", description: "Choose a PDF or DOCX file up to 10 MB.", variant: "destructive" });
+      toast({ title: "Resume not accepted", description: validationError, variant: "destructive" });
     }
-  }, [toast]);
+  }, [clearAts, toast]);
 
   // Build merge plan: only fill fields that are currently empty
   const buildMergePlan = useCallback((data: ExtractedData, profileSnapshot: ProfileLike | null) => {
@@ -147,6 +163,7 @@ export default function CVUpload() {
 
     // Update profile with resume URL
     await supabase.from("profiles").update({ resume_url: filePath }).eq("user_id", user.id);
+    setActiveResumePath(filePath);
 
     setUploading(false);
     setAnalyzing(true);
@@ -163,12 +180,18 @@ export default function CVUpload() {
         const raw = data as Record<string, unknown> & {
           _extraction?: { method: string; pages: number; ocrUsed: boolean; charCount: number };
           _saved?: { count: number; keys: string[] };
+          _ats?: Record<string, unknown>;
         };
-        const { _extraction, _saved, ...rawExtracted } = raw;
+        const { _extraction, _saved, _ats, ...rawExtracted } = raw;
         const extracted = normalizeExtractedData(rawExtracted);
 
         if (_extraction) setExtractionInfo(_extraction);
         setExtractedData(extracted);
+        if (_ats?.analysis_status === "completed") {
+          ats.acceptResult(_ats);
+        } else if (_ats?.analysis_status === "failed") {
+          ats.setError(String(_ats.error || "Your resume was uploaded successfully, but ATS suggestions could not be generated."));
+        }
 
         // Fetch fresh profile directly (avoid stale React state in merge plan)
         const { data: freshProfile, error: profileError } = await supabase
@@ -197,10 +220,30 @@ export default function CVUpload() {
           });
         }
       }
-    } catch (err: any) {
-      toast({ title: "Analysis failed", description: err.message || "Could not analyze CV", variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Analysis failed", description: err instanceof Error ? err.message : "Could not analyze CV", variant: "destructive" });
+      ats.setError("We could not read this resume. It may be scanned, corrupted, or password protected. Try an unlocked text-based PDF or DOCX.");
     }
     setAnalyzing(false);
+  };
+
+  const retryAtsAnalysis = async () => {
+    if (!activeResumePath || retryingAts) return;
+    setRetryingAts(true);
+    ats.setError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-cv", {
+        body: { fileName: activeResumePath.split("/").pop(), filePath: activeResumePath, forceAts: true },
+      });
+      if (error) throw error;
+      const result = (data as { _ats?: unknown } | null)?._ats;
+      const failure = result && typeof result === "object" ? (result as { error?: string }).error : undefined;
+      if (!ats.acceptResult(result)) throw new Error(failure || "ATS suggestions could not be generated.");
+    } catch (error: unknown) {
+      ats.setError(error instanceof Error ? error.message : "ATS suggestions could not be generated. Your uploaded resume is still safe.");
+    } finally {
+      setRetryingAts(false);
+    }
   };
 
   const handleApplyExtracted = async () => {
@@ -243,6 +286,16 @@ export default function CVUpload() {
           <h1 className="font-display text-3xl font-bold tracking-tight">Bring your CV to life.</h1>
           <p className="mt-2 max-w-2xl text-muted-foreground">Upload one resume and we will extract the information that improves job matching and application autofill.</p>
         </section>
+
+        <ResumeSuggestionNotification
+          analysis={ats.analysis}
+          loading={analyzing}
+          error={ats.error}
+          dismissed={ats.isDismissed}
+          onDismiss={ats.dismiss}
+          onRetry={activeResumePath ? retryAtsAnalysis : undefined}
+          retrying={retryingAts}
+        />
 
         {/* Profile Completion Bar */}
         <Card className="border-border bg-card shadow-card">
@@ -306,14 +359,16 @@ export default function CVUpload() {
                 className="hidden"
                 onChange={(e) => {
                   const candidate = e.target.files?.[0];
-                  if (candidate && isSupportedResume(candidate)) {
+                  const validationError = candidate ? validateResume(candidate) : null;
+                  if (candidate && !validationError) {
                     setFile(candidate);
                     setExtractedData(null);
                     setMergeFields([]);
                     setApplied(false);
                     setExtractionInfo(null);
+                    ats.clear();
                   } else if (candidate) {
-                    toast({ title: "Resume not accepted", description: "Choose a PDF or DOCX file up to 10 MB.", variant: "destructive" });
+                    toast({ title: "Resume not accepted", description: validationError || "Choose a PDF or DOCX file up to 10 MB.", variant: "destructive" });
                   }
                 }}
               />

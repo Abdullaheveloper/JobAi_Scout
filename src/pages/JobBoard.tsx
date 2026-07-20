@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -10,12 +10,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Search, MapPin, DollarSign, Bookmark, BookmarkCheck, ExternalLink, Building2, Clock, RefreshCw, Filter, Sparkles, Briefcase, ChevronDown, ChevronUp, ArrowUpRight, X, Copy, Check, LoaderCircle } from "lucide-react";
-import type { Tables } from "@/integrations/supabase/types";
+import { Search, MapPin, DollarSign, Bookmark, BookmarkCheck, ExternalLink, Building2, Clock, RefreshCw, Filter, Sparkles, Briefcase, ChevronDown, ChevronUp, ArrowUpRight, X, Copy, Check, LoaderCircle, CheckCircle2, AlertCircle } from "lucide-react";
+import type { Database, Tables } from "@/integrations/supabase/types";
 import { PORTAL_COLORS } from "@/lib/constants";
+import { JOB_ADAPTER_STEPS, isScrapeSessionActive, isVisibleJobMatch, parseAdapterStatuses, runningAdapterPosition, scrapeCompletionMessage, type JobScrapeSession } from "@/lib/job-scrape";
 
 type RecommendedJob = Tables<"recommended_jobs">;
 type Job = Tables<"jobs">;
+type CollectedJob = Database["public"]["Functions"]["search_scrape_session_jobs"]["Returns"][number];
+type CoverLetterJob = Pick<Job, "id" | "title" | "company">;
+type MatchExplanationData = {
+  skillsMatch?: { matched?: string[] };
+  roleMatch?: { matched?: boolean; detail?: string };
+  experienceMatch?: { score?: number; detail?: string };
+  locationMatch?: { score?: number; detail?: string };
+  salaryMatch?: { score?: number; detail?: string };
+};
 const COLLECTED_PAGE_SIZE = 30;
 
 function isNewJob(dateStr?: string | null): boolean {
@@ -23,7 +33,7 @@ function isNewJob(dateStr?: string | null): boolean {
   return Date.now() - new Date(dateStr).getTime() < 24 * 60 * 60 * 1000;
 }
 
-function MatchExplanation({ explanation }: { explanation: any }) {
+function MatchExplanation({ explanation }: { explanation: MatchExplanationData | null }) {
   const [open, setOpen] = useState(false);
   if (!explanation || typeof explanation !== "object") return null;
   const items = [];
@@ -58,15 +68,16 @@ function MatchExplanation({ explanation }: { explanation: any }) {
 }
 
 export default function JobBoard() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [recJobs, setRecJobs] = useState<RecommendedJob[]>([]);
-  const [collectedJobs, setCollectedJobs] = useState<any[]>([]);
+  const [collectedJobs, setCollectedJobs] = useState<CollectedJob[]>([]);
   const [collectedTotal, setCollectedTotal] = useState(0);
   const [savedRecIds, setSavedRecIds] = useState<Set<string>>(new Set());
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [scraping, setScraping] = useState(false);
+  const [scrapeSession, setScrapeSession] = useState<JobScrapeSession | null>(null);
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [jobTypeFilter, setJobTypeFilter] = useState("all");
@@ -75,43 +86,76 @@ export default function JobBoard() {
   const [remoteFilter, setRemoteFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [collectedPage, setCollectedPage] = useState(1);
-  const [coverLetterJob, setCoverLetterJob] = useState<Job | null>(null);
+  const [coverLetterJob, setCoverLetterJob] = useState<CoverLetterJob | null>(null);
   const [coverLetter, setCoverLetter] = useState("");
   const [generatingCoverLetterFor, setGeneratingCoverLetterFor] = useState<string | null>(null);
   const [copiedCoverLetter, setCopiedCoverLetter] = useState(false);
+  const scrapeLockRef = useRef(false);
+  const startingSessionRef = useRef(false);
+  const previousSessionIdRef = useRef<string | null>(null);
+  const hydratedSessionRef = useRef<string | null>(null);
+  const announcedSessionRef = useRef<string | null>(null);
 
-  const fetchCollectedJobs = useCallback(async (page = collectedPage) => {
+  const fetchCollectedJobs = useCallback(async (page: number, sessionId?: string | null, silent = false) => {
     if (!user) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     const pageStart = (page - 1) * COLLECTED_PAGE_SIZE;
     const terms = [...new Set(search.trim()
       .replace(/[^a-zA-Z0-9 .+#-]/g, " ")
       .toLowerCase()
       .split(/\s+/)
-      .filter((word) => word.length >= 2))].slice(0, 4);
-    const strictSource = sourceFilter === "rss" || sourceFilter === "company_career";
-    const { data, error } = await supabase.rpc("search_collected_jobs" as never, {
+      .filter((word) => word.length >= 2))].slice(0, 8);
+    const { data, error } = await supabase.rpc("search_scrape_session_jobs", {
+      p_session_id: sessionId || null,
       p_terms: terms,
       p_source: sourceFilter === "all" ? null : sourceFilter,
       p_location: locationFilter.trim() || null,
       p_job_type: jobTypeFilter === "all" ? null : jobTypeFilter,
       p_work_mode: remoteFilter === "all" ? null : remoteFilter,
-      p_strict_match: strictSource,
       p_limit: COLLECTED_PAGE_SIZE,
       p_offset: pageStart,
-    } as never) as { data: any[] | null; error: { message: string } | null };
+    });
 
     if (error) {
-      toast({ title: "Could not load jobs", description: error.message, variant: "destructive" });
-      setCollectedJobs([]);
-      setCollectedTotal(0);
+      if (!silent) toast({ title: "Could not load jobs", description: "Your matching jobs could not be loaded. Please try again.", variant: "destructive" });
     } else {
-      const visibleJobs = (data || []).filter((job) => Boolean(job.recruiter_id || job.source_url));
+      const visibleJobs = (data || []).filter((job) => isVisibleJobMatch(job.match_score) && Boolean(job.recruiter_id || job.source_url));
       setCollectedJobs(visibleJobs);
       setCollectedTotal(Number(data?.[0]?.total_count || 0));
     }
-    setLoading(false);
-  }, [collectedPage, jobTypeFilter, locationFilter, remoteFilter, search, sourceFilter, toast, user]);
+    if (!silent) setLoading(false);
+  }, [jobTypeFilter, locationFilter, remoteFilter, search, sourceFilter, toast, user]);
+
+  const fetchLatestSession = useCallback(async (hydrateInputs = false): Promise<JobScrapeSession | null> => {
+    if (!user) return null;
+    const { data, error } = await supabase
+      .from("job_scrape_sessions")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.error("[browse-jobs] scrape session load failed", error.message);
+      return null;
+    }
+    const session = data as JobScrapeSession | null;
+    setScrapeSession(session);
+    const active = isScrapeSessionActive(session);
+    // Keep the optimistic click lock while the Edge Function is still creating
+    // the new row; otherwise a fast poll could see the previous completed row
+    // and briefly permit a duplicate click.
+    if (active || !startingSessionRef.current) {
+      setScraping(active);
+      scrapeLockRef.current = active;
+    }
+    if (hydrateInputs && session && hydratedSessionRef.current !== session.id) {
+      hydratedSessionRef.current = session.id;
+      setSearch(session.search_query);
+      setLocationFilter(session.location || "");
+    }
+    return session;
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -135,7 +179,7 @@ export default function JobBoard() {
     };
     fetchProfileData();
 
-    // Supabase Realtime subscription to reload jobs automatically
+    // Preserve the existing recommended-jobs live refresh.
     const channel = supabase
       .channel("recommended-jobs-realtime")
       .on(
@@ -146,45 +190,75 @@ export default function JobBoard() {
           table: "recommended_jobs",
           filter: `user_id=eq.${user.id}`,
         },
-        () => {
-          fetchCollectedJobs(1);
-        }
+        () => { void fetchProfileData(); }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchCollectedJobs, user]);
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
-    const timer = window.setTimeout(() => fetchCollectedJobs(), 250);
-    return () => window.clearTimeout(timer);
-  }, [fetchCollectedJobs, user]);
+    void fetchLatestSession(true);
+  }, [fetchLatestSession, user]);
 
-  const handleRefresh = async () => {
-    if (sourceFilter === "all") {
-      toast({ title: "Choose a source first", description: "Select LinkedIn, Indeed, RSS feeds, or Company careers above. Each refresh runs one source group to stay fast and reliable." });
-      return;
-    }
+  useEffect(() => {
+    if (!user) return;
+    const timer = window.setTimeout(() => void fetchCollectedJobs(collectedPage, scrapeSession?.id), 250);
+    return () => window.clearTimeout(timer);
+  }, [collectedPage, fetchCollectedJobs, scrapeSession?.id, user]);
+
+  useEffect(() => {
+    if (!user || !scraping) return;
+    let disposed = false;
+    const refreshProgress = async () => {
+      const latest = await fetchLatestSession(false);
+      if (disposed || !latest) return;
+      if (startingSessionRef.current && latest.id === previousSessionIdRef.current) return;
+      startingSessionRef.current = false;
+      await fetchCollectedJobs(1, latest.id, true);
+      if (!isScrapeSessionActive(latest)) {
+        scrapeLockRef.current = false;
+        setScraping(false);
+        setCollectedPage(1);
+        const announcementKey = `${latest.id}:${latest.session_status}`;
+        if (announcedSessionRef.current !== announcementKey) {
+          announcedSessionRef.current = announcementKey;
+          toast({
+            title: latest.session_status === "completed" ? "Job scraping complete" : "Job scraping finished",
+            description: scrapeCompletionMessage(latest),
+            variant: latest.session_status === "failed" ? "destructive" : "default",
+          });
+        }
+      }
+    };
+    void refreshProgress();
+    const timer = window.setInterval(() => void refreshProgress(), 1_250);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [fetchCollectedJobs, fetchLatestSession, scraping, toast, user]);
+
+  const handleScrapeJobs = async () => {
+    if (scrapeLockRef.current) return;
     if (!search.trim()) {
-      toast({ title: "Job title, skill, or company is required", description: "Enter at least one search term before refreshing a job source.", variant: "destructive" });
+      toast({ title: "Add a skill or keyword", description: "Enter the role, skill, or keyword you want JobAI Scout to find.", variant: "destructive" });
       return;
     }
+    previousSessionIdRef.current = scrapeSession?.id || null;
+    startingSessionRef.current = true;
+    scrapeLockRef.current = true;
     setScraping(true);
     try {
       const query = search.trim();
-      const userCity = locationFilter.trim() || "";
-      const collectionLocation = userCity && !userCity.toLowerCase().includes("pakistan") ? `${userCity}, Pakistan` : (userCity || "Pakistan");
       const { data, error } = await supabase.functions.invoke("collect-jobs", {
         body: {
           query,
-          location: collectionLocation,
-          keywords: [query],
-          locations: [collectionLocation],
+          location: locationFilter.trim() || null,
           jobType: jobTypeFilter,
-          source: sourceFilter,
           workMode: remoteFilter,
           maxItems: 25,
         },
@@ -192,15 +266,40 @@ export default function JobBoard() {
       if (error) {
         const response = (error as { context?: Response }).context;
         const details = response ? await response.clone().json().catch(() => null) : null;
-        throw new Error(details?.error || error.message || "Could not fetch new jobs");
+        if (details?.session) {
+          startingSessionRef.current = false;
+          setScrapeSession(details.session as JobScrapeSession);
+          setScraping(isScrapeSessionActive(details.session));
+          scrapeLockRef.current = isScrapeSessionActive(details.session);
+          return;
+        }
+        throw new Error(details?.error || error.message || "Could not start job scraping");
       }
+      const session = data?.session as JobScrapeSession | undefined;
+      startingSessionRef.current = false;
+      if (session) setScrapeSession(session);
       setCollectedPage(1);
-      await fetchCollectedJobs(1);
-      toast({ title: "Job collection complete", description: `Found ${data.found} jobs with direct posting links, added ${data.inserted} new listings.${data.duplicatesRemoved ? ` Removed ${data.duplicatesRemoved} duplicate${data.duplicatesRemoved === 1 ? "" : "s"}.` : ""}${data.skipped ? ` Rejected ${data.skipped} jobs without valid links.` : ""}${data.sourceErrors?.length ? ` ${data.sourceErrors.length} source(s) need attention.` : ""}` });
-    } catch (err: any) {
-      toast({ title: "Refresh failed", description: err.message || "Could not fetch new jobs", variant: "destructive" });
-    } finally {
+      await fetchCollectedJobs(1, session?.id, true);
+      const active = isScrapeSessionActive(session);
+      setScraping(active);
+      scrapeLockRef.current = active;
+      if (session && !active) {
+        announcedSessionRef.current = `${session.id}:${session.session_status}`;
+        toast({ title: session.session_status === "completed" ? "Job scraping complete" : "Job scraping finished", description: scrapeCompletionMessage(session), variant: session.session_status === "failed" ? "destructive" : "default" });
+      }
+    } catch (error: unknown) {
+      // The browser request may be interrupted while the server-side session is
+      // still running. Reconcile with the database before presenting a failure.
+      const latest = await fetchLatestSession(false);
+      if (isScrapeSessionActive(latest)) {
+        startingSessionRef.current = false;
+        toast({ title: "Scraping is still running", description: "The connection was interrupted, but JobAI Scout is continuing the active session." });
+        return;
+      }
+      scrapeLockRef.current = false;
+      startingSessionRef.current = false;
       setScraping(false);
+      toast({ title: "Could not start scraping", description: error instanceof Error ? error.message : "Please check your connection and try again.", variant: "destructive" });
     }
   };
 
@@ -215,7 +314,7 @@ export default function JobBoard() {
     }
   };
 
-  const applyToCollectedJob = async (job: any) => {
+  const applyToCollectedJob = async (job: CollectedJob) => {
     if (!user) return;
     if (job.recruiter_id) {
       const { error } = await supabase.from("job_applications").insert({ user_id: user.id, job_id: job.id });
@@ -230,7 +329,7 @@ export default function JobBoard() {
     toast({ title: "Application link unavailable", description: "This source did not supply a direct application link for this role.", variant: "destructive" });
   };
 
-  const tailorCoverLetter = async (job: Job) => {
+  const tailorCoverLetter = async (job: CoverLetterJob) => {
     if (!user || generatingCoverLetterFor) return;
 
     setCoverLetterJob(job);
@@ -289,6 +388,9 @@ export default function JobBoard() {
 
   const filtered = useMemo(() => {
     return recJobs.filter(j => {
+      // The Browse Jobs experience has one recommendation quality floor for
+      // both newly scraped and existing recommended records.
+      if (!isVisibleJobMatch(j.match_score)) return false;
       if (search) {
         const s = search.toLowerCase();
         if (!j.title.toLowerCase().includes(s) && !j.company.toLowerCase().includes(s)) return false;
@@ -306,7 +408,6 @@ export default function JobBoard() {
         const score = j.match_score || 0;
         if (scoreFilter === "80+" && score < 80) return false;
         if (scoreFilter === "60-79" && (score < 60 || score >= 80)) return false;
-        if (scoreFilter === "40-59" && (score < 40 || score >= 60)) return false;
       }
       if (remoteFilter === "remote" && !(j.location || "").toLowerCase().includes("remote")) return false;
       if (remoteFilter === "hybrid" && !(j.location || "").toLowerCase().includes("hybrid")) return false;
@@ -339,6 +440,11 @@ export default function JobBoard() {
     { value: "company_career", label: "Company careers" },
     ...uniquePortals.filter((source) => !["linkedin_apify", "indeed_apify", "rss", "company_career"].includes(String(source))).map((source) => ({ value: String(source), label: sourceLabel(source) })),
   ], [uniquePortals]);
+  const adapterStatuses = useMemo(
+    () => parseAdapterStatuses(scraping && !isScrapeSessionActive(scrapeSession) ? null : scrapeSession?.adapter_statuses),
+    [scrapeSession, scraping],
+  );
+  const activeAdapterPosition = runningAdapterPosition(scrapeSession);
   const relativeDate = (date?: string | null) => {
     if (!date) return "Recently added";
     const days = Math.floor((Date.now() - new Date(date).getTime()) / 86_400_000);
@@ -358,16 +464,40 @@ export default function JobBoard() {
               <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">A better way to find your next role.</h1>
               <p className="mt-3 text-sm leading-6 text-muted-foreground md:text-base">Search a clean, deduplicated stream of roles from job boards, employer career pages, recruiter listings, and feeds.</p>
               <div className="mt-5 flex flex-wrap gap-2">
-                {sourceOptions.map((source) => <Button key={source.value} type="button" variant={sourceFilter === source.value ? "default" : "outline"} size="sm" onClick={() => { setSourceFilter(source.value); setShowFilters(true); }} className="h-8 border-border/70 bg-background/60 px-3 text-xs">{source.label}</Button>)}
+                {JOB_ADAPTER_STEPS.map((adapter) => {
+                  const status = adapterStatuses[adapter.key];
+                  const stateClasses = status === "running"
+                    ? "border-blue-700 bg-blue-950 text-blue-50"
+                    : status === "completed"
+                      ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-300"
+                      : status === "failed"
+                        ? "border-red-500/60 bg-red-500/20 text-red-300"
+                        : "border-sky-300/70 bg-sky-400 text-sky-950";
+                  const StatusIcon = status === "running" ? LoaderCircle : status === "completed" ? CheckCircle2 : status === "failed" ? AlertCircle : Clock;
+                  return (
+                    <Button
+                      key={adapter.key}
+                      type="button"
+                      size="sm"
+                      disabled
+                      aria-label={`${adapter.label}: ${status}`}
+                      title={`${adapter.label}: ${status}`}
+                      className={`h-8 gap-1.5 px-3 text-xs capitalize disabled:pointer-events-none disabled:opacity-100 ${stateClasses}`}
+                    >
+                      <StatusIcon className={`h-3.5 w-3.5 ${status === "running" ? "animate-spin" : ""}`} />
+                      {adapter.label}: {status}
+                    </Button>
+                  );
+                })}
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-end">
-              <Button onClick={handleRefresh} disabled={scraping} className="min-w-48 gap-2 gradient-primary border-0 shadow-lg shadow-primary/20">
+              <Button onClick={handleScrapeJobs} disabled={scraping || !search.trim()} className="min-w-48 gap-2 gradient-primary border-0 shadow-lg shadow-primary/20">
                 <RefreshCw className={`h-4 w-4 ${scraping ? "animate-spin" : ""}`} />
-                {scraping ? "Collecting roles..." : sourceFilter === "all" ? "Choose a source to refresh" : `Refresh ${sourceLabel(sourceFilter)}`}
+                {scraping ? "Scraping Jobs..." : "Scrape Jobs"}
               </Button>
-              {sourceFilter === "all" && <p className="max-w-52 text-right text-xs text-muted-foreground">Choose a source above before refreshing. This prevents a slow provider from blocking every source.</p>}
-              <p className="text-xs text-muted-foreground">{collectedTotal} roles currently indexed</p>
+              <p className="max-w-56 text-right text-xs text-muted-foreground">One click checks all four sources in order. Location is optional.</p>
+              <p className="text-xs text-muted-foreground">{collectedTotal} matching roles in this session</p>
             </div>
           </div>
         </section>
@@ -377,11 +507,11 @@ export default function JobBoard() {
             <div className="flex flex-col gap-3 lg:flex-row">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input aria-required="true" placeholder="Job title, skill, or company (required to refresh)" value={search} onChange={(e) => setSearch(e.target.value)} className="h-11 border-border/80 bg-background/60 pl-11" />
+                <Input aria-required="true" aria-label="Skill, job title, or keyword" placeholder="Skill, job title, or keyword (required)" value={search} disabled={scraping} onChange={(e) => setSearch(e.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && search.trim() && !scraping) void handleScrapeJobs(); }} className="h-11 border-border/80 bg-background/60 pl-11" />
               </div>
               <div className="relative lg:w-64">
                 <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="City, country, or remote" value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} className="h-11 border-border/80 bg-background/60 pl-11" />
+                <Input aria-label="Preferred job location" placeholder="City, country, or remote (optional)" value={locationFilter} disabled={scraping} onChange={(e) => setLocationFilter(e.target.value)} className="h-11 border-border/80 bg-background/60 pl-11" />
               </div>
               <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="h-11 gap-2 border-border/80 bg-background/40">
                 <Filter className="h-4 w-4" /> {showFilters ? "Hide filters" : "Filters"}
@@ -394,6 +524,27 @@ export default function JobBoard() {
                 <Select value={sourceFilter} onValueChange={setSourceFilter}><SelectTrigger className="w-[170px] bg-background/60"><SelectValue placeholder="Source" /></SelectTrigger><SelectContent><SelectItem value="all">Every source</SelectItem>{sourceOptions.map((source) => <SelectItem key={source.value} value={source.value}>{source.label}</SelectItem>)}</SelectContent></Select>
                 <Select value={remoteFilter} onValueChange={setRemoteFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder="Work mode" /></SelectTrigger><SelectContent><SelectItem value="all">Any work mode</SelectItem><SelectItem value="remote">Remote</SelectItem><SelectItem value="hybrid">Hybrid</SelectItem></SelectContent></Select>
                 {hasActiveFilters && <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={clearFilters}><X className="h-3.5 w-3.5" /> Clear filters</Button>}
+              </div>
+            )}
+            {scrapeSession && (
+              <div className="mt-4 rounded-2xl border border-border/70 bg-background/45 p-4" role="status" aria-live="polite">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {isScrapeSessionActive(scrapeSession) && activeAdapterPosition
+                        ? `Running adapter ${activeAdapterPosition} of ${JOB_ADAPTER_STEPS.length}`
+                        : scrapeCompletionMessage(scrapeSession)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Search: {scrapeSession.search_query}{scrapeSession.location ? ` in ${scrapeSession.location}` : " in any location"}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[300px]">
+                    <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold">{scrapeSession.total_jobs_scraped}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Scraped</p></div>
+                    <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold">{scrapeSession.total_jobs_saved}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Saved</p></div>
+                    <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold text-emerald-400">{scrapeSession.total_jobs_displayed}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Shown</p></div>
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>
@@ -415,7 +566,7 @@ export default function JobBoard() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline" className="border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">{sourceLabel(job.source)}</Badge>
-                        {(job.source === "rss" || job.source === "company_career") && search.trim() && <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">{Math.round(Number(job.match_score || 0))}% match</Badge>}
+                        <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-500">Match {Math.round(Number(job.match_score || 0))}%</Badge>
                         {isNewJob(job.posted_at || job.created_at) && <Badge className="bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 hover:bg-emerald-500/15">New</Badge>}
                       </div>
                       <h3 className="mt-2 font-display text-lg font-semibold leading-snug text-foreground transition-colors group-hover:text-primary md:text-xl">{job.title}</h3>
@@ -423,9 +574,10 @@ export default function JobBoard() {
                         <span className="flex items-center gap-1.5 font-medium text-foreground/85"><Building2 className="h-3.5 w-3.5 text-primary/70" />{job.company || "Company not listed"}</span>
                         {job.location && <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />{job.location}</span>}
                         {job.job_type && <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{job.job_type}</span>}
-                        {job.salary && <span className="flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" />{job.salary}</span>}
+                        {(job.salary_min || job.salary_max) && <span className="flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" />{job.salary_currency ? `${job.salary_currency} ` : ""}{job.salary_min ? Number(job.salary_min).toLocaleString() : ""}{job.salary_min && job.salary_max ? " - " : ""}{job.salary_max ? Number(job.salary_max).toLocaleString() : ""}</span>}
                       </div>
                       {job.description && <p className="mt-3 max-w-4xl text-sm leading-6 text-muted-foreground line-clamp-2">{job.description}</p>}
+                      <MatchExplanation explanation={job.match_explanation as MatchExplanationData | null} />
                       <div className="mt-4 flex flex-wrap items-center gap-2">
                         {(job.skills || []).slice(0, 4).map((skill: string) => <Badge key={skill} variant="secondary" className="bg-muted/65 px-2 py-0.5 text-xs font-normal">{skill}</Badge>)}
                         <span className="ml-auto text-xs text-muted-foreground">{relativeDate(job.posted_at || job.created_at)}</span>
@@ -454,21 +606,12 @@ export default function JobBoard() {
           </section>
         )}
 
-        {false && collectedJobs.length > 0 && (
-          <section className="space-y-3">
-            <div className="flex items-center justify-between px-1"><p className="text-sm text-muted-foreground">{collectedTotal} collected job{collectedTotal !== 1 ? "s" : ""} · Page {collectedPage} of {collectedTotalPages}</p><Badge variant="secondary">All sources</Badge></div>
-            {collectedJobs.map((job) => (
-              <Card key={job.id} className="shadow-card hover:shadow-card-hover transition-all"><CardContent className="p-5 flex items-start justify-between gap-4"><div className="min-w-0"><h3 className="font-display text-lg font-semibold">{job.title}</h3><div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground flex-wrap"><span className="flex items-center gap-1"><Building2 className="h-3.5 w-3.5" />{job.company}</span>{job.location && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{job.location}</span>}{job.job_type && <span>{job.job_type}</span>}{job.posted_at && <span>Posted {new Date(job.posted_at).toLocaleDateString()}</span>}</div><div className="flex gap-1.5 mt-2"><Badge variant="outline">{job.source}</Badge>{(job.skills || []).slice(0, 4).map((skill: string) => <Badge key={skill} variant="outline">{skill}</Badge>)}</div>{job.description && <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{job.description}</p>}</div><div className="flex flex-col gap-2"><Button variant="ghost" size="icon" onClick={() => toggleSaveJob(job.id)}>{savedJobIds.has(job.id) ? <BookmarkCheck className="h-5 w-5 text-primary" /> : <Bookmark className="h-5 w-5" />}</Button>{(job.source_url || job.recruiter_id) && <Button size="sm" onClick={() => applyToCollectedJob(job)}>{job.recruiter_id ? "Apply" : <>Apply <ExternalLink className="ml-1 h-3.5 w-3.5" /></>}</Button>}</div></CardContent></Card>
-            ))}
-            {collectedTotalPages > 1 && <div className="flex items-center justify-center gap-3 pt-2"><Button variant="outline" size="sm" disabled={collectedPage === 1} onClick={() => setCollectedPage((page) => Math.max(1, page - 1))}>Previous</Button><span className="text-sm text-muted-foreground">Page {collectedPage} / {collectedTotalPages}</span><Button variant="outline" size="sm" disabled={collectedPage === collectedTotalPages} onClick={() => setCollectedPage((page) => Math.min(collectedTotalPages, page + 1))}>Next</Button></div>}
-          </section>
-        )}
         {!loading && collectedJobs.length === 0 && collectedTotal === 0 && hasActiveFilters && (
           <Card className="border-dashed border-border/90 bg-card/60 shadow-card">
             <CardContent className="py-12 text-center">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10"><Filter className="h-5 w-5 text-primary" /></div>
               <h3 className="font-display text-xl font-semibold">No roles match this search</h3>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">RSS and company-career roles need a 30%+ match across title, skills, and description, with at least one term in the title or skills. Try a broader keyword or clear the filters.</p>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">Only roles with a 60% or higher match are shown. Try a broader keyword, remove a filter, or run a new scrape.</p>
               <Button className="mt-5 gap-1.5" variant="outline" onClick={clearFilters}><X className="h-3.5 w-3.5" /> Clear filters</Button>
             </CardContent>
           </Card>
@@ -486,7 +629,7 @@ export default function JobBoard() {
               </h3>
               <p className="text-muted-foreground mt-1">
                 {recJobs.length === 0
-                  ? "Run a refresh to collect current roles from your connected job sources."
+                  ? "Enter a skill or keyword, then use Scrape Jobs to check all connected sources."
                   : "Try adjusting your filters or search terms."}
               </p>
             </CardContent>
@@ -547,7 +690,7 @@ export default function JobBoard() {
                           {job.description && (
                             <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{job.description}</p>
                           )}
-                          <MatchExplanation explanation={job.match_explanation} />
+                          <MatchExplanation explanation={job.match_explanation as MatchExplanationData | null} />
                         </div>
                       </div>
                       <div className="flex flex-col gap-2 shrink-0">

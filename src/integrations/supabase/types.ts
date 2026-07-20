@@ -243,6 +243,117 @@ export type Database = {
         }
         Relationships: []
       }
+      job_scrape_results: {
+        Row: {
+          adapter_order: number
+          created_at: string
+          id: string
+          job_id: string
+          match_explanation: Json
+          match_score: number
+          published_at: string | null
+          scraped_at: string
+          session_id: string
+          source_result_order: number
+          user_id: string
+        }
+        Insert: {
+          adapter_order: number
+          created_at?: string
+          id?: string
+          job_id: string
+          match_explanation?: Json
+          match_score: number
+          published_at?: string | null
+          scraped_at?: string
+          session_id: string
+          source_result_order: number
+          user_id: string
+        }
+        Update: {
+          adapter_order?: number
+          created_at?: string
+          id?: string
+          job_id?: string
+          match_explanation?: Json
+          match_score?: number
+          published_at?: string | null
+          scraped_at?: string
+          session_id?: string
+          source_result_order?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_scrape_results_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_scrape_results_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "job_scrape_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_scrape_sessions: {
+        Row: {
+          adapter_errors: Json
+          adapter_statuses: Json
+          completed_at: string | null
+          created_at: string
+          current_adapter: string | null
+          id: string
+          location: string | null
+          search_query: string
+          session_status: string
+          started_at: string
+          total_jobs_displayed: number
+          total_jobs_saved: number
+          total_jobs_scraped: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          adapter_errors?: Json
+          adapter_statuses?: Json
+          completed_at?: string | null
+          created_at?: string
+          current_adapter?: string | null
+          id?: string
+          location?: string | null
+          search_query: string
+          session_status?: string
+          started_at?: string
+          total_jobs_displayed?: number
+          total_jobs_saved?: number
+          total_jobs_scraped?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          adapter_errors?: Json
+          adapter_statuses?: Json
+          completed_at?: string | null
+          created_at?: string
+          current_adapter?: string | null
+          id?: string
+          location?: string | null
+          search_query?: string
+          session_status?: string
+          started_at?: string
+          total_jobs_displayed?: number
+          total_jobs_saved?: number
+          total_jobs_scraped?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       recommended_jobs: {
         Row: {
           id: string
@@ -373,79 +484,109 @@ export type Database = {
       }
       jobs: {
         Row: {
+          collected_at: string | null
           company: string
           company_logo: string | null
           created_at: string
           date_posted: string | null
           description: string | null
+          duplicate_key: string | null
           employment_type: string | null
           experience_level: string | null
+          expires_at: string | null
           id: string
           is_active: boolean | null
           job_type: string | null
           job_url: string | null
+          last_seen_at: string | null
           location: string | null
           match_explanation: Json | null
           match_score: number | null
+          posted_at: string | null
           recruiter_id: string | null
           requirements: string[] | null
+          salary_currency: string | null
           salary_max: number | null
           salary_min: number | null
           skills: string[] | null
           source: string | null
+          source_job_id: string | null
           source_portal: string | null
+          source_url: string | null
+          status: string
           title: string
           updated_at: string
+          work_mode: string | null
         }
         Insert: {
+          collected_at?: string | null
           company: string
           company_logo?: string | null
           created_at?: string
           date_posted?: string | null
           description?: string | null
+          duplicate_key?: string | null
           employment_type?: string | null
           experience_level?: string | null
+          expires_at?: string | null
           id?: string
           is_active?: boolean | null
           job_type?: string | null
           job_url?: string | null
+          last_seen_at?: string | null
           location?: string | null
           match_explanation?: Json | null
           match_score?: number | null
+          posted_at?: string | null
           recruiter_id?: string | null
           requirements?: string[] | null
+          salary_currency?: string | null
           salary_max?: number | null
           salary_min?: number | null
           skills?: string[] | null
           source?: string | null
+          source_job_id?: string | null
           source_portal?: string | null
+          source_url?: string | null
+          status?: string
           title: string
           updated_at?: string
+          work_mode?: string | null
         }
         Update: {
+          collected_at?: string | null
           company?: string
           company_logo?: string | null
           created_at?: string
           date_posted?: string | null
           description?: string | null
+          duplicate_key?: string | null
           employment_type?: string | null
           experience_level?: string | null
+          expires_at?: string | null
           id?: string
           is_active?: boolean | null
           job_type?: string | null
           job_url?: string | null
+          last_seen_at?: string | null
           location?: string | null
           match_explanation?: Json | null
           match_score?: number | null
+          posted_at?: string | null
           recruiter_id?: string | null
           requirements?: string[] | null
+          salary_currency?: string | null
           salary_max?: number | null
           salary_min?: number | null
           skills?: string[] | null
           source?: string | null
+          source_job_id?: string | null
           source_portal?: string | null
+          source_url?: string | null
+          status?: string
           title?: string
           updated_at?: string
+          work_mode?: string | null
         }
         Relationships: []
       }
@@ -704,6 +845,77 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      resume_ats_analyses: {
+        Row: {
+          analysis_status: string
+          ats_score: number
+          career_level: string
+          career_level_estimated: boolean
+          created_at: string
+          dismissed_at: string | null
+          error_message: string | null
+          id: string
+          keyword_match_score: number
+          knowledge_version: string
+          profile_id: string
+          resume_fingerprint: string
+          resume_path: string
+          strengths_json: Json
+          suggestions_json: Json
+          summary: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_status?: string
+          ats_score: number
+          career_level: string
+          career_level_estimated?: boolean
+          created_at?: string
+          dismissed_at?: string | null
+          error_message?: string | null
+          id?: string
+          keyword_match_score: number
+          knowledge_version: string
+          profile_id: string
+          resume_fingerprint: string
+          resume_path: string
+          strengths_json?: Json
+          suggestions_json?: Json
+          summary: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_status?: string
+          ats_score?: number
+          career_level?: string
+          career_level_estimated?: boolean
+          created_at?: string
+          dismissed_at?: string | null
+          error_message?: string | null
+          id?: string
+          keyword_match_score?: number
+          knowledge_version?: string
+          profile_id?: string
+          resume_fingerprint?: string
+          resume_path?: string
+          strengths_json?: Json
+          suggestions_json?: Json
+          summary?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resume_ats_analyses_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       saved_jobs: {
         Row: {
@@ -1024,6 +1236,44 @@ export type Database = {
       get_voice_admin_stats: {
         Args: Record<string, never>
         Returns: Json
+      }
+      search_scrape_session_jobs: {
+        Args: {
+          p_job_type?: string | null
+          p_limit?: number
+          p_location?: string | null
+          p_offset?: number
+          p_session_id?: string | null
+          p_source?: string | null
+          p_terms?: string[]
+          p_work_mode?: string | null
+        }
+        Returns: {
+          adapter_order: number
+          company: string
+          created_at: string
+          description: string | null
+          employment_type: string | null
+          id: string
+          job_type: string | null
+          location: string | null
+          match_explanation: Json
+          match_score: number
+          posted_at: string | null
+          recruiter_id: string | null
+          salary_currency: string | null
+          salary_max: number | null
+          salary_min: number | null
+          scraped_at: string
+          session_id: string
+          skills: string[]
+          source: string
+          source_result_order: number
+          source_url: string | null
+          title: string
+          total_count: number
+          work_mode: string | null
+        }[]
       }
     }
     Enums: {
