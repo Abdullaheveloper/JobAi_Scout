@@ -7,7 +7,7 @@
     "dev": "node sync-env-to-supabase.js && node scripts/sync-extension-config.mjs && vite",
     "setup:https": "powershell.exe -ExecutionPolicy Bypass -File scripts/setup-local-https.ps1",
     "dev:https": "node sync-env-to-supabase.js && node scripts/sync-extension-config.mjs && vite",
-    "build": "node scripts/sync-extension-config.mjs && vite build",
+    "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
