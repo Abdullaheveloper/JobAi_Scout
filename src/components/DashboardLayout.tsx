@@ -68,8 +68,9 @@ function AppSidebar() {
       <SidebarContent className="flex flex-col">
         {/* Logo */}
         <div className={`flex items-center gap-3 p-4 border-b border-indigo-500/10 ${collapsed ? "justify-center" : ""}`}>
-          <JobAILogo showWordmark={false} markClassName="h-9 w-9" />
-          {!collapsed && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><JobAILogo markClassName="hidden" /></motion.div>}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <JobAILogo showWordmark={!collapsed} markClassName="h-9 w-9" />
+          </motion.div>
         </div>
 
         {/* Role Badge */}
