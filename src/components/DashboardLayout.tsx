@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, FileUp, Briefcase, Bookmark, BarChart3, Users, UserCog, LogOut,
-  Shield, Mic, ExternalLink, Zap, Plus,
+  Shield, Mic, ExternalLink, Zap, Plus, Clock,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
@@ -18,6 +18,7 @@ const userNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Upload CV", url: "/dashboard/cv", icon: FileUp },
   { title: "Browse Jobs", url: "/dashboard/jobs", icon: Briefcase },
+  { title: "Automation", url: "/dashboard/automation", icon: Clock },
   { title: "Saved Jobs", url: "/dashboard/saved", icon: Bookmark },
   { title: "Form Fill", url: "/dashboard/auto-fill", icon: Zap },
   { title: "Voice Assistant", url: "/dashboard/assistant", icon: Mic },

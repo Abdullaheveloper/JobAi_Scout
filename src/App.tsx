@@ -23,6 +23,7 @@ const SavedJobs = lazy(() => import("./pages/SavedJobs"));
 const Applications = lazy(() => import("./pages/Applications"));
 const AutoFormFill = lazy(() => import("./pages/AutoFormFill"));
 const Analytics = lazy(() => import("./pages/Analytics"));
+const Automation = lazy(() => import("./pages/Automation"));
 const VoiceAssistant = lazy(() => import("./pages/VoiceAssistant"));
 const VoiceAgent = lazy(() => import("./pages/VoiceAgent"));
 const ProfileSettings = lazy(() => import("./pages/ProfileSettings"));
@@ -70,6 +71,7 @@ const App = () => (
               <Route path="/dashboard" element={<ProtectedRoute requiredRole="user"><Dashboard /></ProtectedRoute>} />
               <Route path="/dashboard/cv" element={<ProtectedRoute requiredRole="user"><CVUpload /></ProtectedRoute>} />
               <Route path="/dashboard/jobs" element={<ProtectedRoute requiredRole="user"><JobBoard /></ProtectedRoute>} />
+              <Route path="/dashboard/automation" element={<ProtectedRoute requiredRole="user"><Automation /></ProtectedRoute>} />
               <Route path="/dashboard/saved" element={<ProtectedRoute requiredRole="user"><SavedJobs /></ProtectedRoute>} />
               <Route path="/dashboard/applications" element={<ProtectedRoute requiredRole="user"><Applications /></ProtectedRoute>} />
               <Route path="/dashboard/auto-fill" element={<ProtectedRoute requiredRole="user"><AutoFormFill /></ProtectedRoute>} />
