@@ -1,3 +1,5 @@
+import { fetchWithRetry } from "./http.ts";
+
 const GEMINI_API = "https://generativelanguage.googleapis.com/v1beta/models";
 
 export const GEMINI_FLASH_MODEL = "gemini-2.5-flash";
@@ -31,7 +33,7 @@ export async function generateGeminiText(
     role: message.role === "assistant" ? "model" : "user",
     parts: [{ text: message.content }],
   }));
-  const response = await fetch(`${GEMINI_API}/${GEMINI_FLASH_MODEL}:generateContent`, {
+  const response = await fetchWithRetry(`${GEMINI_API}/${GEMINI_FLASH_MODEL}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify({
@@ -43,7 +45,7 @@ export async function generateGeminiText(
         ...(options.responseMimeType ? { responseMimeType: options.responseMimeType } : {}),
       },
     }),
-  });
+  }, { timeoutMs: 20000, retries: 1 });
   if (!response.ok) throw new Error(`Gemini API failed (${response.status}): ${await response.text()}`);
   const text = responseText(await response.json());
   if (!text) throw new Error("Gemini returned an empty response");
@@ -96,11 +98,11 @@ export async function generateGeminiDocumentText(
   mimeType: string,
 ): Promise<string> {
   if (!apiKey) throw new Error("GEMINI_API_KEY is missing");
-  const response = await fetch(`${GEMINI_API}/${GEMINI_FLASH_MODEL}:generateContent`, {
+  const response = await fetchWithRetry(`${GEMINI_API}/${GEMINI_FLASH_MODEL}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64Data } }] }], generationConfig: { temperature: 0.1, maxOutputTokens: 8000 } }),
-  });
+  }, { timeoutMs: 45000, retries: 1 });
   if (!response.ok) throw new Error(`Gemini document extraction failed (${response.status}): ${await response.text()}`);
   const text = responseText(await response.json());
   if (!text) throw new Error("Gemini returned no document text");

@@ -1,26 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { generateEmbedding } from "../_shared/openrouter-embeddings.ts";
-import { generateGeminiText, type GeminiMessage } from "../_shared/gemini.ts";
-
-async function geminiChatResponse(apiKey: string, init?: RequestInit): Promise<Response> {
-  const body = JSON.parse(String(init?.body || "{}"));
-  const messages: GeminiMessage[] = (body.messages || []).map((message: { role?: string; content?: string }) => ({
-    role: message.role === "system" ? "system" : message.role === "assistant" ? "assistant" : "user",
-    content: String(message.content || ""),
-  }));
-  const answer = await generateGeminiText(apiKey, messages, {
-    temperature: body.temperature ?? 0.7,
-    maxOutputTokens: body.max_tokens ?? 1024,
-  });
-  if (!body.stream) return new Response(JSON.stringify({ choices: [{ message: { content: answer } }] }), { headers: { "Content-Type": "application/json" } });
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({ start(controller) {
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: answer } }] })}\n\n`));
-    controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-    controller.close();
-  } });
-  return new Response(stream, { headers: { "Content-Type": "text/event-stream" } });
-}
+import { generateGeminiText } from "../_shared/gemini.ts";
+import { detectLanguage } from "../_shared/language.ts";
 
 // ─── CORS Headers ─────────────────────────────────────────────────────────────
 const corsHeaders = {
@@ -28,26 +9,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-
-// Language detection from text patterns
-function detectLanguage(text: string): string {
-  const arabicRe = /[\u0600-\u06FF\u0750-\u077F]/;
-  const devanagariRe = /[\u0900-\u097F]/;
-  const frenchRe = /\b(je|tu|il|elle|nous|vous|ils|elles|le|la|les|un|une|des|est|sont|avoir|être|dans|pour|avec|sur|pas|que|qui|ce|cette)\b/i;
-  const germanRe = /\b(ich|du|er|sie|es|wir|ihr|ist|sind|haben|sein|und|oder|aber|für|mit|von|zu|auf|in|der|die|das|ein|eine)\b/i;
-
-  const arabicCount = (text.match(arabicRe) || []).length;
-  const devanagariCount = (text.match(devanagariRe) || []).length;
-  const frenchCount = (text.match(frenchRe) || []).length;
-  const germanCount = (text.match(germanRe) || []).length;
-
-  if (arabicCount > text.length * 0.3) return "ar";
-  if (devanagariCount > text.length * 0.2) return "hi";
-  if (frenchCount > 3) return "fr";
-  if (germanCount > 3) return "de";
-  if (arabicCount > 0 && /[\u0679\u0688\u0691\u06BA\u06BE\u06C1\u06CC\u06D2]/.test(text)) return "ur";
-  return "en";
-}
 
 // Personality system prompts
 const PERSONALITIES: Record<string, string> = {
@@ -154,10 +115,6 @@ Deno.serve(async (req) => {
         status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const fetch = (input: RequestInfo | URL, init?: RequestInit) =>
-      String(input).startsWith("https://openrouter.ai/api/v1/chat/completions")
-        ? geminiChatResponse(apiKey, init)
-        : globalThis.fetch(input, init);
 
     const auth = req.headers.get("Authorization") || "";
     const supabase = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: auth } } });
@@ -183,7 +140,6 @@ Deno.serve(async (req) => {
     const rawQuestion: string = ((body.question as string) || "").trim();
     let conversationId: string | null = (body.conversationId as string) || null;
     const personality: string = (body.personality as string) || "professional";
-    const speed: number = (body.speed as number) || 1.0;
     const streamMode: boolean = (body.stream as boolean) ?? true;
     const language: string = (body.language as string) || "";
     // The client uploads microphone audio to private Storage before invoking us.
@@ -199,13 +155,35 @@ Deno.serve(async (req) => {
     const question = sanitizeInput(rawQuestion);
     const startTime = Date.now();
     const detectedLang = language || detectLanguage(question);
+    const isNewConversation = !conversationId;
 
-    // Load admin settings
-    const { data: globalSettings } = await adminSupabase
-      .from("voice_settings")
-      .select("*")
-      .is("user_id", null)
-      .maybeSingle();
+    // Settings, cache lookup, and (when needed) conversation creation are
+    // independent of one another — run them concurrently instead of as three
+    // serial round trips before any AI work even starts.
+    const conversationPromise: Promise<string> = conversationId
+      ? Promise.resolve(conversationId)
+      : supabase
+          .from("voice_conversations")
+          .insert({ user_id: userId, title: question.slice(0, 80) })
+          .select()
+          .single()
+          .then(({ data, error }) => {
+            if (error) throw new Error(`Could not create conversation: ${error.message}`);
+            return data.id as string;
+          });
+
+    const [{ data: globalSettings }, { data: cached }, resolvedConversationId] = await Promise.all([
+      adminSupabase.from("voice_settings").select("*").is("user_id", null).maybeSingle(),
+      adminSupabase
+        .from("voice_cache")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("query", question.toLowerCase())
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle(),
+      conversationPromise,
+    ]);
+    conversationId = resolvedConversationId;
 
     const confidenceThreshold = globalSettings?.confidence_threshold ?? 0.65;
 
@@ -214,26 +192,6 @@ Deno.serve(async (req) => {
         status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Ensure conversation exists
-    if (!conversationId) {
-      const { data: convo, error: convErr } = await supabase
-        .from("voice_conversations")
-        .insert({ user_id: userId, title: question.slice(0, 80) })
-        .select()
-        .single();
-      if (convErr) throw new Error(`Could not create conversation: ${convErr.message}`);
-      conversationId = convo.id;
-    }
-
-    // Cache check
-    const { data: cached } = await adminSupabase
-      .from("voice_cache")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("query", question.toLowerCase())
-      .gt("expires_at", new Date().toISOString())
-      .maybeSingle();
 
     if (cached) {
       const latencyMs = Date.now() - startTime;
@@ -249,7 +207,8 @@ Deno.serve(async (req) => {
         was_successful: true,
       });
 
-      await supabase.from("voice_messages").insert([
+      // Fire-and-forget: nothing downstream depends on this insert completing.
+      supabase.from("voice_messages").insert([
         { conversation_id: conversationId, user_id: userId, role: "user", content: question, audio_path: userAudioPath },
         { conversation_id: conversationId, user_id: userId, role: "assistant", content: cached.answer },
       ]);
@@ -288,14 +247,17 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Load conversation history
-    const { data: allHistory } = await supabase
-      .from("voice_messages")
-      .select("role, content")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
-
-    const historyMessages = allHistory || [];
+    // A brand-new conversation cannot have any prior messages — skip the
+    // round trip instead of querying a table we know is empty.
+    let historyMessages: Array<{ role: string; content: string }> = [];
+    if (!isNewConversation) {
+      const { data: allHistory } = await supabase
+        .from("voice_messages")
+        .select("role, content")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true });
+      historyMessages = allHistory || [];
+    }
 
     // For long conversations: summarize older messages and keep recent 8 turns
     let contextMessages: Array<{role: string; content: string}> = [];
@@ -335,10 +297,9 @@ Deno.serve(async (req) => {
     };
 
     let matches: MatchResult[] = [];
-    let qEmbed: number[] | null = null;
 
     try {
-      qEmbed = await embedOne(searchQuestion, apiKey);
+      const qEmbed = await embedOne(searchQuestion, apiKey);
 
       // Try hybrid search first
       const { data: hybridData, error: hybridErr } = await supabase.rpc("hybrid_search_kb", {
@@ -389,9 +350,7 @@ Deno.serve(async (req) => {
     if (hasHighConfidence) {
       const context = highConfidenceMatches
         .slice(0, 6)
-        .map((m, i) => {
-          return `${m.content}`;
-        })
+        .map((m) => `${m.content}`)
         .join("\n\n---\n\n");
 
       dynamicContextPrompt = `CONTEXT INFORMATION FROM USER KNOWLEDGE BASE:
@@ -421,9 +380,9 @@ INSTRUCTIONS:
       systemParts.push(`Previous conversation summary: ${summaryPrefix}`);
     }
 
-    const chatMessages = [
+    const chatMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
       { role: "system", content: systemParts.join("\n\n---\n\n") },
-      ...contextMessages.map((m: { role: string; content: string }) => ({ role: m.role, content: m.content })),
+      ...contextMessages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
       { role: "user", content: question },
     ];
 
@@ -450,38 +409,47 @@ INSTRUCTIONS:
       was_successful: true,
     });
 
-    // ── Streaming Mode ──────────────────────────────────────────────────────
-    if (streamMode) {
-      const chatResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gemini-2.5-flash",
-          messages: chatMessages,
-          stream: true,
-          temperature: 0.7,
-          max_tokens: 480,
-          top_p: 0.9,
-        }),
+    // Single call to Gemini for the actual answer. Previously this went
+    // through a fake "OpenRouter" URL that was intercepted locally and
+    // silently rerouted to Gemini — if that string match ever missed, the
+    // request would fall through to the real OpenRouter API with no
+    // Authorization header and hang/fail with a confusing error. Calling
+    // Gemini directly here removes that failure mode, and generateGeminiText
+    // now has its own timeout + retry so a stuck Gemini call fails fast
+    // instead of hanging until the platform kills the request.
+    let answer: string;
+    try {
+      answer = await generateGeminiText(apiKey, chatMessages, { temperature: 0.7, maxOutputTokens: 480 });
+    } catch (err) {
+      console.error("Gemini chat error:", err);
+      return new Response(JSON.stringify({ error: "AI service error. Please try again." }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
 
-      if (!chatResp.ok) {
-        const errText = await chatResp.text();
-        console.error("Chat API error:", chatResp.status, errText);
-        return new Response(JSON.stringify({ error: `AI service error (${chatResp.status}). Please try again.` }), {
-          status: chatResp.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    // Fire-and-forget: the client already has its answer, persistence and
+    // caching should never add to the response's critical path.
+    supabase.from("voice_messages").insert([
+      { conversation_id: conversationId, user_id: userId, role: "user", content: question, audio_path: userAudioPath },
+      { conversation_id: conversationId, user_id: userId, role: "assistant", content: answer },
+    ]);
 
-      const reader = chatResp.body!.getReader();
+    if (answer && answer.length > 20) {
+      adminSupabase.from("voice_cache").upsert({
+        user_id: userId,
+        query: question.toLowerCase(),
+        answer,
+        sources,
+        confidence: confidenceScore,
+        language: detectedLang,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      }, { onConflict: "user_id,query" });
+    }
+
+    if (streamMode) {
       const encoder = new TextEncoder();
-      let fullAnswer = "";
-
       const readable = new ReadableStream({
-        async start(controller) {
-          // Send metadata first
+        start(controller) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({
             type: "metadata",
             conversationId,
@@ -490,131 +458,15 @@ INSTRUCTIONS:
             language: detectedLang,
             isLowConfidence,
           })}\n\n`));
-
-          const decoder = new TextDecoder();
-          let buffer = "";
-          let closed = false;
-
-          const closeStream = async (answer: string) => {
-            if (closed) return;
-            closed = true;
-
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-              type: "done",
-              fullAnswer: answer || "I couldn't generate a response. Please try again.",
-            })}\n\n`));
-
-            // Persist messages
-            try {
-              await adminSupabase.from("voice_messages").insert([
-                { conversation_id: conversationId, user_id: userId, role: "user", content: question, audio_path: userAudioPath },
-                { conversation_id: conversationId, user_id: userId, role: "assistant", content: answer || "I couldn't generate a response." },
-              ]);
-            } catch (e) {
-              console.warn("Failed to persist messages:", e);
-            }
-
-            // Cache if useful answer
-            if (answer && answer.length > 20) {
-              adminSupabase.from("voice_cache").upsert({
-                user_id: userId,
-                query: question.toLowerCase(),
-                answer,
-                sources,
-                confidence: confidenceScore,
-                language: detectedLang,
-                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-              }, { onConflict: "user_id,query" });
-            }
-
-            controller.close();
-          };
-
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || "";
-
-              for (const line of lines) {
-                if (!line.startsWith("data: ")) continue;
-                const data = line.slice(6).trim();
-                if (data === "[DONE]") { await closeStream(fullAnswer); return; }
-                try {
-                  const parsed = JSON.parse(data);
-                  const delta = parsed.choices?.[0]?.delta?.content || "";
-                  if (delta) {
-                    fullAnswer += delta;
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "chunk", text: delta })}\n\n`));
-                  }
-                } catch { /* skip malformed */ }
-              }
-            }
-            await closeStream(fullAnswer);
-          } catch (streamErr) {
-            console.error("Stream read error:", streamErr);
-            if (!closed) {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                type: "error",
-                error: "Stream interrupted. Please try again.",
-              })}\n\n`));
-              await closeStream(fullAnswer);
-            }
-          }
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "chunk", text: answer })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done", fullAnswer: answer })}\n\n`));
+          controller.close();
         },
       });
-
       return new Response(readable, {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          "Connection": "keep-alive",
-        },
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
       });
     }
-
-    // ── Non-Streaming Mode ─────────────────────────────────────────────────
-    const chatResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-          model: "gemini-2.5-flash",
-        messages: chatMessages,
-        temperature: 0.7,
-        max_tokens: 480,
-        top_p: 0.9,
-      }),
-    });
-
-    if (!chatResp.ok) {
-      return new Response(JSON.stringify({ error: `AI service error (${chatResp.status}). Please try again.` }), {
-        status: chatResp.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const chatJson = await chatResp.json();
-    const answer: string = chatJson.choices?.[0]?.message?.content?.trim() || "I couldn't generate a response. Please try again.";
-
-    await supabase.from("voice_messages").insert([
-      { conversation_id: conversationId, user_id: userId, role: "user", content: question, audio_path: userAudioPath },
-      { conversation_id: conversationId, user_id: userId, role: "assistant", content: answer },
-    ]);
-
-    adminSupabase.from("voice_cache").upsert({
-      user_id: userId,
-      query: question.toLowerCase(),
-      answer,
-      sources,
-      confidence: confidenceScore,
-      language: detectedLang,
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    }, { onConflict: "user_id,query" });
 
     return new Response(JSON.stringify({
       answer,

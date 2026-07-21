@@ -1,23 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { generateEmbedding } from "../_shared/openrouter-embeddings.ts";
-import { generateGeminiText, type GeminiMessage } from "../_shared/gemini.ts";
-
-async function geminiChatResponse(apiKey: string, init?: RequestInit): Promise<Response> {
-  const body = JSON.parse(String(init?.body || "{}"));
-  const messages: GeminiMessage[] = (body.messages || []).map((message: { role?: string; content?: string }) => ({
-    role: message.role === "system" ? "system" : message.role === "assistant" ? "assistant" : "user",
-    content: String(message.content || ""),
-  }));
-  const answer = await generateGeminiText(apiKey, messages, { temperature: body.temperature ?? 0.7, maxOutputTokens: body.max_tokens ?? 1024 });
-  if (!body.stream) return new Response(JSON.stringify({ choices: [{ message: { content: answer } }] }), { headers: { "Content-Type": "application/json" } });
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({ start(controller) {
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: answer } }] })}\n\n`));
-    controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-    controller.close();
-  } });
-  return new Response(stream, { headers: { "Content-Type": "text/event-stream" } });
-}
+import { generateGeminiText } from "../_shared/gemini.ts";
+import { detectLanguage } from "../_shared/language.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,10 +81,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const fetch = (input: RequestInfo | URL, init?: RequestInit) =>
-      String(input).startsWith("https://openrouter.ai/api/v1/chat/completions")
-        ? geminiChatResponse(apiKey, init)
-        : globalThis.fetch(input, init);
 
     const auth = req.headers.get("Authorization") || "";
     const supabase = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: auth } } });
@@ -135,7 +115,6 @@ Deno.serve(async (req) => {
     // Parse ElevenLabs request body
     const body = await req.json();
     const messages = body.messages || [];
-    const threadId = body.thread_id || "";
 
     // Extract last user message
     const lastUserMsg = [...messages].reverse().find((m: { role: string }) => m.role === "user");
@@ -201,11 +180,10 @@ Deno.serve(async (req) => {
     const searchQuestion = await rewriteQuery(rawQuestion, historyMessages, apiKey);
 
     // Embed and retrieve KB chunks
-    let qEmbed: number[] | null = null;
     let matches: Array<{ url: string; title: string; content: string; similarity: number }> = [];
 
     try {
-      qEmbed = await embedOne(searchQuestion, apiKey);
+      const qEmbed = await embedOne(searchQuestion, apiKey);
       const { data: matchData } = await supabase.rpc("match_kb_chunks", {
         query_embedding: qEmbed as unknown as string,
         match_user_id: userId,
@@ -219,7 +197,7 @@ Deno.serve(async (req) => {
     // Determine confidence level
     const topSimilarity = matches[0]?.similarity ?? 0;
     const confidenceScore = Math.max(0, Math.min(1, topSimilarity));
-    
+
     // Filter matches that meet the similarity threshold
     const highConfidenceMatches = matches.filter(m => m.similarity >= confidenceThreshold);
     const hasHighConfidence = highConfidenceMatches.length > 0;
@@ -227,9 +205,9 @@ Deno.serve(async (req) => {
     let dynamicContextPrompt = "";
     if (hasHighConfidence) {
       const context = highConfidenceMatches
-        .map((m, i) => `${m.content}`)
+        .map((m) => `${m.content}`)
         .join("\n\n---\n\n");
-      
+
       dynamicContextPrompt = `CONTEXT INFORMATION FROM USER KNOWLEDGE BASE:
 ${context}
 
@@ -244,7 +222,7 @@ INSTRUCTIONS:
 - Do NOT mention that you didn't find the information in documents, and do NOT say "Based on my general knowledge". Simply answer directly and professionally.`;
     }
 
-    const chatMessages = [
+    const chatMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
       { role: "system", content: `You are JobScout AI — the official AI voice assistant for the JobAi Scout platform, a premium career acceleration tool that helps job seekers discover opportunities, craft standout CVs, and prepare confidently for interviews.
 
 ## Your Identity & Purpose
@@ -263,112 +241,54 @@ ${GUARDRAILS_PROMPT}` },
       { role: "user", content: rawQuestion },
     ];
 
-    // Call OpenRouter with streaming
-    const chatResp = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gemini-2.5-flash",
-          messages: chatMessages,
-          stream: true,
-        }),
-      }
-    );
-
-    if (!chatResp.ok) {
-      const errText = await chatResp.text();
-      console.error("Chat API error:", chatResp.status, errText);
+    // Same direct-Gemini-call pattern as voice-chat: no more routing through a
+    // fake "OpenRouter" URL that a local fetch override intercepted. That hack
+    // also silently dropped the `detectLanguage` call below into a
+    // ReferenceError on every turn (never defined/imported in this file),
+    // which meant caching for this endpoint always quietly failed.
+    let fullAnswer: string;
+    try {
+      fullAnswer = await generateGeminiText(apiKey, chatMessages, { temperature: 0.7, maxOutputTokens: 480 });
+    } catch (err) {
+      console.error("voice-agent-llm chat error:", err);
       return new Response("I'm having trouble connecting right now. Please try again in a moment.", {
         headers: { ...corsHeaders, "Content-Type": "text/plain" },
       });
     }
 
-    // Stream the response back to ElevenLabs
-    const reader = chatResp.body!.getReader();
-    const decoder = new TextDecoder();
-    let fullAnswer = "";
-    let buffer = "";
+    // Persist + cache in the background; the caller already has its answer.
+    void (async () => {
+      try {
+        const { data: convo } = await adminSupabase
+          .from("voice_conversations")
+          .insert({ user_id: userId, title: rawQuestion.slice(0, 80) })
+          .select()
+          .single();
 
-    const readable = new ReadableStream({
-      async start(controller) {
-        const encoder = new TextEncoder();
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              if (!line.startsWith("data: ")) continue;
-              const data = line.slice(6).trim();
-              if (data === "[DONE]") break;
-              try {
-                const parsed = JSON.parse(data);
-                const delta = parsed.choices?.[0]?.delta?.content || "";
-                if (delta) {
-                  fullAnswer += delta;
-                  controller.enqueue(encoder.encode(delta));
-                }
-              } catch {
-                // skip malformed SSE lines
-              }
-            }
-          }
-        } catch (streamErr) {
-          console.error("Stream read error:", streamErr);
+        if (convo) {
+          await adminSupabase.from("voice_messages").insert([
+            { conversation_id: convo.id, user_id: userId, role: "user", content: rawQuestion },
+            { conversation_id: convo.id, user_id: userId, role: "assistant", content: fullAnswer },
+          ]);
         }
 
-        controller.close();
+        const sources = matches.map((m) => ({ url: m.url, title: m.title, similarity: m.similarity }));
+        await adminSupabase.from("voice_cache").upsert({
+          user_id: userId,
+          query: rawQuestion.toLowerCase(),
+          answer: fullAnswer,
+          sources,
+          confidence: confidenceScore,
+          language: detectLanguage(rawQuestion),
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        }, { onConflict: "user_id,query" });
+      } catch (e) {
+        console.warn("Failed to persist voice agent messages/cache:", e);
+      }
+    })();
 
-        // Persist to voice_messages and Cache
-        if (fullAnswer) {
-          try {
-            // Ensure conversation exists
-            const { data: convo } = await adminSupabase
-              .from("voice_conversations")
-              .insert({ user_id: userId, title: rawQuestion.slice(0, 80) })
-              .select()
-              .single();
-
-            if (convo) {
-              await adminSupabase.from("voice_messages").insert([
-                { conversation_id: convo.id, user_id: userId, role: "user", content: rawQuestion },
-                { conversation_id: convo.id, user_id: userId, role: "assistant", content: fullAnswer },
-              ]);
-            }
-
-            // Cache response
-            const sources = matches.map((m) => ({ url: m.url, title: m.title, similarity: m.similarity }));
-            await adminSupabase.from("voice_cache").upsert({
-              user_id: userId,
-              query: rawQuestion.toLowerCase(),
-              answer: fullAnswer,
-              sources,
-              confidence: confidenceScore,
-              language: detectLanguage(rawQuestion),
-              expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-            }, { onConflict: "user_id,query" });
-          } catch (e) {
-            console.warn("Failed to persist voice agent messages/cache:", e);
-          }
-        }
-      },
-    });
-
-    return new Response(readable, {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "text/plain",
-        "Transfer-Encoding": "chunked",
-      },
+    return new Response(fullAnswer, {
+      headers: { ...corsHeaders, "Content-Type": "text/plain" },
     });
   } catch (e) {
     console.error("voice-agent-llm unhandled error:", e);

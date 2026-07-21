@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { fetchWithRetry } from "../_shared/http.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,7 +11,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { text, voiceId = "JBFqnCBsd6RMkjVDRZzb" } = await req.json();
+    const { text, voiceId = "JBFqnCBsd6RMkjVDRZzb", speed } = await req.json();
     const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
     if (!ELEVENLABS_API_KEY) throw new Error("ELEVENLABS_API_KEY is not configured");
 
@@ -20,7 +21,11 @@ serve(async (req) => {
       });
     }
 
-    const response = await fetch(
+    const clampedSpeed = typeof speed === "number" && Number.isFinite(speed)
+      ? Math.min(1.2, Math.max(0.7, speed))
+      : 1.0;
+
+    const response = await fetchWithRetry(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
       {
         method: "POST",
@@ -36,9 +41,11 @@ serve(async (req) => {
             similarity_boost: 0.75,
             style: 0.3,
             use_speaker_boost: true,
+            speed: clampedSpeed,
           },
         }),
-      }
+      },
+      { timeoutMs: 15000, retries: 1 },
     );
 
     if (!response.ok) {

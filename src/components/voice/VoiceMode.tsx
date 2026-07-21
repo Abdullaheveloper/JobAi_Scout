@@ -121,7 +121,7 @@ export function VoiceMode() {
   }, [speed]);
   const synthesizeAndPlay = useCallback(async (text: string, userId: string, sessionId: string, signal?: AbortSignal) => {
     const headers = await authHeaders();
-    const response = await fetch(`${functionsUrl}/voice-tts`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ text, voice: "Eve", speed }), signal });
+    const response = await fetch(`${functionsUrl}/elevenlabs-tts`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ text, speed }), signal });
     if (!response.ok) { const result = await response.json().catch(() => ({})); throw new Error(result.error || "Voice playback could not start."); }
     const blob = await response.blob(); const path = `${userId}/${sessionId}/assistant-${crypto.randomUUID()}.mp3`;
     const player = new Audio(URL.createObjectURL(blob)); audio.current = player;

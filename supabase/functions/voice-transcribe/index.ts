@@ -1,3 +1,5 @@
+import { fetchWithRetry } from "../_shared/http.ts";
+
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -13,10 +15,10 @@ Deno.serve(async (req) => {
     const bytes = new Uint8Array(await (file as Blob).arrayBuffer());
     let binary = "";
     for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-    const response = await fetch(GEMINI_URL, {
+    const response = await fetchWithRetry(GEMINI_URL, {
       method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: `Transcribe this audio exactly. Return only the spoken words.${language ? ` The expected language is ${language}.` : ""}` }, { inline_data: { mime_type: (file as Blob).type || "audio/webm", data: btoa(binary) } }] }], generationConfig: { temperature: 0, maxOutputTokens: 2048, responseMimeType: "text/plain" } }),
-    });
+    }, { timeoutMs: 25000, retries: 1 });
     if (!response.ok) throw new Error(`Gemini transcription failed (${response.status}): ${await response.text()}`);
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text || "").join("").trim() || "";
