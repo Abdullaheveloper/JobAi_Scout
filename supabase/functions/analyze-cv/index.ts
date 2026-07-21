@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { extractCvText, type ExtractionResult } from "../_shared/cv-extraction.ts";
 import { normalizeExtractedData } from "../_shared/cv-profile-merge.ts";
 import { analyzeAndSaveResumeAts } from "../_shared/ats-resume-analysis.ts";
+import { generateGeminiJson } from "../_shared/gemini.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,50 +49,12 @@ You must respond with a JSON object matching this exact schema:
 async function extractStructuredData(
   cvText: string,
   fileName: string,
-  openrouterApiKey: string,
+  geminiApiKey: string,
 ): Promise<Record<string, unknown>> {
-  const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${openrouterApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content:
-            `Extract ALL data from this CV/Resume. Only include what is explicitly written - do not make up anything.\n\nFile name: ${fileName}\n\nCV Content:\n${cvText.substring(0, 15000)}`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.1,
-      max_tokens: 3000,
-    }),
-  });
-
-  if (!aiResponse.ok) {
-    const errText = await aiResponse.text();
-    console.error("OpenRouter API error:", aiResponse.status, errText);
-
-    if (aiResponse.status === 429) {
-      throw new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
-        status: 429,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    throw new Error("AI analysis failed");
-  }
-
-  const aiData = await aiResponse.json();
-  const responseText = aiData.choices?.[0]?.message?.content?.trim();
-  if (!responseText) {
-    throw new Error("AI did not return structured data");
-  }
-
-  return JSON.parse(responseText);
+  return generateGeminiJson<Record<string, unknown>>(geminiApiKey, [
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: `Extract ALL data from this CV/Resume. Only include what is explicitly written - do not make up anything.\n\nFile name: ${fileName}\n\nCV Content:\n${cvText.substring(0, 15000)}` },
+  ], { temperature: 0.1, maxOutputTokens: 3200 });
 }
 
 Deno.serve(async (req) => {
@@ -140,8 +103,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
-    if (!openrouterApiKey) throw new Error("OPENROUTER_API_KEY not configured");
+    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!geminiApiKey) throw new Error("GEMINI_API_KEY not configured");
 
     const extractorUrl = Deno.env.get("CV_EXTRACTOR_URL");
     const resolvedFileName = fileName || normalizedPath;
@@ -149,7 +112,7 @@ Deno.serve(async (req) => {
     // Step 1: Text extraction (PyMuPDF / pdfplumber / OCR via Python service, or Deno fallback)
     const extraction: ExtractionResult = await extractCvText(fileData, resolvedFileName, {
       serviceUrl: extractorUrl || undefined,
-      openrouterApiKey,
+      geminiApiKey,
     });
 
     if (!extraction.text || extraction.text.length < 30) {
@@ -163,7 +126,7 @@ Deno.serve(async (req) => {
     );
 
     // Step 2: AI structured extraction from plain text
-    const result = await extractStructuredData(extraction.text, resolvedFileName, openrouterApiKey);
+    const result = await extractStructuredData(extraction.text, resolvedFileName, geminiApiKey);
     const extracted = normalizeExtractedData(result as Record<string, unknown>);
 
     // Step 3: ATS feedback is intentionally isolated from the upload/parser
@@ -177,7 +140,7 @@ Deno.serve(async (req) => {
         resumePath: normalizedPath,
         cvText: extraction.text,
         structuredData: extracted as unknown as Record<string, unknown>,
-        openrouterApiKey,
+        geminiApiKey,
         force: Boolean(forceAts),
       }) as unknown as Record<string, unknown>;
     } catch (atsError) {

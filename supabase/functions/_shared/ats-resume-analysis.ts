@@ -1,3 +1,5 @@
+import { generateGeminiJson } from "./gemini.ts";
+
 export const ATS_KNOWLEDGE_VERSION = "ats-guide-2026-07-20";
 
 export type AtsSeverity = "critical" | "warning" | "positive";
@@ -189,10 +191,10 @@ export async function analyzeAndSaveResumeAts(options: {
   resumePath: string;
   cvText: string;
   structuredData: Record<string, unknown>;
-  openrouterApiKey: string;
+  geminiApiKey: string;
   force?: boolean;
 }): Promise<AtsAnalysis> {
-  const { db, userId, resumePath, cvText, structuredData, openrouterApiKey, force = false } = options;
+  const { db, userId, resumePath, cvText, structuredData, geminiApiKey, force = false } = options;
   const fingerprint = await sha256(`${resumePath}|${cvText.length}|${cvText.slice(0, 2000)}`);
 
   const { data: cached } = await db
@@ -222,26 +224,11 @@ Return JSON only with: career_level (fresher|early_career|mid_level|senior), car
 
 Requirements: career thresholds are exact; adapt priorities to career level; report only evidenced issues; never invent visual formatting, grammar or missing job-description requirements; combine duplicate advice; keep suggestions specific and actionable; return at most 12 suggestions and 6 strengths.`;
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${openrouterApiKey}`, "Content-Type": "application/json" },
-    signal: AbortSignal.timeout(30000),
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: "You are a conservative ATS resume evaluator. Return valid JSON only. Do not expose private resume text beyond concise feedback." },
-        { role: "user", content: prompt },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.1,
-      max_tokens: 2600,
-    }),
-  });
-  if (!response.ok) throw new Error(`ATS model request failed (${response.status})`);
-  const payload = await response.json();
-  const responseText = payload.choices?.[0]?.message?.content?.trim();
-  if (!responseText) throw new Error("ATS model returned no analysis");
-  const analysis = normalizeAnalysis(JSON.parse(responseText), resumePath);
+  const response = await generateGeminiJson<Record<string, unknown>>(geminiApiKey, [
+    { role: "system", content: "You are a conservative ATS resume evaluator. Return valid JSON only. Do not expose private resume text beyond concise feedback." },
+    { role: "user", content: prompt },
+  ], { temperature: 0.1, maxOutputTokens: 2600 });
+  const analysis = normalizeAnalysis(response, resumePath);
 
   const { data: profile, error: profileError } = await db
     .from("profiles")

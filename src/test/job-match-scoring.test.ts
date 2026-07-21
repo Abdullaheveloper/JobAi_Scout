@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateJobMatch } from "../../supabase/functions/_shared/job-match-scoring.ts";
+import { calculateJobMatch, matchesCareerLevel } from "../../supabase/functions/_shared/job-match-scoring.ts";
 import type { NormalizedJob } from "../../supabase/functions/_shared/job-types.ts";
 
 function job(overrides: Partial<NormalizedJob> = {}): NormalizedJob {
@@ -59,5 +59,15 @@ describe("calculateJobMatch", () => {
     expect(result.score).toBeGreaterThanOrEqual(0);
     expect(result.score).toBeLessThanOrEqual(100);
     expect(result.score).toBeLessThan(60);
+  });
+
+  it("keeps adjacent career levels eligible but ranks them below an exact level", () => {
+    const profile = { desired_roles: ["Junior AI Engineer"], experience_years: 1 };
+    const adjacent = job({ title: "Mid-level AI Engineer", experience_level: "mid-level" });
+    const exact = job({ title: "Junior AI Engineer", experience_level: "junior" });
+
+    expect(matchesCareerLevel(adjacent, profile)).toBe(true);
+    expect(calculateJobMatch(adjacent, { query: "AI Engineer", profile }).score)
+      .toBeLessThan(calculateJobMatch(exact, { query: "AI Engineer", profile }).score);
   });
 });

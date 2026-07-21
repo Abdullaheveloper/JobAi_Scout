@@ -7,6 +7,12 @@ export type GeminiMessage = {
   content: string;
 };
 
+export type GeminiTextOptions = {
+  temperature?: number;
+  maxOutputTokens?: number;
+  responseMimeType?: string;
+};
+
 function responseText(payload: Record<string, unknown>): string {
   const candidates = payload.candidates as Array<Record<string, unknown>> | undefined;
   const parts = candidates?.[0]?.content as Record<string, unknown> | undefined;
@@ -17,7 +23,7 @@ function responseText(payload: Record<string, unknown>): string {
 export async function generateGeminiText(
   apiKey: string,
   messages: GeminiMessage[],
-  options: { temperature?: number; maxOutputTokens?: number; responseMimeType?: string } = {},
+  options: GeminiTextOptions = {},
 ): Promise<string> {
   if (!apiKey) throw new Error("GEMINI_API_KEY is missing");
   const system = messages.filter((message) => message.role === "system").map((message) => message.content).join("\n\n");
@@ -42,6 +48,45 @@ export async function generateGeminiText(
   const text = responseText(await response.json());
   if (!text) throw new Error("Gemini returned an empty response");
   return text;
+}
+
+function jsonCandidate(text: string): string {
+  const withoutFence = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const first = withoutFence.search(/[\[{]/);
+  const last = Math.max(withoutFence.lastIndexOf("}"), withoutFence.lastIndexOf("]"));
+  return first >= 0 && last >= first ? withoutFence.slice(first, last + 1) : withoutFence;
+}
+
+/**
+ * Gemini JSON mode is requested on every call, but a defensive repair pass
+ * prevents one malformed model string from failing an otherwise valid CV upload.
+ */
+export async function generateGeminiJson<T>(
+  apiKey: string,
+  messages: GeminiMessage[],
+  options: GeminiTextOptions = {},
+): Promise<T> {
+  const parse = (text: string): T => JSON.parse(jsonCandidate(text)) as T;
+  const text = await generateGeminiText(apiKey, messages, { ...options, responseMimeType: "application/json" });
+  try {
+    return parse(text);
+  } catch (firstError) {
+    console.warn("Gemini returned malformed JSON; requesting a JSON-only repair.", firstError instanceof Error ? firstError.message : firstError);
+    const repaired = await generateGeminiText(apiKey, [
+      { role: "system", content: "Return only valid JSON. Repair JSON syntax only; preserve the supplied data and do not add commentary." },
+      { role: "user", content: `Repair this malformed JSON:\n${text}` },
+    ], {
+      temperature: 0,
+      maxOutputTokens: options.maxOutputTokens ?? 3000,
+      responseMimeType: "application/json",
+    });
+    try {
+      return parse(repaired);
+    } catch (repairError) {
+      console.error("Gemini JSON repair failed.", repairError instanceof Error ? repairError.message : repairError);
+      throw new Error("Gemini returned an invalid structured response. Please try the analysis again.");
+    }
+  }
 }
 
 export async function generateGeminiDocumentText(

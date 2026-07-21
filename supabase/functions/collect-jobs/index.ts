@@ -15,6 +15,7 @@ const corsHeaders = {
 type AdapterPayload = { jobs: NormalizedJob[]; errors: string[] };
 type SourceRow = { id: string; source_type: string; name: string; url: string | null };
 type SupabaseAdmin = ReturnType<typeof createClient>;
+type ExclusionSummary = { optional_filters: number; invalid_or_duplicate: number; career_level: number; below_match_score: number; display_eligible: number };
 
 const jsonResponse = (body: Record<string, unknown>, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -31,6 +32,8 @@ function sanitizeInput(value: unknown, maxLength: number): string {
 
 function friendlyAdapterError(key: JobAdapterKey, error: Error): string {
   const message = error.message.toLowerCase();
+  if (message.includes("apify")) return `${key} needs its Apify token and actor configuration checked.`;
+  if (message.includes("firecrawl")) return "Company Careers needs its Firecrawl API token checked.";
   if (message.includes("missing")) return `${key} is not configured on the server.`;
   if (message.includes("429") || message.includes("rate")) return `${key} reached its provider limit.`;
   if (message.includes("timeout") || message.includes("exceeded")) return `${key} took too long to respond.`;
@@ -52,32 +55,34 @@ async function collectConfiguredSources(
   const configured = sources.filter((source) => source.source_type === sourceType && source.url);
   if (!configured.length) throw new Error(`No enabled ${sourceType.replace(/_/g, " ")} sources are configured`);
 
-  const jobs: NormalizedJob[] = [];
-  const errors: string[] = [];
-  let successfulSources = 0;
-  for (const source of configured) {
+  // A company adapter may contain several official career pages. Run those
+  // independent requests together so one slow site cannot consume the full
+  // 50-second adapter budget before the remaining sites even begin.
+  const results = await Promise.all(configured.map(async (source) => {
     try {
       const collected = sourceType === "rss"
         ? await collectRssJobs(source.url!, source.name)
         : await collectCompanyCareerJobs(source.url!, source.name);
-      jobs.push(...collected);
-      successfulSources += 1;
       await admin.from("job_sources").update({
         last_collected_at: new Date().toISOString(),
         last_result_count: collected.length,
         last_error: null,
       }).eq("id", source.id);
+      return { jobs: collected, error: null };
     } catch (error) {
       const detail = error instanceof Error ? error.message : "Collection failed";
       console.error(`[collect-jobs] ${sourceType}:${source.name}`, detail);
-      errors.push(`${source.name}: this source was temporarily unavailable.`);
       await admin.from("job_sources").update({
         last_collected_at: new Date().toISOString(),
         last_result_count: 0,
         last_error: detail.slice(0, 500),
       }).eq("id", source.id);
+      return { jobs: [], error: `${source.name}: this source was temporarily unavailable.` };
     }
-  }
+  }));
+  const jobs = results.flatMap((result) => result.jobs);
+  const errors = results.flatMap((result) => result.error ? [result.error] : []);
+  const successfulSources = results.filter((result) => !result.error).length;
   if (!successfulSources) throw new Error(errors[0] || `All ${sourceType} sources failed`);
   return { jobs, errors };
 }
@@ -174,6 +179,18 @@ Deno.serve(async (req) => {
     let totalSaved = 0;
     let totalDisplayed = 0;
     let hadFailure = false;
+    const exclusions: ExclusionSummary = { optional_filters: 0, invalid_or_duplicate: 0, career_level: 0, below_match_score: 0, display_eligible: 0 };
+    let stopRequested = false;
+
+    const isStopRequested = async () => {
+      if (stopRequested) return true;
+      const { data } = await serviceClient.from("job_scrape_sessions")
+        .select("session_status")
+        .eq("id", sessionId)
+        .maybeSingle();
+      stopRequested = data?.session_status === "stopped";
+      return stopRequested;
+    };
 
     const adapters = [
       {
@@ -193,6 +210,7 @@ Deno.serve(async (req) => {
 
     await serviceClient.from("job_scrape_sessions").update({ session_status: "running" }).eq("id", sessionId);
     await runSequentialAdapters(adapters, {
+      shouldStop: isStopRequested,
       onStart: async (key) => {
         adapterStatuses[key] = "running";
         await serviceClient.from("job_scrape_sessions").update({
@@ -214,7 +232,12 @@ Deno.serve(async (req) => {
           }
 
           const filtered = payload.jobs.filter((job) => matchesOptionalFilters(job, jobType, workMode));
-          const uniqueJobs = deduplicateJobs(filtered);
+          exclusions.optional_filters += payload.jobs.length - filtered.length;
+          const deduplicated = deduplicateJobs(filtered);
+          exclusions.invalid_or_duplicate += filtered.length - deduplicated.length;
+          // Valid roles are retained even when their career level differs.
+          // Their match score determines whether and where they are shown.
+          const uniqueJobs = deduplicated;
           const saved = await upsertCollectedJobs(uniqueJobs);
           const resultRows = saved.items.map((item, sourceResultOrder) => {
             const match = calculateJobMatch(item.job, { query, location: requestedLocation || null, profile });
@@ -230,6 +253,8 @@ Deno.serve(async (req) => {
               scraped_at: new Date().toISOString(),
             };
           });
+          exclusions.below_match_score += resultRows.filter((row) => row.match_score < 40).length;
+          exclusions.display_eligible += resultRows.filter((row) => row.match_score >= 40).length;
           if (resultRows.length) {
             const { data: mapped, error: mappingError } = await serviceClient.from("job_scrape_results")
               .upsert(resultRows, { onConflict: "session_id,job_id", ignoreDuplicates: true })
@@ -240,7 +265,7 @@ Deno.serve(async (req) => {
           const { count, error: countError } = await serviceClient.from("job_scrape_results")
             .select("id", { count: "exact", head: true })
             .eq("session_id", sessionId)
-            .gte("match_score", 60);
+            .gte("match_score", 40);
           if (countError) throw new Error(`Could not count visible jobs: ${countError.message}`);
           totalDisplayed = count || 0;
           adapterStatuses[key] = adapterHadErrors ? "failed" : "completed";
@@ -258,12 +283,17 @@ Deno.serve(async (req) => {
           total_jobs_scraped: totalScraped,
           total_jobs_saved: totalSaved,
           total_jobs_displayed: totalDisplayed,
+          exclusion_summary: exclusions,
         }).eq("id", sessionId);
+        await isStopRequested();
       },
     });
 
+    await isStopRequested();
     const failedCount = Object.values(adapterStatuses).filter((status) => status === "failed").length;
-    const finalStatus = failedCount === JOB_ADAPTER_ORDER.length
+    const finalStatus = stopRequested
+      ? "stopped"
+      : failedCount === JOB_ADAPTER_ORDER.length
       ? "failed"
       : hadFailure || failedCount > 0
         ? "partially_completed"
@@ -278,6 +308,7 @@ Deno.serve(async (req) => {
       total_jobs_scraped: totalScraped,
       total_jobs_saved: totalSaved,
       total_jobs_displayed: totalDisplayed,
+      exclusion_summary: exclusions,
     }).eq("id", sessionId).select("*").single();
     if (finalError) throw new Error(`Could not finish scrape session: ${finalError.message}`);
 

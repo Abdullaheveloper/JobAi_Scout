@@ -7,6 +7,10 @@ export type MatchProfile = {
   experience_years?: number | null;
 };
 
+export type CareerLevel = "internship" | "junior" | "mid" | "senior" | "unknown";
+
+const CAREER_LEVELS: CareerLevel[] = ["internship", "junior", "mid", "senior"];
+
 export type MatchBreakdown = {
   score: number;
   explanation: {
@@ -47,6 +51,43 @@ function experienceRequirement(job: NormalizedJob): number | null {
   if (/junior|entry[- ]?level|graduate/.test(text)) return 1;
   if (/intern|internship/.test(text)) return 0;
   return null;
+}
+
+export function preferredCareerLevel(profile: MatchProfile): CareerLevel | null {
+  const roles = (profile.desired_roles || []).join(" ").toLowerCase();
+  if (/intern(ship)?|co[- ]?op|trainee/.test(roles)) return "internship";
+  if (/junior|entry[- ]?level|graduate/.test(roles)) return "junior";
+  if (/senior|lead|staff|principal|director|head/.test(roles)) return "senior";
+  if (/mid[- ]?level|intermediate/.test(roles)) return "mid";
+  return null;
+}
+
+export function jobCareerLevel(job: NormalizedJob): CareerLevel {
+  const text = `${job.experience_level || ""} ${job.title || ""} ${job.description || ""}`.toLowerCase();
+  if (/intern(ship)?|co[- ]?op|trainee/.test(text)) return "internship";
+  if (/senior|lead|staff|principal|director|head/.test(text)) return "senior";
+  if (/junior|entry[- ]?level|graduate/.test(text)) return "junior";
+  const required = experienceRequirement(job);
+  if (required !== null) return required >= 5 ? "senior" : required >= 2 ? "mid" : "junior";
+  return "unknown";
+}
+
+export function matchesCareerLevel(job: NormalizedJob, profile: MatchProfile): boolean {
+  const years = Math.max(0, Number(profile.experience_years) || 0);
+  const requested = preferredCareerLevel(profile) || (years < 2 ? "junior" : years < 5 ? "mid" : "senior");
+  const level = jobCareerLevel(job);
+  // Feeds often omit seniority. Keep those jobs eligible and let the match
+  // score decide, rather than treating missing metadata as the wrong level.
+  if (level === "unknown") return true;
+  return Math.abs(CAREER_LEVELS.indexOf(level) - CAREER_LEVELS.indexOf(requested)) <= 1;
+}
+
+function careerLevelPenalty(job: NormalizedJob, profile: MatchProfile): number {
+  const years = Math.max(0, Number(profile.experience_years) || 0);
+  const requested = preferredCareerLevel(profile) || (years < 2 ? "junior" : years < 5 ? "mid" : "senior");
+  const level = jobCareerLevel(job);
+  if (level === "unknown" || level === requested) return 0;
+  return 10;
 }
 
 function normalizedLocation(value: unknown): string {
@@ -112,7 +153,9 @@ export function calculateJobMatch(job: NormalizedJob, input: {
     location: locationRatio * 10,
     experience: experienceRatio * 5,
   };
-  const score = Math.max(0, Math.min(100, Math.round(Object.values(components).reduce((sum, value) => sum + value, 0))));
+  // Adjacent career levels are useful discovery results, but exact-level
+  // opportunities should remain at the top of the list.
+  const score = Math.max(0, Math.min(100, Math.round(Object.values(components).reduce((sum, value) => sum + value, 0) - careerLevelPenalty(job, profile))));
 
   return {
     score,

@@ -1,3 +1,5 @@
+import { generateGeminiDocumentText } from "./gemini.ts";
+
 export type ExtractionResult = {
   text: string;
   method: string;
@@ -45,54 +47,33 @@ async function extractPdfWithUnpdf(data: Uint8Array): Promise<{ text: string; pa
 
 async function extractDocxWithMammoth(data: Uint8Array): Promise<string> {
   const mammoth = await import("npm:mammoth@1.8.0");
-  const result = await mammoth.extractRawText({ buffer: data });
-  return result.value || "";
+  // Mammoth's npm build checks for Node's Buffer API internally. Supabase
+  // Edge gives us a Uint8Array from Blob.arrayBuffer(), which can otherwise
+  // make valid DOCX files fail before the document XML is read.
+  try {
+    const { Buffer } = await import("node:buffer");
+    const result = await mammoth.extractRawText({ buffer: Buffer.from(data) });
+    return result.value || "";
+  } catch (bufferError) {
+    // Keep a browser-compatible path for Edge runtime updates where the Node
+    // compatibility module is unavailable.
+    console.warn("Mammoth Buffer path failed; retrying with ArrayBuffer", bufferError);
+    const result = await mammoth.extractRawText({ arrayBuffer: data.buffer });
+    return result.value || "";
+  }
 }
 
 async function ocrPdfWithGemini(
   base64: string,
   fileName: string,
-  openrouterApiKey: string,
+  geminiApiKey: string,
 ): Promise<string> {
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${openrouterApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You extract readable text from scanned documents. Output ONLY the document text with page markers like [PAGE 1], [PAGE 2]. No commentary.",
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `OCR this resume/CV (${fileName}). Preserve all text exactly as written.`,
-            },
-            {
-              type: "file",
-              file: { url: `data:application/pdf;base64,${base64}` },
-            },
-          ],
-        },
-      ],
-      temperature: 0.1,
-      max_tokens: 8000,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Gemini OCR failed: ${response.status} ${await response.text()}`);
-  }
-
-  const json = await response.json();
-  return (json.choices?.[0]?.message?.content || "").trim();
+  return generateGeminiDocumentText(
+    geminiApiKey,
+    `OCR this resume/CV (${fileName}). Preserve all text exactly as written. Output only the document text with page markers like [PAGE 1], [PAGE 2]. No commentary.`,
+    base64,
+    "application/pdf",
+  );
 }
 
 function toBase64(data: Uint8Array): string {
@@ -147,7 +128,7 @@ export async function extractViaPythonService(
 export async function extractLocally(
   fileData: Blob,
   fileName: string,
-  openrouterApiKey?: string,
+  geminiApiKey?: string,
 ): Promise<ExtractionResult> {
   const lowerName = fileName.toLowerCase();
   const bytes = new Uint8Array(await fileData.arrayBuffer());
@@ -169,9 +150,9 @@ export async function extractLocally(
     const avgChars = text.trim().length / Math.max(pages, 1);
     let ocrUsed = false;
 
-    if (avgChars < MIN_CHARS_PER_PAGE && openrouterApiKey) {
+    if (avgChars < MIN_CHARS_PER_PAGE && geminiApiKey) {
       try {
-        text = await ocrPdfWithGemini(toBase64(bytes), fileName, openrouterApiKey);
+        text = await ocrPdfWithGemini(toBase64(bytes), fileName, geminiApiKey);
         method = "gemini-ocr";
         ocrUsed = true;
       } catch (error) {
@@ -224,12 +205,12 @@ export async function extractLocally(
 export async function extractCvText(
   fileData: Blob,
   fileName: string,
-  options?: { serviceUrl?: string; openrouterApiKey?: string },
+  options?: { serviceUrl?: string; geminiApiKey?: string },
 ): Promise<ExtractionResult> {
   if (options?.serviceUrl) {
     const fromPython = await extractViaPythonService(fileData, fileName, options.serviceUrl);
     if (fromPython?.text) return fromPython;
   }
 
-  return extractLocally(fileData, fileName, options?.openrouterApiKey);
+  return extractLocally(fileData, fileName, options?.geminiApiKey);
 }

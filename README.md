@@ -55,7 +55,7 @@ Role-specific routes are protected in React and sensitive data access is enforce
 | Frontend | React 18, TypeScript, Vite |
 | UI | Tailwind CSS, shadcn/ui, Radix UI, Lucide, Framer Motion |
 | Backend | Supabase PostgreSQL, Auth, Storage, Edge Functions |
-| AI orchestration | OpenRouter and Gemini-compatible models |
+| AI orchestration | Gemini API (CV upload and ATS suggestions); OpenRouter for legacy optional flows |
 | Speech-to-text | Whisper-compatible transcription through the configured provider |
 | Text-to-speech | ElevenLabs and browser speech synthesis fallback |
 | Retrieval | pgvector, hybrid knowledge search, chunk metadata, RAG thresholds |
@@ -97,6 +97,8 @@ VITE_ELEVENLABS_AGENT_ID=YOUR_OPTIONAL_AGENT_ID
 ```
 
 Frontend variables beginning with `VITE_` are included in the browser bundle and must never contain service-role or private backend secrets. Provider keys belong in Supabase Edge Function secrets for production.
+
+The CV upload parser and its ATS suggestions use `GEMINI_API_KEY` directly and do not require `OPENROUTER_API_KEY`.
 
 ### 3. Apply the database schema
 

@@ -11,12 +11,14 @@ export function SuggestionItem({ suggestion, compact = false }: { suggestion: Re
   const meta = severityMeta[suggestion.severity];
   const Icon = meta.icon;
   return (
-    <li className={`rounded-xl border ${meta.classes} ${compact ? "px-3 py-2" : "p-3"}`}>
-      <div className="flex items-start gap-2.5">
-        <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+    <li className={`group rounded-2xl border transition-colors duration-200 ${meta.classes} ${compact ? "px-3 py-2" : "p-4 hover:bg-white/[0.07]"}`}>
+      <div className="flex items-start gap-3">
+        {!compact && <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-current/15 bg-black/10 text-xs font-bold tabular-nums">{suggestion.priority}</span>}
+        <Icon className="mt-1 h-4 w-4 shrink-0" aria-hidden="true" />
         <div className="min-w-0">
+          {!compact && <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-current/70">{meta.label} · {suggestion.category}</p>}
           <p className="text-sm font-semibold leading-5"><span className="sr-only">{meta.label}: </span>{suggestion.title}</p>
-          {!compact && <p className="mt-1 text-xs leading-5 text-slate-300">{suggestion.message}</p>}
+          {!compact && <p className="mt-1.5 text-sm leading-6 text-slate-300">{suggestion.message}</p>}
         </div>
       </div>
     </li>

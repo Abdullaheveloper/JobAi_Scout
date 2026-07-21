@@ -6,7 +6,7 @@ export const JOB_ADAPTER_STEPS = [
   { key: "rss", label: "RSS Feeds", source: "rss" },
   { key: "company_career", label: "Company Careers", source: "company_career" },
 ] as const;
-export const MIN_VISIBLE_MATCH_SCORE = 60;
+export const MIN_VISIBLE_MATCH_SCORE = 40;
 
 export type JobAdapterKey = typeof JOB_ADAPTER_STEPS[number]["key"];
 export type JobAdapterState = "waiting" | "running" | "completed" | "failed";
@@ -53,6 +53,9 @@ export function scrapeCompletionMessage(session: JobScrapeSession): string {
   }
   if (session.session_status === "failed") {
     return "The sources could not be reached this time. Review the source states and try again.";
+  }
+  if (session.session_status === "stopped") {
+    return `Scraping stopped safely. ${session.total_jobs_displayed} matching jobs were kept.`;
   }
   const position = runningAdapterPosition(session);
   return position ? `Running adapter ${position} of ${JOB_ADAPTER_STEPS.length}.` : "Preparing the job sources...";

@@ -5,12 +5,13 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Search, MapPin, DollarSign, Bookmark, BookmarkCheck, ExternalLink, Building2, Clock, RefreshCw, Filter, Sparkles, Briefcase, ChevronDown, ChevronUp, ArrowUpRight, X, Copy, Check, LoaderCircle, CheckCircle2, AlertCircle } from "lucide-react";
+import { Search, MapPin, DollarSign, Bookmark, BookmarkCheck, ExternalLink, Building2, Clock, RefreshCw, Filter, Sparkles, Briefcase, ChevronDown, ChevronUp, ArrowUpRight, X, Copy, Check, LoaderCircle, CheckCircle2, AlertCircle, Square } from "lucide-react";
 import type { Database, Tables } from "@/integrations/supabase/types";
 import { PORTAL_COLORS } from "@/lib/constants";
 import { JOB_ADAPTER_STEPS, isScrapeSessionActive, isVisibleJobMatch, parseAdapterStatuses, runningAdapterPosition, scrapeCompletionMessage, type JobScrapeSession } from "@/lib/job-scrape";
@@ -84,6 +85,7 @@ export default function JobBoard() {
   const [sourceFilter, setSourceFilter] = useState("all");
   const [scoreFilter, setScoreFilter] = useState("all");
   const [remoteFilter, setRemoteFilter] = useState("all");
+  const [includeRemoteLocations, setIncludeRemoteLocations] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [collectedPage, setCollectedPage] = useState(1);
   const [coverLetterJob, setCoverLetterJob] = useState<CoverLetterJob | null>(null);
@@ -105,26 +107,34 @@ export default function JobBoard() {
       .toLowerCase()
       .split(/\s+/)
       .filter((word) => word.length >= 2))].slice(0, 8);
-    const { data, error } = await supabase.rpc("search_scrape_session_jobs", {
+    const rpcParams = {
       p_session_id: sessionId || null,
       p_terms: terms,
       p_source: sourceFilter === "all" ? null : sourceFilter,
       p_location: locationFilter.trim() || null,
       p_job_type: jobTypeFilter === "all" ? null : jobTypeFilter,
       p_work_mode: remoteFilter === "all" ? null : remoteFilter,
+      p_include_remote: includeRemoteLocations && Boolean(locationFilter.trim()),
       p_limit: COLLECTED_PAGE_SIZE,
       p_offset: pageStart,
-    });
+    };
+    let { data, error } = await supabase.rpc("search_scrape_session_jobs", rpcParams);
+    // Allow the page to work while a hosted project is still applying the
+    // migration that adds the remote-location argument.
+    if (error && /p_include_remote|search_scrape_session_jobs/i.test(error.message)) {
+      const { p_include_remote: _ignored, ...legacyParams } = rpcParams;
+      ({ data, error } = await supabase.rpc("search_scrape_session_jobs", legacyParams));
+    }
 
     if (error) {
-      if (!silent) toast({ title: "Could not load jobs", description: "Your matching jobs could not be loaded. Please try again.", variant: "destructive" });
+      if (!silent) toast({ title: "Could not load jobs", description: error.message || "Your matching jobs could not be loaded. Please try again.", variant: "destructive" });
     } else {
       const visibleJobs = (data || []).filter((job) => isVisibleJobMatch(job.match_score) && Boolean(job.recruiter_id || job.source_url));
       setCollectedJobs(visibleJobs);
       setCollectedTotal(Number(data?.[0]?.total_count || 0));
     }
     if (!silent) setLoading(false);
-  }, [jobTypeFilter, locationFilter, remoteFilter, search, sourceFilter, toast, user]);
+  }, [includeRemoteLocations, jobTypeFilter, locationFilter, remoteFilter, search, sourceFilter, toast, user]);
 
   const fetchLatestSession = useCallback(async (hydrateInputs = false): Promise<JobScrapeSession | null> => {
     if (!user) return null;
@@ -301,6 +311,27 @@ export default function JobBoard() {
       setScraping(false);
       toast({ title: "Could not start scraping", description: error instanceof Error ? error.message : "Please check your connection and try again.", variant: "destructive" });
     }
+  };
+
+  const handleStopScraping = async () => {
+    if (!user || !scrapeSession?.id) {
+      toast({ title: "Still preparing the scrape", description: "The stop control will be available as soon as the session is registered." });
+      return;
+    }
+    const { error } = await supabase.from("job_scrape_sessions").update({
+      session_status: "stopped",
+      current_adapter: null,
+      completed_at: new Date().toISOString(),
+    }).eq("id", scrapeSession.id).eq("user_id", user.id).in("session_status", ["pending", "running"]);
+    if (error) {
+      toast({ title: "Could not stop scraping", description: error.message, variant: "destructive" });
+      return;
+    }
+    setScraping(false);
+    scrapeLockRef.current = false;
+    startingSessionRef.current = false;
+    toast({ title: "Scraping stopped", description: "Jobs already collected were kept and remain available below." });
+    await fetchCollectedJobs(1, scrapeSession.id, true);
   };
 
   const toggleSaveJob = async (jobId: string) => {
@@ -492,9 +523,9 @@ export default function JobBoard() {
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-end">
-              <Button onClick={handleScrapeJobs} disabled={scraping || !search.trim()} className="min-w-48 gap-2 gradient-primary border-0 shadow-lg shadow-primary/20">
-                <RefreshCw className={`h-4 w-4 ${scraping ? "animate-spin" : ""}`} />
-                {scraping ? "Scraping Jobs..." : "Scrape Jobs"}
+              <Button onClick={scraping ? handleStopScraping : handleScrapeJobs} disabled={!scraping && !search.trim()} className={`min-w-48 gap-2 border-0 shadow-lg ${scraping ? "bg-rose-600 hover:bg-rose-500 shadow-rose-500/20" : "gradient-primary shadow-primary/20"}`}>
+                {scraping ? <Square className="h-4 w-4 fill-current" /> : <RefreshCw className="h-4 w-4" />}
+                {scraping ? "Stop Scraping" : "Scrape Jobs"}
               </Button>
               <p className="max-w-56 text-right text-xs text-muted-foreground">One click checks all four sources in order. Location is optional.</p>
               <p className="text-xs text-muted-foreground">{collectedTotal} matching roles in this session</p>
@@ -523,6 +554,10 @@ export default function JobBoard() {
                 <Select value={jobTypeFilter} onValueChange={setJobTypeFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder="Job type" /></SelectTrigger><SelectContent><SelectItem value="all">Any job type</SelectItem><SelectItem value="full-time">Full-time</SelectItem><SelectItem value="part-time">Part-time</SelectItem><SelectItem value="contract">Contract</SelectItem><SelectItem value="internship">Internship</SelectItem></SelectContent></Select>
                 <Select value={sourceFilter} onValueChange={setSourceFilter}><SelectTrigger className="w-[170px] bg-background/60"><SelectValue placeholder="Source" /></SelectTrigger><SelectContent><SelectItem value="all">Every source</SelectItem>{sourceOptions.map((source) => <SelectItem key={source.value} value={source.value}>{source.label}</SelectItem>)}</SelectContent></Select>
                 <Select value={remoteFilter} onValueChange={setRemoteFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder="Work mode" /></SelectTrigger><SelectContent><SelectItem value="all">Any work mode</SelectItem><SelectItem value="remote">Remote</SelectItem><SelectItem value="hybrid">Hybrid</SelectItem></SelectContent></Select>
+                <label className="flex h-10 items-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 text-sm text-muted-foreground">
+                  <Checkbox checked={includeRemoteLocations} onCheckedChange={(checked) => setIncludeRemoteLocations(checked === true)} />
+                  Include remote / Pakistan-wide
+                </label>
                 {hasActiveFilters && <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={clearFilters}><X className="h-3.5 w-3.5" /> Clear filters</Button>}
               </div>
             )}
@@ -545,6 +580,22 @@ export default function JobBoard() {
                     <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold text-emerald-400">{scrapeSession.total_jobs_displayed}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Shown</p></div>
                   </div>
                 </div>
+                {(() => {
+                  const summary = scrapeSession.exclusion_summary as Record<string, number> | null;
+                  if (!summary) return null;
+                  const details = [
+                    [summary.optional_filters, "job-type/work-mode"],
+                    [summary.invalid_or_duplicate, "invalid or duplicate"],
+                    [summary.career_level, "career level"],
+                    [summary.below_match_score, "below 40% match"],
+                  ].filter(([count]) => Number(count) > 0);
+                  return details.length ? <p className="mt-3 text-xs text-muted-foreground">Excluded: {details.map(([count, label]) => `${count} ${label}`).join(" · ")}. Remote/Pakistan-wide roles are {includeRemoteLocations ? "included" : "excluded"} for this location search.</p> : null;
+                })()}
+                {(() => {
+                  const errors = scrapeSession.adapter_errors as Record<string, string[]> | null;
+                  const messages = Object.entries(errors || {}).flatMap(([adapter, entries]) => entries.map((message) => `${adapter.replace(/_/g, " ")}: ${message}`));
+                  return messages.length ? <p className="mt-2 text-xs text-amber-300">Source details: {messages.join(" · ")}</p> : null;
+                })()}
               </div>
             )}
           </CardContent>
@@ -611,7 +662,7 @@ export default function JobBoard() {
             <CardContent className="py-12 text-center">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10"><Filter className="h-5 w-5 text-primary" /></div>
               <h3 className="font-display text-xl font-semibold">No roles match this search</h3>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">Only roles with a 60% or higher match are shown. Try a broader keyword, remove a filter, or run a new scrape.</p>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">Only roles with a 50% or higher match and a suitable career level are shown. Try a broader keyword, remove a filter, or run a new scrape.</p>
               <Button className="mt-5 gap-1.5" variant="outline" onClick={clearFilters}><X className="h-3.5 w-3.5" /> Clear filters</Button>
             </CardContent>
           </Card>

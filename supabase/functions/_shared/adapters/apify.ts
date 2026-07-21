@@ -1,3 +1,5 @@
+// Leave a small handoff buffer for normalizing and saving the completed
+// dataset before the sequential adapter's 50-second hard deadline.
 const ACTOR_WAIT_TIMEOUT_MS = 45_000;
 const REQUEST_TIMEOUT_MS = 12_000;
 

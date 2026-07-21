@@ -307,6 +307,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           current_adapter: string | null
+          exclusion_summary: Json
           id: string
           location: string | null
           search_query: string
@@ -324,6 +325,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           current_adapter?: string | null
+          exclusion_summary?: Json
           id?: string
           location?: string | null
           search_query: string
@@ -341,6 +343,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           current_adapter?: string | null
+          exclusion_summary?: Json
           id?: string
           location?: string | null
           search_query?: string
@@ -1239,6 +1242,7 @@ export type Database = {
       }
       search_scrape_session_jobs: {
         Args: {
+          p_include_remote?: boolean
           p_job_type?: string | null
           p_limit?: number
           p_location?: string | null

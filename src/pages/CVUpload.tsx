@@ -51,6 +51,22 @@ function validateResume(candidate: File): string | null {
   return null;
 }
 
+async function getEdgeFunctionError(error: unknown, fallback: string): Promise<string> {
+  const context = (error as { context?: Response } | null)?.context;
+  if (context) {
+    try {
+      const payload = await context.clone().json() as { error?: unknown };
+      if (typeof payload?.error === "string" && payload.error.trim()) return payload.error;
+    } catch {
+      // The Edge Function may return a non-JSON gateway response. Keep the
+      // user-facing fallback below instead of exposing the raw response.
+    }
+  }
+  return error instanceof Error && error.message && !error.message.includes("non-2xx")
+    ? error.message
+    : fallback;
+}
+
 export default function CVUpload() {
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
@@ -221,8 +237,9 @@ export default function CVUpload() {
         }
       }
     } catch (err: unknown) {
-      toast({ title: "Analysis failed", description: err instanceof Error ? err.message : "Could not analyze CV", variant: "destructive" });
-      ats.setError("We could not read this resume. It may be scanned, corrupted, or password protected. Try an unlocked text-based PDF or DOCX.");
+      const message = await getEdgeFunctionError(err, "The resume analysis service could not process this file. Please try again.");
+      toast({ title: "Analysis failed", description: message, variant: "destructive" });
+      ats.setError(message);
     }
     setAnalyzing(false);
   };
@@ -240,7 +257,7 @@ export default function CVUpload() {
       const failure = result && typeof result === "object" ? (result as { error?: string }).error : undefined;
       if (!ats.acceptResult(result)) throw new Error(failure || "ATS suggestions could not be generated.");
     } catch (error: unknown) {
-      ats.setError(error instanceof Error ? error.message : "ATS suggestions could not be generated. Your uploaded resume is still safe.");
+      ats.setError(await getEdgeFunctionError(error, "ATS suggestions could not be generated. Your uploaded resume is still safe."));
     } finally {
       setRetryingAts(false);
     }
