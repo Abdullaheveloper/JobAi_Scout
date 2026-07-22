@@ -197,8 +197,9 @@ export default function CVUpload() {
           _extraction?: { method: string; pages: number; ocrUsed: boolean; charCount: number };
           _saved?: { count: number; keys: string[] };
           _ats?: Record<string, unknown>;
+          _profileSync?: { status: "synchronized" | "superseded"; updatedKeys: string[]; clearedKeys: string[]; uncertainKeys: string[] };
         };
-        const { _extraction, _saved, _ats, ...rawExtracted } = raw;
+        const { _extraction, _saved, _ats, _profileSync, ...rawExtracted } = raw;
         const extracted = normalizeExtractedData(rawExtracted);
 
         if (_extraction) setExtractionInfo(_extraction);
@@ -220,10 +221,19 @@ export default function CVUpload() {
           console.error("Failed to fetch profile:", profileError.message);
         }
 
-        const plan = buildMergePlan(extracted, freshProfile);
+        const synchronizedProfile = _profileSync?.status === "synchronized"
+          ? await refreshProfile()
+          : freshProfile;
+        const plan = buildMergePlan(extracted, synchronizedProfile);
         setMergeFields(plan);
 
-        if (!hasExtractedCvData(extracted)) {
+        if (_profileSync?.status === "synchronized") {
+          setApplied(true);
+          toast({
+            title: "Profile updated",
+            description: "Your profile has been updated based on your latest uploaded CV.",
+          });
+        } else if (!hasExtractedCvData(extracted)) {
           toast({
             title: "No data extracted",
             description: "The AI could not find usable fields in your resume.",
@@ -231,8 +241,8 @@ export default function CVUpload() {
           });
         } else {
           toast({
-            title: "Review ready",
-            description: "Nothing was saved yet. Review the evidence below, then approve the fields you want to add.",
+            title: "Newer CV detected",
+            description: "This older upload was not allowed to replace data from your latest CV.",
           });
         }
       }

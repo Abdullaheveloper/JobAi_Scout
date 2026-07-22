@@ -4,7 +4,9 @@ import type { NormalizedJob } from "../job-collection.ts";
 // others are rendered by an ATS in the browser.  Keep the complete attempt
 // comfortably below the adapter deadline so one unreachable company cannot
 // make the whole Company Careers adapter time out.
-const COMPANY_CAREER_ATTEMPT_MS = 15_000;
+// Leave a small buffer below the 100-second Company Careers adapter ceiling
+// for its source-health update and session persistence.
+const COMPANY_CAREER_ATTEMPT_MS = 95_000;
 
 function stripHtml(value: string): string {
   return value.replace(/<[^>]+>/g, " ").replace(/&(?:amp|quot|#39);/g, " ").replace(/\s+/g, " ").trim();

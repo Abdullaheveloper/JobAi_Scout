@@ -14,6 +14,7 @@ export type ExtractedData = {
   certifications?: string[];
   languages?: string[];
   cvSummary?: string;
+  fieldStatus?: Record<string, "present" | "missing" | "uncertain">;
 };
 
 export type ProfileLike = {
@@ -33,6 +34,15 @@ export type ProfileLike = {
   languages?: string[] | null;
   cv_summary?: string | null;
   bio?: string | null;
+  resume_url?: string | null;
+  data_sources?: Record<string, unknown> | null;
+};
+
+export type CvProfileSync = {
+  updatePayload: Record<string, unknown>;
+  updatedKeys: string[];
+  clearedKeys: string[];
+  uncertainKeys: string[];
 };
 
 function hasValue(val: unknown): boolean {
@@ -72,6 +82,15 @@ function pickString(raw: Record<string, unknown>, ...keys: string[]): string | u
   return undefined;
 }
 
+function toFieldStatus(value: unknown): Record<string, "present" | "missing" | "uncertain"> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const result: Record<string, "present" | "missing" | "uncertain"> = {};
+  for (const [key, status] of Object.entries(value)) {
+    if (status === "present" || status === "missing" || status === "uncertain") result[key] = status;
+  }
+  return Object.keys(result).length ? result : undefined;
+}
+
 export function normalizeExtractedData(raw: Record<string, unknown>): ExtractedData {
   return {
     fullName: pickString(raw, "fullName", "full_name"),
@@ -89,7 +108,69 @@ export function normalizeExtractedData(raw: Record<string, unknown>): ExtractedD
     certifications: toStringArray(raw.certifications),
     languages: toStringArray(raw.languages),
     cvSummary: pickString(raw, "cvSummary", "cv_summary"),
+    fieldStatus: toFieldStatus(raw.fieldStatus ?? raw.field_status),
   };
+}
+
+const CV_FIELD_MAPPINGS = [
+  ["full_name", "fullName", null],
+  ["email", "email", null],
+  ["phone", "phone", null],
+  ["linkedin_url", "linkedinUrl", null],
+  ["github_url", "githubUrl", null],
+  ["portfolio_url", "portfolioUrl", null],
+  ["current_company", "currentCompany", null],
+  ["skills", "skills", []],
+  ["experience_years", "experienceYears", 0],
+  ["education", "education", null],
+  ["certifications", "certifications", []],
+  ["languages", "languages", []],
+  ["cv_summary", "cvSummary", null],
+] as const;
+
+function sourceIsCvDerived(profile: ProfileLike, key: string): boolean {
+  // "ai" is the provenance used by the existing CV merge. It also makes this
+  // migration safe for profiles created before automatic synchronization.
+  return profile.data_sources?.[key] === "ai";
+}
+
+function statusFor(extracted: ExtractedData, extractionKey: string, value: unknown): "present" | "missing" | "uncertain" {
+  const explicit = extracted.fieldStatus?.[extractionKey];
+  if (explicit) return explicit;
+  // A parser without an explicit confidence signal must never clear a value.
+  return hasValue(value) ? "present" : "uncertain";
+}
+
+/**
+ * Builds the replacement payload for facts derived from a CV. User preferences
+ * (location, desired roles, work mode, salary and account settings) are
+ * intentionally absent from this list.
+ */
+export function buildLatestCvProfileSync(profile: ProfileLike, extracted: ExtractedData): CvProfileSync {
+  const updatePayload: Record<string, unknown> = {};
+  const updatedKeys: string[] = [];
+  const clearedKeys: string[] = [];
+  const uncertainKeys: string[] = [];
+
+  for (const [profileKey, extractionKey, emptyValue] of CV_FIELD_MAPPINGS) {
+    const value = extracted[extractionKey];
+    const status = statusFor(extracted, extractionKey, value);
+    if (status === "present" && hasValue(value)) {
+      updatePayload[profileKey] = value;
+      updatedKeys.push(profileKey);
+    } else if (status === "missing" && sourceIsCvDerived(profile, profileKey)) {
+      updatePayload[profileKey] = emptyValue;
+      clearedKeys.push(profileKey);
+    } else if (status === "uncertain") {
+      uncertainKeys.push(profileKey);
+    }
+  }
+
+  const dataSources = { ...(profile.data_sources || {}) };
+  for (const key of [...updatedKeys, ...clearedKeys]) dataSources[key] = "ai";
+  if (updatedKeys.length || clearedKeys.length) updatePayload.data_sources = dataSources;
+
+  return { updatePayload, updatedKeys, clearedKeys, uncertainKeys };
 }
 
 export function buildProfileUpdateFromExtracted(

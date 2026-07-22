@@ -14,17 +14,25 @@ export type SequentialAdapterResult<T> = {
   error?: Error;
 };
 
-// Adapters are allowed a practical 40–50 second collection window. They may
-// finish sooner when results are ready; 50 seconds is the hard ceiling so the
-// next source is never blocked indefinitely.
+// Provider-backed searches are capped at 50 seconds. RSS feeds and official
+// company career pages can legitimately need longer to respond, so they get a
+// 100-second adapter window without slowing LinkedIn or Indeed.
 export const ADAPTER_MIN_COLLECTION_MS = 40_000;
 export const ADAPTER_MAX_COLLECTION_MS = 50_000;
+export const EXTENDED_ADAPTER_MAX_COLLECTION_MS = 100_000;
 
-async function runWithDeadline<T>(run: () => Promise<T>, shouldStop?: () => Promise<boolean> | boolean): Promise<T> {
+export function adapterCollectionTimeout(key: JobAdapterKey): number {
+  return key === "rss" || key === "company_career"
+    ? EXTENDED_ADAPTER_MAX_COLLECTION_MS
+    : ADAPTER_MAX_COLLECTION_MS;
+}
+
+async function runWithDeadline<T>(key: JobAdapterKey, run: () => Promise<T>, shouldStop?: () => Promise<boolean> | boolean): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   let stopPollId: ReturnType<typeof setInterval> | undefined;
+  const timeoutMs = adapterCollectionTimeout(key);
   const timeout = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error("Adapter exceeded the 50-second time limit")), ADAPTER_MAX_COLLECTION_MS);
+    timeoutId = setTimeout(() => reject(new Error(`Adapter exceeded the ${timeoutMs / 1_000}-second time limit`)), timeoutMs);
   });
   const stopped = shouldStop
     ? new Promise<never>((_, reject) => {
@@ -56,7 +64,7 @@ export async function runSequentialAdapters<T>(
     await callbacks.onStart?.(adapter.key, index);
     let result: SequentialAdapterResult<T>;
     try {
-      result = { key: adapter.key, status: "completed", value: await runWithDeadline(adapter.run, callbacks.shouldStop) };
+      result = { key: adapter.key, status: "completed", value: await runWithDeadline(adapter.key, adapter.run, callbacks.shouldStop) };
     } catch (error) {
       result = { key: adapter.key, status: "failed", error: error instanceof Error ? error : new Error("Adapter failed") };
     }

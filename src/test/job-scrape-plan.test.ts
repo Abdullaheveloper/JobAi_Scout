@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { JOB_ADAPTER_ORDER, runSequentialAdapters } from "../../supabase/functions/_shared/job-scrape-plan.ts";
+import { ADAPTER_MAX_COLLECTION_MS, EXTENDED_ADAPTER_MAX_COLLECTION_MS, JOB_ADAPTER_ORDER, adapterCollectionTimeout, runSequentialAdapters } from "../../supabase/functions/_shared/job-scrape-plan.ts";
 
 describe("runSequentialAdapters", () => {
+  it("allows RSS and company careers more time without extending provider searches", () => {
+    expect(adapterCollectionTimeout("linkedin")).toBe(ADAPTER_MAX_COLLECTION_MS);
+    expect(adapterCollectionTimeout("indeed")).toBe(ADAPTER_MAX_COLLECTION_MS);
+    expect(adapterCollectionTimeout("rss")).toBe(EXTENDED_ADAPTER_MAX_COLLECTION_MS);
+    expect(adapterCollectionTimeout("company_career")).toBe(EXTENDED_ADAPTER_MAX_COLLECTION_MS);
+  });
+
   it("runs sources in the exact required order without overlap", async () => {
     const events: string[] = [];
     let active = 0;

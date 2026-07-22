@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { extractCvText, type ExtractionResult } from "../_shared/cv-extraction.ts";
-import { normalizeExtractedData } from "../_shared/cv-profile-merge.ts";
+import { buildLatestCvProfileSync, normalizeExtractedData } from "../_shared/cv-profile-merge.ts";
 import { analyzeAndSaveResumeAts } from "../_shared/ats-resume-analysis.ts";
 import { generateGeminiJson } from "../_shared/gemini.ts";
 
@@ -43,7 +43,22 @@ You must respond with a JSON object matching this exact schema:
   "education": "string (empty if not found)",
   "certifications": ["string"],
   "languages": ["string"],
-  "cvSummary": "string"
+  "cvSummary": "string",
+  "fieldStatus": {
+    "fullName": "present | missing | uncertain",
+    "email": "present | missing | uncertain",
+    "phone": "present | missing | uncertain",
+    "linkedinUrl": "present | missing | uncertain",
+    "githubUrl": "present | missing | uncertain",
+    "portfolioUrl": "present | missing | uncertain",
+    "currentCompany": "present | missing | uncertain",
+    "skills": "present | missing | uncertain",
+    "experienceYears": "present | missing | uncertain",
+    "education": "present | missing | uncertain",
+    "certifications": "present | missing | uncertain",
+    "languages": "present | missing | uncertain",
+    "cvSummary": "present | missing | uncertain"
+  }
 }`;
 
 async function extractStructuredData(
@@ -129,6 +144,42 @@ Deno.serve(async (req) => {
     const result = await extractStructuredData(extraction.text, resolvedFileName, geminiApiKey);
     const extracted = normalizeExtractedData(result as Record<string, unknown>);
 
+    // The resume path is the concurrency guard: if another CV was uploaded
+    // while this one was being parsed, this older result cannot change profile
+    // facts. Only confirmed CV facts replace prior CV-derived facts.
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("resume_url, data_sources, full_name, email, phone, linkedin_url, github_url, portfolio_url, current_company, skills, experience_years, education, certifications, languages, cv_summary")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (profileError || !profile) throw new Error("Could not load your profile for CV synchronization");
+
+    let profileSync = { status: "superseded", updatedKeys: [] as string[], clearedKeys: [] as string[], uncertainKeys: [] as string[] };
+    if (profile.resume_url === normalizedPath) {
+      const sync = buildLatestCvProfileSync({
+        ...profile,
+        data_sources: profile.data_sources && typeof profile.data_sources === "object" && !Array.isArray(profile.data_sources)
+          ? profile.data_sources as Record<string, unknown>
+          : {},
+      }, extracted);
+      if (sync.uncertainKeys.length) console.warn("CV profile sync left uncertain fields unchanged:", sync.uncertainKeys.join(", "));
+      if (Object.keys(sync.updatePayload).length) {
+        const { data: synchronized, error: syncError } = await supabase
+          .from("profiles")
+          .update(sync.updatePayload)
+          .eq("user_id", user.id)
+          .eq("resume_url", normalizedPath)
+          .select("user_id")
+          .maybeSingle();
+        if (syncError) throw new Error(`Could not synchronize your profile: ${syncError.message}`);
+        profileSync = synchronized
+          ? { status: "synchronized", updatedKeys: sync.updatedKeys, clearedKeys: sync.clearedKeys, uncertainKeys: sync.uncertainKeys }
+          : profileSync;
+      } else {
+        profileSync = { status: "synchronized", updatedKeys: [], clearedKeys: [], uncertainKeys: sync.uncertainKeys };
+      }
+    }
+
     // Step 3: ATS feedback is intentionally isolated from the upload/parser
     // result. A model, timeout, or persistence failure must never undo a
     // successful resume upload or prevent the merge review from opening.
@@ -163,6 +214,7 @@ Deno.serve(async (req) => {
           charCount: extraction.charCount,
         },
         _saved: { count: 0, keys: [] },
+        _profileSync: profileSync,
         _ats: atsResult,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
