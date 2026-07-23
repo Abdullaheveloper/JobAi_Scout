@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { extractCvText, type ExtractionResult } from "../_shared/cv-extraction.ts";
-import { buildLatestCvProfileSync, normalizeExtractedData } from "../_shared/cv-profile-merge.ts";
+import { normalizeExtractedData } from "../_shared/cv-profile-merge.ts";
 import { analyzeAndSaveResumeAts } from "../_shared/ats-resume-analysis.ts";
 import { generateGeminiJson } from "../_shared/gemini.ts";
 
@@ -13,6 +13,9 @@ const corsHeaders = {
 const SYSTEM_PROMPT = `You are an expert CV/Resume data extractor. Extract ALL information from the CV exactly as written. Do NOT invent, assume, or add anything not present in the CV. Only return what is explicitly stated in the document.
 
 Rules:
+- Detect section labels fuzzily, not by exact spelling. Treat close misspellings and synonyms as equivalent, including Skils, Technical Skil, Core Competencies and Expertise for skills; Employment, Work History and Professional Background for experience; Academic Background and Qualifications for education.
+- When a label is absent, use positional and contextual evidence. A prominent person-like line near the top and next to contact details may be the name; concise comma-separated technologies near a skills-like region may be skills.
+- Positional inference must remain conservative. If evidence is ambiguous, return the candidate value only when supported and mark it uncertain with lower confidence. Never use a company, reference, project, or document title as the candidate name.
 - Extract the person's full name, email, phone, location exactly as written
 - Extract LinkedIn and GitHub URLs if present
 - Extract portfolio/personal website URL if present
@@ -48,18 +51,191 @@ You must respond with a JSON object matching this exact schema:
     "fullName": "present | missing | uncertain",
     "email": "present | missing | uncertain",
     "phone": "present | missing | uncertain",
+    "location": "present | missing | uncertain",
     "linkedinUrl": "present | missing | uncertain",
     "githubUrl": "present | missing | uncertain",
     "portfolioUrl": "present | missing | uncertain",
     "currentCompany": "present | missing | uncertain",
     "skills": "present | missing | uncertain",
+    "suggestedRoles": "present | missing | uncertain",
     "experienceYears": "present | missing | uncertain",
     "education": "present | missing | uncertain",
     "certifications": "present | missing | uncertain",
     "languages": "present | missing | uncertain",
     "cvSummary": "present | missing | uncertain"
+  },
+  "fieldConfidence": {
+    "fullName": 0.0,
+    "email": 0.0,
+    "phone": 0.0,
+    "location": 0.0,
+    "linkedinUrl": 0.0,
+    "githubUrl": 0.0,
+    "portfolioUrl": 0.0,
+    "currentCompany": 0.0,
+    "skills": 0.0,
+    "suggestedRoles": 0.0,
+    "experienceYears": 0.0,
+    "education": 0.0,
+    "certifications": 0.0,
+    "languages": 0.0,
+    "cvSummary": 0.0
   }
 }`;
+
+const SECTION_ALIASES: Record<string, string[]> = {
+  skills: ["skills", "technical skills", "core competencies", "competencies", "expertise", "technologies", "tech stack"],
+  experience: ["experience", "work experience", "employment", "work history", "professional background", "career history"],
+  education: ["education", "academic background", "qualifications", "academic qualifications", "studies"],
+  summary: ["summary", "professional summary", "profile", "objective", "about me"],
+  projects: ["projects", "selected projects", "personal projects", "academic projects"],
+  certifications: ["certifications", "certificates", "professional certifications", "credentials"],
+};
+
+function editDistance(left: string, right: string): number {
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= left.length; i += 1) {
+    let diagonal = previous[0];
+    previous[0] = i;
+    for (let j = 1; j <= right.length; j += 1) {
+      const above = previous[j];
+      previous[j] = Math.min(previous[j] + 1, previous[j - 1] + 1, diagonal + (left[i - 1] === right[j - 1] ? 0 : 1));
+      diagonal = above;
+    }
+  }
+  return previous[right.length];
+}
+
+function normalizedLabel(value: string): string {
+  return value.toLowerCase().replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function buildExtractionHints(cvText: string): string {
+  const lines = cvText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const headers: Array<{ line: number; text: string; mapsTo: string; confidence: number }> = [];
+  lines.forEach((line, index) => {
+    if (line.length > 60) return;
+    const candidate = normalizedLabel(line.replace(/:$/, ""));
+    if (!candidate || candidate.split(" ").length > 5) return;
+    let best: { field: string; distance: number; aliasLength: number } | null = null;
+    for (const [field, aliases] of Object.entries(SECTION_ALIASES)) {
+      for (const alias of aliases) {
+        const distance = editDistance(candidate, alias);
+        if (!best || distance < best.distance) best = { field, distance, aliasLength: alias.length };
+      }
+    }
+    if (best && best.distance <= Math.max(2, Math.floor(best.aliasLength * 0.22))) {
+      headers.push({ line: index + 1, text: line.slice(0, 60), mapsTo: best.field, confidence: Math.max(0.55, 1 - best.distance / Math.max(candidate.length, best.aliasLength)) });
+    }
+  });
+  const top = lines.slice(0, 12);
+  const contactIndex = top.findIndex((line) => /[\w.+-]+@[\w.-]+\.[a-z]{2,}|\+?\d[\d\s().-]{7,}/i.test(line));
+  const possibleName = top.slice(0, contactIndex >= 0 ? contactIndex : 5)
+    .find((line) => /^[A-Za-z][A-Za-z .'-]{1,60}$/.test(line) && line.split(/\s+/).length <= 5 && !/resume|curriculum|engineer|developer|manager|student/i.test(line));
+  const skillsLikeLines = lines
+    .map((line, index) => ({ line: index + 1, text: line }))
+    .filter(({ text }) => text.length < 180 && (text.match(/[,|•·]/g)?.length || 0) >= 2)
+    .slice(0, 6);
+  return JSON.stringify({
+    fuzzySectionHeaders: headers.slice(0, 20),
+    positionalNameCandidate: possibleName ? { text: possibleName, confidence: contactIndex >= 0 ? 0.72 : 0.58 } : null,
+    skillsLikeLines,
+  });
+}
+
+const CV_REPLACEMENT_FIELDS = [
+  ["full_name", "fullName", null],
+  ["phone", "phone", null],
+  ["location", "location", null],
+  ["bio", "cvSummary", null],
+  ["skills", "skills", []],
+  ["desired_roles", "suggestedRoles", []],
+  ["experience_years", "experienceYears", 0],
+  ["education", "education", null],
+  ["current_company", "currentCompany", null],
+  ["portfolio_url", "portfolioUrl", null],
+  ["github_url", "githubUrl", null],
+  ["linkedin_url", "linkedinUrl", null],
+  ["certifications", "certifications", []],
+  ["languages", "languages", []],
+  ["cv_summary", "cvSummary", null],
+] as const;
+
+function cleanString(value: unknown): string | null {
+  const cleaned = String(value || "")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/^[\s:;,|•·-]+|[\s:;,|•·-]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || null;
+}
+
+function normalizeHumanText(value: unknown): string | null {
+  const cleaned = cleanString(value);
+  if (!cleaned) return null;
+  if (/^[A-Z\s.'-]+$/.test(cleaned)) {
+    return cleaned.toLowerCase().replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+  }
+  return cleaned;
+}
+
+function normalizePhone(value: unknown): string | null {
+  const cleaned = cleanString(value);
+  if (!cleaned || !/^\+?[\d\s().-]+$/.test(cleaned)) return null;
+  return cleaned.replace(/\s+/g, " ").replace(/[.-]{2,}/g, "-").replace(/[^\d+().\s-]/g, "");
+}
+
+function titleCaseToken(value: string): string {
+  if (/^(AI|ML|UI|UX|API|AWS|GCP|SQL|HTML|CSS|PHP|C\+\+|C#)$/i.test(value)) return value.toUpperCase();
+  if (/^[A-Z0-9.+#-]{2,}$/.test(value)) return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+  return value;
+}
+
+function normalizeList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map(cleanString).filter((item): item is string => Boolean(item)).map((item) =>
+    item.split(/\s+/).map(titleCaseToken).join(" ")
+  ))];
+}
+
+function normalizeUrl(value: unknown): string | null {
+  const cleaned = cleanString(value);
+  if (!cleaned) return null;
+  const candidate = /^https?:\/\//i.test(cleaned) ? cleaned : `https://${cleaned}`;
+  try {
+    const parsed = new URL(candidate);
+    return parsed.hostname.includes(".") ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function profileValueEquals(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+}
+
+function buildReplacement(extracted: ReturnType<typeof normalizeExtractedData>) {
+  const confidence = extracted.fieldConfidence || {};
+  const status = extracted.fieldStatus || {};
+  const raw = extracted as unknown as Record<string, unknown>;
+  const replacement: Record<string, unknown> = {};
+  const confidenceByProfileField: Record<string, number> = {};
+
+  for (const [profileKey, extractionKey, emptyValue] of CV_REPLACEMENT_FIELDS) {
+    const score = Math.min(1, Math.max(0, Number(confidence[extractionKey] ?? (status[extractionKey] === "present" ? 0.9 : 0))));
+    const confident = status[extractionKey] === "present" && score >= 0.55;
+    let value: unknown = confident ? raw[extractionKey] : emptyValue;
+    if (["skills", "desired_roles", "certifications", "languages"].includes(profileKey)) value = normalizeList(value);
+    else if (["portfolio_url", "github_url", "linkedin_url"].includes(profileKey)) value = normalizeUrl(value);
+    else if (profileKey === "phone") value = normalizePhone(value);
+    else if (["full_name", "current_company"].includes(profileKey)) value = normalizeHumanText(value);
+    else if (profileKey === "experience_years") value = Math.max(0, Number(value) || 0);
+    else value = cleanString(value);
+    replacement[profileKey] = value ?? emptyValue;
+    confidenceByProfileField[profileKey] = score;
+  }
+  return { replacement, confidenceByProfileField };
+}
 
 async function extractStructuredData(
   cvText: string,
@@ -68,7 +244,15 @@ async function extractStructuredData(
 ): Promise<Record<string, unknown>> {
   return generateGeminiJson<Record<string, unknown>>(geminiApiKey, [
     { role: "system", content: SYSTEM_PROMPT },
-    { role: "user", content: `Extract ALL data from this CV/Resume. Only include what is explicitly written - do not make up anything.\n\nFile name: ${fileName}\n\nCV Content:\n${cvText.substring(0, 15000)}` },
+    { role: "user", content: `Extract ALL data from this CV/Resume. Only include what is supported by the document—do not make up anything.
+
+Deterministic fuzzy-label and positional hints (hints are evidence candidates, not guaranteed facts):
+${buildExtractionHints(cvText)}
+
+File name: ${fileName}
+
+CV Content:
+${cvText.substring(0, 15000)}` },
   ], { temperature: 0.1, maxOutputTokens: 3200 });
 }
 
@@ -89,7 +273,7 @@ Deno.serve(async (req) => {
     );
     if (authError || !user) throw new Error("Invalid auth token");
 
-    const { fileName, filePath, forceAts = false } = await req.json();
+    const { fileName, filePath, forceAts = false, atsOnly = false } = await req.json();
     if (typeof filePath !== "string" || !filePath.trim()) throw new Error("No file path provided");
     const normalizedPath = filePath.replace(/\\/g, "/").replace(/^\/+/, "");
     if (!normalizedPath.startsWith(`${user.id}/`)) {
@@ -144,39 +328,45 @@ Deno.serve(async (req) => {
     const result = await extractStructuredData(extraction.text, resolvedFileName, geminiApiKey);
     const extracted = normalizeExtractedData(result as Record<string, unknown>);
 
-    // The resume path is the concurrency guard: if another CV was uploaded
-    // while this one was being parsed, this older result cannot change profile
-    // facts. Only confirmed CV facts replace prior CV-derived facts.
+    // Analysis creates a full replacement proposal. The profile remains
+    // untouched until the owner approves that proposal in Profile Settings.
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("resume_url, data_sources, full_name, email, phone, linkedin_url, github_url, portfolio_url, current_company, skills, experience_years, education, certifications, languages, cv_summary")
+      .select("id, resume_url, full_name, phone, location, bio, linkedin_url, github_url, portfolio_url, current_company, skills, desired_roles, experience_years, education, certifications, languages, cv_summary")
       .eq("user_id", user.id)
       .maybeSingle();
-    if (profileError || !profile) throw new Error("Could not load your profile for CV synchronization");
+    if (profileError || !profile) throw new Error("Could not load your profile for CV review");
 
-    let profileSync = { status: "superseded", updatedKeys: [] as string[], clearedKeys: [] as string[], uncertainKeys: [] as string[] };
-    if (profile.resume_url === normalizedPath) {
-      const sync = buildLatestCvProfileSync({
-        ...profile,
-        data_sources: profile.data_sources && typeof profile.data_sources === "object" && !Array.isArray(profile.data_sources)
-          ? profile.data_sources as Record<string, unknown>
-          : {},
-      }, extracted);
-      if (sync.uncertainKeys.length) console.warn("CV profile sync left uncertain fields unchanged:", sync.uncertainKeys.join(", "));
-      if (Object.keys(sync.updatePayload).length) {
-        const { data: synchronized, error: syncError } = await supabase
-          .from("profiles")
-          .update(sync.updatePayload)
-          .eq("user_id", user.id)
-          .eq("resume_url", normalizedPath)
-          .select("user_id")
-          .maybeSingle();
-        if (syncError) throw new Error(`Could not synchronize your profile: ${syncError.message}`);
-        profileSync = synchronized
-          ? { status: "synchronized", updatedKeys: sync.updatedKeys, clearedKeys: sync.clearedKeys, uncertainKeys: sync.uncertainKeys }
-          : profileSync;
-      } else {
-        profileSync = { status: "synchronized", updatedKeys: [], clearedKeys: [], uncertainKeys: sync.uncertainKeys };
+    let replacementProposal: Record<string, unknown> | null = null;
+    if (!atsOnly) {
+      const { replacement, confidenceByProfileField } = buildReplacement(extracted);
+      const diff = CV_REPLACEMENT_FIELDS.map(([profileKey]) => {
+        const previous = (profile as Record<string, unknown>)[profileKey];
+        const next = replacement[profileKey];
+        const previousEmpty = previous === null || previous === undefined || previous === "" || (Array.isArray(previous) && previous.length === 0) || (profileKey === "experience_years" && Number(previous) === 0);
+        const nextEmpty = next === null || next === "" || (Array.isArray(next) && next.length === 0) || (profileKey === "experience_years" && Number(next) === 0);
+        const change = profileValueEquals(previous, next) ? "unchanged" : previousEmpty ? "added" : nextEmpty ? "removed" : "changed";
+        return { field: profileKey, change, previous: previous ?? null, next, confidence: confidenceByProfileField[profileKey] || 0 };
+      });
+      const uploadTimestamp = Number(normalizedPath.split("/").pop()?.split("_")[0] || 0);
+      const { data: existingPending } = await supabase.from("cv_profile_replacements")
+        .select("id, resume_path")
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+        .maybeSingle();
+      const existingTimestamp = Number(existingPending?.resume_path?.split("/").pop()?.split("_")[0] || 0);
+      if (!existingPending || !existingTimestamp || uploadTimestamp >= existingTimestamp) {
+        await supabase.from("cv_profile_replacements").update({ status: "superseded" }).eq("user_id", user.id).eq("status", "pending");
+        const { data: proposal, error: proposalError } = await supabase.from("cv_profile_replacements").insert({
+          user_id: user.id,
+          profile_id: profile.id,
+          resume_path: normalizedPath,
+          replacement_data: replacement,
+          field_confidence: confidenceByProfileField,
+          diff,
+        }).select("id, status, diff, created_at").single();
+        if (proposalError) throw new Error(`Could not create CV replacement review: ${proposalError.message}`);
+        replacementProposal = proposal;
       }
     }
 
@@ -214,7 +404,7 @@ Deno.serve(async (req) => {
           charCount: extraction.charCount,
         },
         _saved: { count: 0, keys: [] },
-        _profileSync: profileSync,
+        _replacement: replacementProposal,
         _ats: atsResult,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },

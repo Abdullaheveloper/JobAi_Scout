@@ -57,24 +57,33 @@ async function collectConfiguredSources(
   admin: SupabaseAdmin,
   sources: SourceRow[],
   sourceType: "rss" | "company_career",
+  signal: AbortSignal,
+  onProgress?: (payload: AdapterPayload) => void,
 ): Promise<AdapterPayload> {
   const configured = sources.filter((source) => source.source_type === sourceType && source.url);
   if (!configured.length) throw new Error(`No enabled ${sourceType.replace(/_/g, " ")} sources are configured`);
 
-  // A company adapter may contain several official career pages. Run those
-  // independent requests together so one slow site cannot consume the full
-  // 50-second adapter budget before the remaining sites even begin.
-  const results = await Promise.all(configured.map(async (source) => {
+  const settled: Array<{ jobs: NormalizedJob[]; error: string | null } | undefined> = new Array(configured.length);
+  const publishProgress = () => onProgress?.({
+    jobs: settled.flatMap((result) => result?.jobs || []),
+    errors: settled.flatMap((result) => result?.error ? [result.error] : []),
+  });
+  // Sources within one logical adapter are independent. They may run together,
+  // while the four top-level adapters remain strictly sequential.
+  const results = await Promise.all(configured.map(async (source, index) => {
     try {
       const collected = sourceType === "rss"
-        ? await collectRssJobs(source.url!, source.name)
-        : await collectCompanyCareerJobs(source.url!, source.name);
+        ? await collectRssJobs(source.url!, source.name, signal)
+        : await collectCompanyCareerJobs(source.url!, source.name, signal);
       await admin.from("job_sources").update({
         last_collected_at: new Date().toISOString(),
         last_result_count: collected.length,
         last_error: null,
       }).eq("id", source.id);
-      return { jobs: collected, error: null };
+      const result = { jobs: collected, error: null };
+      settled[index] = result;
+      publishProgress();
+      return result;
     } catch (error) {
       const detail = error instanceof Error ? error.message : "Collection failed";
       console.error(`[scrape-orchestrator] ${sourceType}:${source.name}`, detail);
@@ -83,7 +92,10 @@ async function collectConfiguredSources(
         last_result_count: 0,
         last_error: detail.slice(0, 500),
       }).eq("id", source.id);
-      return { jobs: [], error: `${source.name}: this source was temporarily unavailable.` };
+      const result = { jobs: [] as NormalizedJob[], error: `${source.name}: this source was temporarily unavailable.` };
+      settled[index] = result;
+      publishProgress();
+      return result;
     }
   }));
   const jobs = results.flatMap((result) => result.jobs);
@@ -171,6 +183,15 @@ export async function runScrapeOrchestration(params: ScrapeOrchestrationParams):
     let hadFailure = false;
     const exclusions: ExclusionSummary = { optional_filters: 0, invalid_or_duplicate: 0, career_level: 0, below_match_score: 0, display_eligible: 0 };
     let stopRequested = false;
+    const partialPayloads: Record<JobAdapterKey, AdapterPayload> = {
+      linkedin: { jobs: [], errors: [] },
+      indeed: { jobs: [], errors: [] },
+      rss: { jobs: [], errors: [] },
+      company_career: { jobs: [], errors: [] },
+    };
+    const rememberPartial = (key: JobAdapterKey, payload: AdapterPayload) => {
+      partialPayloads[key] = payload;
+    };
 
     const isStopRequested = async () => {
       if (stopRequested) return true;
@@ -185,17 +206,30 @@ export async function runScrapeOrchestration(params: ScrapeOrchestrationParams):
     const adapters = [
       {
         key: "linkedin" as const,
-        run: async (): Promise<AdapterPayload> => ({
-          jobs: await collectLinkedInJobs(keywords, [effectiveLocation], maxItems, { jobType, workMode }),
-          errors: [],
-        }),
+        run: async (signal: AbortSignal): Promise<AdapterPayload> => {
+          const jobs = await collectLinkedInJobs(keywords, [effectiveLocation], maxItems, { jobType, workMode }, signal, (partialJobs) => rememberPartial("linkedin", { jobs: partialJobs, errors: [] }));
+          return { jobs, errors: [] };
+        },
+        getPartial: () => partialPayloads.linkedin,
       },
       {
         key: "indeed" as const,
-        run: async (): Promise<AdapterPayload> => ({ jobs: await collectIndeedJobs(query, effectiveLocation, maxItems), errors: [] }),
+        run: async (signal: AbortSignal): Promise<AdapterPayload> => {
+          const jobs = await collectIndeedJobs(query, effectiveLocation, maxItems, signal, (partialJobs) => rememberPartial("indeed", { jobs: partialJobs, errors: [] }));
+          return { jobs, errors: [] };
+        },
+        getPartial: () => partialPayloads.indeed,
       },
-      { key: "rss" as const, run: () => collectConfiguredSources(admin, sources, "rss") },
-      { key: "company_career" as const, run: () => collectConfiguredSources(admin, sources, "company_career") },
+      {
+        key: "rss" as const,
+        run: (signal: AbortSignal) => collectConfiguredSources(admin, sources, "rss", signal, (payload) => rememberPartial("rss", payload)),
+        getPartial: () => partialPayloads.rss,
+      },
+      {
+        key: "company_career" as const,
+        run: (signal: AbortSignal) => collectConfiguredSources(admin, sources, "company_career", signal, (payload) => rememberPartial("company_career", payload)),
+        getPartial: () => partialPayloads.company_career,
+      },
     ];
 
     await admin.from("job_scrape_sessions").update({ session_status: "running" }).eq("id", sessionId);
@@ -212,8 +246,7 @@ export async function runScrapeOrchestration(params: ScrapeOrchestrationParams):
       onFinish: async (result, adapterIndex) => {
         const key = result.key;
         try {
-          if (result.status === "failed" || !result.value) throw result.error || new Error("Adapter returned no result");
-          const payload = result.value;
+          const payload = result.value || partialPayloads[key];
           totalScraped += payload.jobs.length;
           const adapterHadErrors = payload.errors.length > 0;
           if (payload.errors.length) {
@@ -258,16 +291,24 @@ export async function runScrapeOrchestration(params: ScrapeOrchestrationParams):
             .gte("match_score", 40);
           if (countError) throw new Error(`Could not count visible jobs: ${countError.message}`);
           totalDisplayed = count || 0;
-          adapterStatuses[key] = adapterHadErrors ? "failed" : "completed";
+          adapterStatuses[key] = result.status === "completed"
+            ? adapterHadErrors ? "failed" : "completed"
+            : result.status;
+          if (result.status === "timed_out" || result.status === "failed") {
+            hadFailure = true;
+            const technical = result.error || new Error(`Adapter ${result.status}`);
+            adapterErrors[key] = [...(adapterErrors[key] || []), friendlyAdapterError(key, technical)];
+          }
         } catch (error) {
           hadFailure = true;
-          adapterStatuses[key] = "failed";
+          adapterStatuses[key] = result.status === "timed_out" || result.status === "stopped" ? result.status : "failed";
           const technical = error instanceof Error ? error : new Error("Adapter failed");
           console.error(`[scrape-orchestrator] ${key}`, technical.message);
           adapterErrors[key] = [...(adapterErrors[key] || []), friendlyAdapterError(key, technical)];
         }
 
         await admin.from("job_scrape_sessions").update({
+          current_adapter: null,
           adapter_statuses: adapterStatuses,
           adapter_errors: adapterErrors,
           total_jobs_scraped: totalScraped,
@@ -280,12 +321,18 @@ export async function runScrapeOrchestration(params: ScrapeOrchestrationParams):
     });
 
     await isStopRequested();
+    if (stopRequested) {
+      for (const key of JOB_ADAPTER_ORDER) {
+        if (adapterStatuses[key] === "waiting" || adapterStatuses[key] === "running") adapterStatuses[key] = "stopped";
+      }
+    }
     const failedCount = Object.values(adapterStatuses).filter((status) => status === "failed").length;
+    const timedOutCount = Object.values(adapterStatuses).filter((status) => status === "timed_out").length;
     const finalStatus = stopRequested
       ? "stopped"
       : failedCount === JOB_ADAPTER_ORDER.length
       ? "failed"
-      : hadFailure || failedCount > 0
+      : hadFailure || failedCount > 0 || timedOutCount > 0
         ? "partially_completed"
         : "completed";
     const completedAt = new Date().toISOString();

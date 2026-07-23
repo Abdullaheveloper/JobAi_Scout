@@ -15,6 +15,7 @@ export type ExtractedData = {
   languages?: string[];
   cvSummary?: string;
   fieldStatus?: Record<string, "present" | "missing" | "uncertain">;
+  fieldConfidence?: Record<string, number>;
 };
 
 export type ProfileLike = {
@@ -91,6 +92,16 @@ function toFieldStatus(value: unknown): Record<string, "present" | "missing" | "
   return Object.keys(result).length ? result : undefined;
 }
 
+function toFieldConfidence(value: unknown): Record<string, number> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const result: Record<string, number> = {};
+  for (const [key, confidence] of Object.entries(value)) {
+    const number = Number(confidence);
+    if (Number.isFinite(number)) result[key] = Math.min(1, Math.max(0, number));
+  }
+  return Object.keys(result).length ? result : undefined;
+}
+
 export function normalizeExtractedData(raw: Record<string, unknown>): ExtractedData {
   return {
     fullName: pickString(raw, "fullName", "full_name"),
@@ -109,6 +120,7 @@ export function normalizeExtractedData(raw: Record<string, unknown>): ExtractedD
     languages: toStringArray(raw.languages),
     cvSummary: pickString(raw, "cvSummary", "cv_summary"),
     fieldStatus: toFieldStatus(raw.fieldStatus ?? raw.field_status),
+    fieldConfidence: toFieldConfidence(raw.fieldConfidence ?? raw.field_confidence),
   };
 }
 

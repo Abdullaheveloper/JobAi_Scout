@@ -30,6 +30,20 @@ describe("job scrape UI state", () => {
     expect(runningAdapterPosition(current)).toBe(2);
   });
 
+  it("preserves timeout and manual-stop badge states", () => {
+    expect(parseAdapterStatuses({
+      linkedin: "timed_out",
+      indeed: "completed",
+      rss: "stopped",
+      company_career: "stopped",
+    })).toEqual({
+      linkedin: "timed_out",
+      indeed: "completed",
+      rss: "stopped",
+      company_career: "stopped",
+    });
+  });
+
   it("uses the required completion and partial-completion messages", () => {
     expect(scrapeCompletionMessage(session({ session_status: "completed", current_adapter: null }))).toBe("Job scraping completed. 25 matching jobs found.");
     expect(scrapeCompletionMessage(session({ session_status: "partially_completed", current_adapter: null }))).toContain("some source errors");

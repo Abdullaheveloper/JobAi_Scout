@@ -78,6 +78,7 @@ export default function CVUpload() {
   const [mergeFields, setMergeFields] = useState<MergeField[]>([]);
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [replacementReady, setReplacementReady] = useState(false);
   const [activeResumePath, setActiveResumePath] = useState<string | null>(profile?.resume_url || null);
   const [retryingAts, setRetryingAts] = useState(false);
   const [extractionInfo, setExtractionInfo] = useState<{
@@ -131,6 +132,7 @@ export default function CVUpload() {
       setExtractedData(null);
       setMergeFields([]);
       setApplied(false);
+      setReplacementReady(false);
       setExtractionInfo(null);
       clearAts();
     } else {
@@ -177,8 +179,8 @@ export default function CVUpload() {
       return;
     }
 
-    // Update profile with resume URL
-    await supabase.from("profiles").update({ resume_url: filePath }).eq("user_id", user.id);
+    // Keep the uploaded path local until the full replacement is approved.
+    // The approval transaction updates resume_url together with every field.
     setActiveResumePath(filePath);
 
     setUploading(false);
@@ -197,9 +199,9 @@ export default function CVUpload() {
           _extraction?: { method: string; pages: number; ocrUsed: boolean; charCount: number };
           _saved?: { count: number; keys: string[] };
           _ats?: Record<string, unknown>;
-          _profileSync?: { status: "synchronized" | "superseded"; updatedKeys: string[]; clearedKeys: string[]; uncertainKeys: string[] };
+          _replacement?: { id?: string; status?: string };
         };
-        const { _extraction, _saved, _ats, _profileSync, ...rawExtracted } = raw;
+        const { _extraction, _saved, _ats, _replacement, ...rawExtracted } = raw;
         const extracted = normalizeExtractedData(rawExtracted);
 
         if (_extraction) setExtractionInfo(_extraction);
@@ -210,28 +212,13 @@ export default function CVUpload() {
           ats.setError(String(_ats.error || "Your resume was uploaded successfully, but ATS suggestions could not be generated."));
         }
 
-        // Fetch fresh profile directly (avoid stale React state in merge plan)
-        const { data: freshProfile, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("user_id", user.id)
-          .single();
-
-        if (profileError) {
-          console.error("Failed to fetch profile:", profileError.message);
-        }
-
-        const synchronizedProfile = _profileSync?.status === "synchronized"
-          ? await refreshProfile()
-          : freshProfile;
-        const plan = buildMergePlan(extracted, synchronizedProfile);
-        setMergeFields(plan);
-
-        if (_profileSync?.status === "synchronized") {
-          setApplied(true);
+        setMergeFields([]);
+        setApplied(false);
+        if (_replacement?.id) {
+          setReplacementReady(true);
           toast({
-            title: "Profile updated",
-            description: "Your profile has been updated based on your latest uploaded CV.",
+            title: "CV review is ready",
+            description: "Review and approve the complete profile replacement in Profile Settings.",
           });
         } else if (!hasExtractedCvData(extracted)) {
           toast({
@@ -239,10 +226,10 @@ export default function CVUpload() {
             description: "The AI could not find usable fields in your resume.",
             variant: "destructive",
           });
-        } else {
+        } else if (!_replacement?.id) {
           toast({
-            title: "Newer CV detected",
-            description: "This older upload was not allowed to replace data from your latest CV.",
+            title: "CV analyzed",
+            description: "No replacement was created because a newer CV is already active.",
           });
         }
       }
@@ -260,7 +247,7 @@ export default function CVUpload() {
     ats.setError(null);
     try {
       const { data, error } = await supabase.functions.invoke("analyze-cv", {
-        body: { fileName: activeResumePath.split("/").pop(), filePath: activeResumePath, forceAts: true },
+        body: { fileName: activeResumePath.split("/").pop(), filePath: activeResumePath, forceAts: true, atsOnly: true },
       });
       if (error) throw error;
       const result = (data as { _ats?: unknown } | null)?._ats;
@@ -363,7 +350,7 @@ export default function CVUpload() {
               <Upload className="h-5 w-5 text-primary" /> Upload your resume
             </CardTitle>
             <CardDescription>
-              PDF or DOCX up to 10 MB. We extract facts into a review queue; your profile is never changed until you approve the merge.
+              PDF or DOCX up to 10 MB. We create one complete replacement review in Profile Settings; your profile stays unchanged until approval.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -392,6 +379,7 @@ export default function CVUpload() {
                     setExtractedData(null);
                     setMergeFields([]);
                     setApplied(false);
+                    setReplacementReady(false);
                     setExtractionInfo(null);
                     ats.clear();
                   } else if (candidate) {
@@ -435,6 +423,20 @@ export default function CVUpload() {
                   </Badge>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {replacementReady && (
+          <Card className="border-cyan-400/25 bg-cyan-500/[0.06] shadow-card">
+            <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-display font-semibold text-cyan-200">Complete replacement review ready</p>
+                <p className="mt-1 text-sm text-muted-foreground">Review additions, changes, removals, and confidence scores together in Profile Settings.</p>
+              </div>
+              <Button asChild className="shrink-0">
+                <Link to="/dashboard/settings"><ShieldCheck className="mr-2 h-4 w-4" />Review profile replacement</Link>
+              </Button>
             </CardContent>
           </Card>
         )}

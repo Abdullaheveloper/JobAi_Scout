@@ -1,10 +1,8 @@
 import type { NormalizedJob } from "../job-collection.ts";
 
 const value = (xml: string, tag: string) => (xml.match(new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`, "i"))?.[1] || "").replace(/<[^>]+>/g, "").trim();
-const RSS_FEED_ATTEMPT_MS = 95_000;
-
-export async function collectRssJobs(url: string, name: string): Promise<NormalizedJob[]> {
-  const response = await fetch(url, { headers: { Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml" }, signal: AbortSignal.timeout(RSS_FEED_ATTEMPT_MS) });
+export async function collectRssJobs(url: string, name: string, signal?: AbortSignal): Promise<NormalizedJob[]> {
+  const response = await fetch(url, { headers: { Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml" }, signal });
   if (!response.ok) throw new Error(`RSS feed failed (${response.status})`);
   const xml = await response.text();
   const entries = xml.match(/<(?:item|entry)\b[\s\S]*?<\/(?:item|entry)>/gi) || [];

@@ -123,6 +123,9 @@ function DataSourceBadge({ source }: { source?: string }) {
   if (source === "user") {
     return <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-300 border-emerald-500/20 gap-1"><ShieldCheck className="h-3 w-3" /> You</Badge>;
   }
+  if (source === "cv_upload") {
+    return <Badge variant="outline" className="text-xs bg-violet-500/10 text-violet-300 border-violet-500/20 gap-1"><Upload className="h-3 w-3" /> CV</Badge>;
+  }
   return <Badge variant="outline" className="text-xs">{source}</Badge>;
 }
 
@@ -140,6 +143,8 @@ export default function ProfileSettings() {
   const [profileImageUploading, setProfileImageUploading] = useState(false);
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
   const [retryingAts, setRetryingAts] = useState(false);
+  const [pendingReplacement, setPendingReplacement] = useState<any | null>(null);
+  const [approvingReplacement, setApprovingReplacement] = useState(false);
   const ats = useResumeATSAnalysis(user?.id, profile?.resume_url);
   const autoAtsAttempted = useRef<string | null>(null);
   const { acceptResult: acceptAtsResult, setError: setAtsError } = ats;
@@ -181,10 +186,72 @@ export default function ProfileSettings() {
     }
   }, [profile]);
 
+  const replacementDiff = useMemo(() => {
+    if (!pendingReplacement || !profile) return [];
+    const fields = [
+      "full_name", "phone", "location", "bio", "skills", "desired_roles",
+      "experience_years", "education", "current_company", "portfolio_url",
+      "github_url", "linkedin_url", "certifications", "languages", "cv_summary",
+    ];
+    const isEmpty = (value: unknown, field: string) =>
+      value === null || value === undefined || value === "" ||
+      (Array.isArray(value) && value.length === 0) ||
+      (field === "experience_years" && Number(value) === 0);
+    return fields.map((field) => {
+      const previous = (profile as any)[field];
+      const next = pendingReplacement.replacement_data?.[field];
+      const same = JSON.stringify(previous ?? null) === JSON.stringify(next ?? null);
+      const change = same ? "unchanged" : isEmpty(previous, field) ? "added" : isEmpty(next, field) ? "removed" : "changed";
+      return {
+        field,
+        previous: previous ?? null,
+        next: next ?? null,
+        change,
+        confidence: Number(pendingReplacement.field_confidence?.[field] || 0),
+      };
+    });
+  }, [pendingReplacement, profile]);
+
   // Fetch latest profile on mount
   useEffect(() => {
     if (user) refreshProfile();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadPendingReplacement = useCallback(async () => {
+    if (!user) return;
+    const { data, error } = await (supabase as any)
+      .from("cv_profile_replacements")
+      .select("id, resume_path, replacement_data, field_confidence, diff, created_at")
+      .eq("user_id", user.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.warn("Could not load pending CV replacement", error.message);
+      return;
+    }
+    setPendingReplacement(data || null);
+  }, [user]);
+
+  useEffect(() => { void loadPendingReplacement(); }, [loadPendingReplacement, profile?.resume_url]);
+
+  const approveReplacement = async () => {
+    if (!pendingReplacement?.id || approvingReplacement) return;
+    setApprovingReplacement(true);
+    const { error } = await (supabase as any).rpc("approve_cv_profile_replacement", {
+      p_replacement_id: pendingReplacement.id,
+    });
+    if (error) {
+      toast({ title: "Replacement could not be approved", description: error.message, variant: "destructive" });
+    } else {
+      setPendingReplacement(null);
+      setChangedFields(new Set());
+      await refreshProfile();
+      toast({ title: "Profile replaced from your CV", description: "All CV-managed fields and readiness indicators now use the approved CV." });
+    }
+    setApprovingReplacement(false);
+  };
 
   useEffect(() => {
     if (profile) {
@@ -285,7 +352,7 @@ export default function ProfileSettings() {
     setAtsError(null);
     try {
       const { data, error } = await supabase.functions.invoke("analyze-cv", {
-        body: { fileName: resumePath.split("/").pop(), filePath: resumePath, forceAts: true },
+        body: { fileName: resumePath.split("/").pop(), filePath: resumePath, forceAts: true, atsOnly: true },
       });
       if (error) throw error;
       const result = (data as { _ats?: unknown } | null)?._ats;
@@ -420,13 +487,11 @@ export default function ProfileSettings() {
       { label: "Roles", key: "desired_roles", done: hasValue(p.desired_roles) },
       { label: "Experience", key: "experience_years", done: hasValue(p.experience_years) },
       { label: "Resume", key: "resume_url", done: hasValue(p.resume_url) },
-      { label: "Profile image", key: "avatar_url", done: hasValue((p as any).avatar_url) },
       { label: "LinkedIn", key: "linkedin_url", done: hasValue(p.linkedin_url) },
       { label: "GitHub", key: "github_url", done: hasValue(p.github_url) },
       { label: "Portfolio", key: "portfolio_url", done: hasValue((p as any).portfolio_url) },
       { label: "Company", key: "current_company", done: hasValue((p as any).current_company) },
       { label: "Education", key: "education", done: hasValue((p as any).education) },
-      { label: "Career history", key: "career_profile", done: normalizeCareerProfile((p as any).career_profile).experiences.length > 0 },
     ];
   }, [profile]);
 
@@ -465,6 +530,56 @@ export default function ProfileSettings() {
           retrying={retryingAts}
         />
 
+        {pendingReplacement && (
+          <Card className="border-cyan-400/30 bg-cyan-500/[0.05] shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 font-display text-cyan-200">
+                <ShieldCheck className="h-5 w-5" /> Review complete CV replacement
+              </CardTitle>
+              <CardDescription>One approval replaces every CV-managed profile field. Your account email is never changed.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {replacementDiff
+                .filter((item: any) => item.change !== "unchanged")
+                .map((item: any) => {
+                  const label = String(item.field || "").replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+                  const previous = Array.isArray(item.previous) ? item.previous.join(", ") : item.previous;
+                  const next = Array.isArray(item.next) ? item.next.join(", ") : item.next;
+                  const tone = item.change === "removed"
+                    ? "border-rose-400/25 bg-rose-500/[0.06]"
+                    : item.change === "added"
+                      ? "border-emerald-400/25 bg-emerald-500/[0.06]"
+                      : "border-cyan-400/20 bg-cyan-500/[0.04]";
+                  return (
+                    <div key={item.field} className={`rounded-xl border p-3 ${tone}`}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold">{label}</p>
+                        <div className="flex gap-2">
+                          <Badge variant="outline" className="capitalize">{item.change}</Badge>
+                          <Badge variant="outline">{Math.round(Number(item.confidence || 0) * 100)}% confidence</Badge>
+                        </div>
+                      </div>
+                      <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+                        <div><span className="text-muted-foreground">Current</span><p className="mt-0.5 break-words">{previous || "Empty"}</p></div>
+                        <div><span className="text-muted-foreground">After approval</span><p className="mt-0.5 break-words">{next || "Cleared"}</p></div>
+                      </div>
+                      {Number(item.confidence || 0) > 0 && Number(item.confidence || 0) < 0.75 && (
+                        <p className="mt-2 text-xs text-amber-300"><AlertCircle className="mr-1 inline h-3 w-3" />Low-confidence extraction—review this value carefully.</p>
+                      )}
+                    </div>
+                  );
+                })}
+              <div className="rounded-xl border border-rose-400/20 bg-rose-500/[0.04] p-3 text-xs text-muted-foreground">
+                Removed fields will be cleared even when entered manually. The complete review is applied atomically.
+              </div>
+              <Button type="button" onClick={approveReplacement} disabled={approvingReplacement} className="w-full sm:w-auto">
+                {approvingReplacement ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+                Approve full CV replacement
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* ── Profile Completeness ────────────────────────── */}
         <Card className="border-border bg-card shadow-card">
           <CardContent className="py-5">
@@ -484,15 +599,16 @@ export default function ProfileSettings() {
               />
             </div>
             <div className="flex flex-wrap gap-2 mt-3">
-              {completenessItems.filter(item => !item.done).slice(0, 5).map(item => (
+              {completenessItems.map(item => (
                 <Badge
                   key={item.key}
                   variant="outline"
-                  className={`text-xs transition-all duration-300 ${
-                    "bg-muted text-muted-foreground border-border"
+                  className={`text-xs transition-all duration-300 ${item.done
+                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
+                    : "border-rose-500/25 bg-rose-500/10 text-rose-300"
                   }`}
                 >
-                  Add {item.label}
+                  {item.done ? "✓" : "✗"} {item.label}
                 </Badge>
               ))}
             </div>

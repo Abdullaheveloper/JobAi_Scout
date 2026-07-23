@@ -9,7 +9,7 @@ export const JOB_ADAPTER_STEPS = [
 export const MIN_VISIBLE_MATCH_SCORE = 40;
 
 export type JobAdapterKey = typeof JOB_ADAPTER_STEPS[number]["key"];
-export type JobAdapterState = "waiting" | "running" | "completed" | "failed";
+export type JobAdapterState = "waiting" | "running" | "completed" | "timed_out" | "failed" | "stopped";
 export type JobScrapeSession = Tables<"job_scrape_sessions">;
 
 const DEFAULT_STATUSES: Record<JobAdapterKey, JobAdapterState> = {
@@ -23,7 +23,7 @@ export function parseAdapterStatuses(value: Json | null | undefined): Record<Job
   if (!value || typeof value !== "object" || Array.isArray(value)) return { ...DEFAULT_STATUSES };
   return JOB_ADAPTER_STEPS.reduce((statuses, adapter) => {
     const candidate = value[adapter.key];
-    statuses[adapter.key] = ["waiting", "running", "completed", "failed"].includes(String(candidate))
+    statuses[adapter.key] = ["waiting", "running", "completed", "timed_out", "failed", "stopped"].includes(String(candidate))
       ? candidate as JobAdapterState
       : "waiting";
     return statuses;

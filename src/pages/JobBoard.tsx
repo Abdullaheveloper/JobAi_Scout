@@ -76,6 +76,7 @@ export default function JobBoard() {
   const [collectedTotal, setCollectedTotal] = useState(0);
   const [savedRecIds, setSavedRecIds] = useState<Set<string>>(new Set());
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
+  const [visitedJobIds, setVisitedJobIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [scraping, setScraping] = useState(false);
   const [scrapeSession, setScrapeSession] = useState<JobScrapeSession | null>(null);
@@ -97,6 +98,28 @@ export default function JobBoard() {
   const previousSessionIdRef = useRef<string | null>(null);
   const hydratedSessionRef = useRef<string | null>(null);
   const announcedSessionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setVisitedJobIds(new Set());
+      return;
+    }
+    try {
+      const stored = JSON.parse(localStorage.getItem(`jobai:visited-jobs:${user.id}`) || "[]");
+      setVisitedJobIds(new Set(Array.isArray(stored) ? stored.filter((id): id is string => typeof id === "string") : []));
+    } catch {
+      setVisitedJobIds(new Set());
+    }
+  }, [user]);
+
+  const markJobVisited = useCallback((jobId: string) => {
+    if (!user) return;
+    setVisitedJobIds((previous) => {
+      const next = new Set(previous).add(jobId);
+      localStorage.setItem(`jobai:visited-jobs:${user.id}`, JSON.stringify([...next]));
+      return next;
+    });
+  }, [user]);
 
   const fetchCollectedJobs = useCallback(async (page: number, sessionId?: string | null, silent = false) => {
     if (!user) return;
@@ -318,18 +341,35 @@ export default function JobBoard() {
       toast({ title: "Still preparing the scrape", description: "The stop control will be available as soon as the session is registered." });
       return;
     }
-    const { error } = await supabase.from("job_scrape_sessions").update({
+    const stoppedStatuses = parseAdapterStatuses(scrapeSession.adapter_statuses);
+    for (const adapter of JOB_ADAPTER_STEPS) {
+      if (stoppedStatuses[adapter.key] === "running" || stoppedStatuses[adapter.key] === "waiting") {
+        stoppedStatuses[adapter.key] = "stopped";
+      }
+    }
+    const stoppedAt = new Date().toISOString();
+    setScrapeSession((current) => current ? {
+      ...current,
+      adapter_statuses: stoppedStatuses,
       session_status: "stopped",
       current_adapter: null,
-      completed_at: new Date().toISOString(),
-    }).eq("id", scrapeSession.id).eq("user_id", user.id).in("session_status", ["pending", "running"]);
-    if (error) {
-      toast({ title: "Could not stop scraping", description: error.message, variant: "destructive" });
-      return;
-    }
+      completed_at: stoppedAt,
+    } : current);
     setScraping(false);
     scrapeLockRef.current = false;
     startingSessionRef.current = false;
+
+    const { error } = await supabase.from("job_scrape_sessions").update({
+      session_status: "stopped",
+      current_adapter: null,
+      completed_at: stoppedAt,
+      adapter_statuses: stoppedStatuses,
+    }).eq("id", scrapeSession.id).eq("user_id", user.id).in("session_status", ["pending", "running"]);
+    if (error) {
+      toast({ title: "Could not stop scraping", description: error.message, variant: "destructive" });
+      await fetchLatestSession(false);
+      return;
+    }
     toast({ title: "Scraping stopped", description: "Jobs already collected were kept and remain available below." });
     await fetchCollectedJobs(1, scrapeSession.id, true);
   };
@@ -350,10 +390,12 @@ export default function JobBoard() {
     if (job.recruiter_id) {
       const { error } = await supabase.from("job_applications").insert({ user_id: user.id, job_id: job.id });
       if (error && !error.message.toLowerCase().includes("duplicate")) return toast({ title: "Application failed", description: error.message, variant: "destructive" });
+      markJobVisited(job.id);
       toast({ title: "Application submitted" });
       return;
     }
     if (job.source_url) {
+      markJobVisited(job.id);
       window.open(job.source_url, "_blank", "noopener,noreferrer");
       return;
     }
@@ -501,10 +543,22 @@ export default function JobBoard() {
                     ? "border-blue-700 bg-blue-950 text-blue-50"
                     : status === "completed"
                       ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-300"
+                      : status === "timed_out"
+                        ? "border-amber-500/60 bg-amber-500/20 text-amber-300"
                       : status === "failed"
                         ? "border-red-500/60 bg-red-500/20 text-red-300"
+                        : status === "stopped"
+                          ? "border-slate-500/60 bg-slate-500/20 text-slate-300"
                         : "border-sky-300/70 bg-sky-400 text-sky-950";
-                  const StatusIcon = status === "running" ? LoaderCircle : status === "completed" ? CheckCircle2 : status === "failed" ? AlertCircle : Clock;
+                  const StatusIcon = status === "running"
+                    ? LoaderCircle
+                    : status === "completed"
+                      ? CheckCircle2
+                      : status === "failed" || status === "timed_out"
+                        ? AlertCircle
+                        : status === "stopped"
+                          ? Square
+                          : Clock;
                   return (
                     <Button
                       key={adapter.key}
@@ -516,7 +570,7 @@ export default function JobBoard() {
                       className={`h-8 gap-1.5 px-3 text-xs capitalize disabled:pointer-events-none disabled:opacity-100 ${stateClasses}`}
                     >
                       <StatusIcon className={`h-3.5 w-3.5 ${status === "running" ? "animate-spin" : ""}`} />
-                      {adapter.label}: {status}
+                      {adapter.label}: {status.replace("_", " ")}
                     </Button>
                   );
                 })}
@@ -640,7 +694,15 @@ export default function JobBoard() {
                         {generatingCoverLetterFor === job.id ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                         {generatingCoverLetterFor === job.id ? "Tailoring..." : "Tailor letter"}
                       </Button>
-                      <Button size="sm" onClick={() => applyToCollectedJob(job)} className="hidden gap-1.5 sm:inline-flex">Apply<ArrowUpRight className="h-3.5 w-3.5" /></Button>
+                      <Button
+                        size="sm"
+                        variant={visitedJobIds.has(job.id) ? "outline" : "default"}
+                        onClick={() => applyToCollectedJob(job)}
+                        className={`hidden gap-1.5 sm:inline-flex ${visitedJobIds.has(job.id) ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15 hover:text-emerald-300" : ""}`}
+                      >
+                        {visitedJobIds.has(job.id) ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}
+                        {visitedJobIds.has(job.id) ? "Visited" : "Apply"}
+                      </Button>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 border-t border-border/60 px-5 py-3 sm:hidden">
@@ -648,7 +710,15 @@ export default function JobBoard() {
                       {generatingCoverLetterFor === job.id ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                       Tailor letter
                     </Button>
-                    <Button size="sm" className="gap-1.5" onClick={() => applyToCollectedJob(job)}>Apply<ArrowUpRight className="h-3.5 w-3.5" /></Button>
+                    <Button
+                      size="sm"
+                      variant={visitedJobIds.has(job.id) ? "outline" : "default"}
+                      className={`gap-1.5 ${visitedJobIds.has(job.id) ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : ""}`}
+                      onClick={() => applyToCollectedJob(job)}
+                    >
+                      {visitedJobIds.has(job.id) ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}
+                      {visitedJobIds.has(job.id) ? "Visited" : "Apply"}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -749,9 +819,15 @@ export default function JobBoard() {
                           {isSaved ? <BookmarkCheck className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
                         </Button>
                         {job.source_url && (
-                          <Button size="sm" className="gradient-primary border-0 gap-1" asChild>
-                            <a href={job.source_url} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-3.5 w-3.5" /> Apply
+                          <Button
+                            size="sm"
+                            variant={visitedJobIds.has(job.id) ? "outline" : "default"}
+                            className={visitedJobIds.has(job.id) ? "gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15 hover:text-emerald-300" : "gradient-primary border-0 gap-1"}
+                            asChild
+                          >
+                            <a href={job.source_url} target="_blank" rel="noopener noreferrer" onClick={() => markJobVisited(job.id)}>
+                              {visitedJobIds.has(job.id) ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                              {visitedJobIds.has(job.id) ? "Visited" : "Apply"}
                             </a>
                           </Button>
                         )}
