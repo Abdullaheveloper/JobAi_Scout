@@ -328,8 +328,8 @@ Deno.serve(async (req) => {
     const result = await extractStructuredData(extraction.text, resolvedFileName, geminiApiKey);
     const extracted = normalizeExtractedData(result as Record<string, unknown>);
 
-    // Analysis creates a full replacement proposal. The profile remains
-    // untouched until the owner approves that proposal in Profile Settings.
+    // A newly analyzed CV is the source of truth for every CV-managed profile
+    // field. Email remains account-owned and is intentionally excluded.
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("id, resume_url, full_name, phone, location, bio, linkedin_url, github_url, portfolio_url, current_company, skills, desired_roles, experience_years, education, certifications, languages, cv_summary")
@@ -365,8 +365,14 @@ Deno.serve(async (req) => {
           field_confidence: confidenceByProfileField,
           diff,
         }).select("id, status, diff, created_at").single();
-        if (proposalError) throw new Error(`Could not create CV replacement review: ${proposalError.message}`);
-        replacementProposal = proposal;
+        if (proposalError) throw new Error(`Could not prepare CV profile replacement: ${proposalError.message}`);
+        const { error: replacementError } = await supabase.rpc("approve_cv_profile_replacement", {
+          p_replacement_id: proposal.id,
+        });
+        if (replacementError) {
+          throw new Error(`Could not replace your profile from the CV: ${replacementError.message}`);
+        }
+        replacementProposal = { ...proposal, status: "approved" };
       }
     }
 
@@ -392,8 +398,7 @@ Deno.serve(async (req) => {
       };
     }
 
-    // Step 4: return suggestions only. The client shows a merge review and
-    // requires explicit approval before any profile fact is persisted.
+    // Step 4: return the extracted data after the atomic profile replacement.
     return new Response(
       JSON.stringify({
         ...extracted,
@@ -403,7 +408,10 @@ Deno.serve(async (req) => {
           ocrUsed: extraction.ocrUsed,
           charCount: extraction.charCount,
         },
-        _saved: { count: 0, keys: [] },
+        _saved: {
+          count: replacementProposal ? CV_REPLACEMENT_FIELDS.length : 0,
+          keys: replacementProposal ? CV_REPLACEMENT_FIELDS.map(([profileKey]) => profileKey) : [],
+        },
         _replacement: replacementProposal,
         _ats: atsResult,
       }),

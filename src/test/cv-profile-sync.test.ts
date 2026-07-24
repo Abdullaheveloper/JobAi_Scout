@@ -34,14 +34,10 @@ describe("CV full-replacement contract", () => {
     expect(migration).toContain("'lastUpdated'");
   });
 
-  it("creates one pending proposal and exposes confidence-driven review data", () => {
-    const migration = readFileSync(
-      "supabase/migrations/20260723000100_cv_profile_replacement_queue.sql",
-      "utf8",
-    );
-    expect(migration).toContain("one_pending_cv_profile_replacement_per_user");
-    expect(migration).toContain("field_confidence JSONB");
-    expect(migration).toContain("diff JSONB");
-    expect(migration).toContain("approve_cv_profile_replacement");
+  it("automatically applies the complete replacement after analysis", () => {
+    const analyzer = readFileSync("supabase/functions/analyze-cv/index.ts", "utf8");
+    expect(analyzer).toContain('supabase.rpc("approve_cv_profile_replacement"');
+    expect(analyzer).toContain('status: "approved"');
+    expect(analyzer).not.toContain("requires explicit approval");
   });
 });

@@ -11,35 +11,15 @@ import { useToast } from "@/hooks/use-toast";
 import { hasValue } from "@/lib/constants";
 import {
   type ExtractedData,
-  type ProfileLike,
   profileToExtractedData,
   hasExtractedCvData,
   normalizeExtractedData,
-  buildProfileUpdateFromExtracted,
-  applyProfileUpdate,
 } from "@/lib/cv-extracted-data";
 import {
-  FileUp, Loader2, Sparkles, CheckCircle2, Upload, MapPin, Mail, Phone,
-  Linkedin, Github, FileText, Globe, Building2, GraduationCap, Award,
-  Languages, ArrowRight, ShieldCheck, ExternalLink, AlertTriangle,
+  FileUp, Loader2, Sparkles, CheckCircle2, Upload, ExternalLink, AlertTriangle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useResumeATSAnalysis } from "@/hooks/useResumeATSAnalysis";
-
-type MergeField = {
-  key: string;
-  label: string;
-  icon: React.ElementType;
-  existing: string;
-  extracted: string;
-  action: "fill" | "keep" | "skip";
-};
-
-function formatValue(val: unknown): string {
-  if (Array.isArray(val)) return val.join(", ");
-  if (typeof val === "number") return val > 0 ? String(val) : "";
-  return (val as string) || "";
-}
 
 const MAX_RESUME_BYTES = 10 * 1024 * 1024;
 function validateResume(candidate: File): string | null {
@@ -75,10 +55,7 @@ export default function CVUpload() {
   const [analyzing, setAnalyzing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
-  const [mergeFields, setMergeFields] = useState<MergeField[]>([]);
-  const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
-  const [replacementReady, setReplacementReady] = useState(false);
   const [activeResumePath, setActiveResumePath] = useState<string | null>(profile?.resume_url || null);
   const [retryingAts, setRetryingAts] = useState(false);
   const [extractionInfo, setExtractionInfo] = useState<{
@@ -130,41 +107,13 @@ export default function CVUpload() {
     if (dropped && !validationError) {
       setFile(dropped);
       setExtractedData(null);
-      setMergeFields([]);
       setApplied(false);
-      setReplacementReady(false);
       setExtractionInfo(null);
       clearAts();
     } else {
       toast({ title: "Resume not accepted", description: validationError, variant: "destructive" });
     }
   }, [clearAts, toast]);
-
-  // Build merge plan: only fill fields that are currently empty
-  const buildMergePlan = useCallback((data: ExtractedData, profileSnapshot: ProfileLike | null) => {
-    const p = profileSnapshot || {};
-    const fields: MergeField[] = [
-      { key: "full_name", label: "Full Name", icon: FileUp, existing: formatValue(p.full_name), extracted: data.fullName || "", action: !hasValue(p.full_name) && hasValue(data.fullName) ? "fill" : "keep" },
-      { key: "email", label: "Email", icon: Mail, existing: formatValue(p.email), extracted: data.email || "", action: !hasValue(p.email) && hasValue(data.email) ? "fill" : "keep" },
-      { key: "phone", label: "Phone", icon: Phone, existing: formatValue(p.phone), extracted: data.phone || "", action: !hasValue(p.phone) && hasValue(data.phone) ? "fill" : "keep" },
-      { key: "location", label: "Location", icon: MapPin, existing: formatValue(p.location), extracted: data.location || "", action: !hasValue(p.location) && hasValue(data.location) ? "fill" : "keep" },
-      { key: "linkedin_url", label: "LinkedIn", icon: Linkedin, existing: formatValue(p.linkedin_url), extracted: data.linkedinUrl || "", action: !hasValue(p.linkedin_url) && hasValue(data.linkedinUrl) ? "fill" : "keep" },
-      { key: "github_url", label: "GitHub", icon: Github, existing: formatValue(p.github_url), extracted: data.githubUrl || "", action: !hasValue(p.github_url) && hasValue(data.githubUrl) ? "fill" : "keep" },
-      { key: "portfolio_url", label: "Portfolio", icon: Globe, existing: formatValue(p.portfolio_url), extracted: data.portfolioUrl || "", action: !hasValue(p.portfolio_url) && hasValue(data.portfolioUrl) ? "fill" : "keep" },
-      { key: "current_company", label: "Company", icon: Building2, existing: formatValue(p.current_company), extracted: data.currentCompany || "", action: !hasValue(p.current_company) && hasValue(data.currentCompany) ? "fill" : "keep" },
-      { key: "experience_years", label: "Experience (yrs)", icon: FileText, existing: formatValue(p.experience_years), extracted: String(data.experienceYears || ""), action: !hasValue(p.experience_years) && hasValue(data.experienceYears) ? "fill" : "keep" },
-      { key: "skills", label: "Skills", icon: Sparkles, existing: formatValue(p.skills), extracted: (data.skills || []).join(", "), action: !hasValue(p.skills) && hasValue(data.skills) ? "fill" : "keep" },
-      { key: "desired_roles", label: "Target Roles", icon: FileText, existing: formatValue(p.desired_roles), extracted: (data.suggestedRoles || []).join(", "), action: !hasValue(p.desired_roles) && hasValue(data.suggestedRoles) ? "fill" : "keep" },
-      { key: "education", label: "Education", icon: GraduationCap, existing: formatValue(p.education), extracted: data.education || "", action: !hasValue(p.education) && hasValue(data.education) ? "fill" : "keep" },
-      { key: "certifications", label: "Certifications", icon: Award, existing: formatValue(p.certifications), extracted: (data.certifications || []).join(", "), action: !hasValue(p.certifications) && hasValue(data.certifications) ? "fill" : "keep" },
-      { key: "languages", label: "Languages", icon: Languages, existing: formatValue((p.languages)), extracted: (data.languages || []).join(", "), action: !hasValue(p.languages) && hasValue(data.languages) ? "fill" : "keep" },
-      { key: "cv_summary", label: "CV Summary", icon: FileText, existing: formatValue(p.cv_summary), extracted: data.cvSummary || "", action: !hasValue(p.cv_summary) && hasValue(data.cvSummary) ? "fill" : "keep" },
-    ];
-    return fields.map(f => ({
-      ...f,
-      action: f.action === "keep" && !f.extracted ? "skip" as const : f.action,
-    }));
-  }, []);
 
   const handleUploadAndAnalyze = async () => {
     if (!file || !user) return;
@@ -179,8 +128,8 @@ export default function CVUpload() {
       return;
     }
 
-    // Keep the uploaded path local until the full replacement is approved.
-    // The approval transaction updates resume_url together with every field.
+    // The analysis transaction updates resume_url together with every
+    // CV-managed profile field.
     setActiveResumePath(filePath);
 
     setUploading(false);
@@ -212,13 +161,13 @@ export default function CVUpload() {
           ats.setError(String(_ats.error || "Your resume was uploaded successfully, but ATS suggestions could not be generated."));
         }
 
-        setMergeFields([]);
         setApplied(false);
-        if (_replacement?.id) {
-          setReplacementReady(true);
+        if (_replacement?.id && _replacement.status === "approved") {
+          await refreshProfile();
+          setApplied(true);
           toast({
-            title: "CV review is ready",
-            description: "Review and approve the complete profile replacement in Profile Settings.",
+            title: "Profile updated from your CV",
+            description: "Your new CV replaced all CV-managed profile details. Account email was unchanged.",
           });
         } else if (!hasExtractedCvData(extracted)) {
           toast({
@@ -229,7 +178,7 @@ export default function CVUpload() {
         } else if (!_replacement?.id) {
           toast({
             title: "CV analyzed",
-            description: "No replacement was created because a newer CV is already active.",
+            description: "No profile replacement was needed because a newer CV is already active.",
           });
         }
       }
@@ -257,33 +206,6 @@ export default function CVUpload() {
       ats.setError(await getEdgeFunctionError(error, "ATS suggestions could not be generated. Your uploaded resume is still safe."));
     } finally {
       setRetryingAts(false);
-    }
-  };
-
-  const handleApplyExtracted = async () => {
-    if (!user || !extractedData || applying) return;
-    setApplying(true);
-    try {
-      const { data: freshProfile, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-      if (profileError) throw profileError;
-      const { updatePayload, filledKeys } = buildProfileUpdateFromExtracted(freshProfile, extractedData);
-      if (!filledKeys.length) {
-        toast({ title: "Nothing new to add", description: "Your existing profile already contains these facts." });
-        return;
-      }
-      const { error, savedKeys } = await applyProfileUpdate(user.id, updatePayload, filledKeys);
-      if (error) throw new Error(error);
-      await refreshProfile();
-      setApplied(true);
-      toast({ title: "Profile updated", description: `${savedKeys.length} approved fact(s) were added to your Career Passport.` });
-    } catch (error: any) {
-      toast({ title: "Could not update profile", description: error?.message || "Please try again.", variant: "destructive" });
-    } finally {
-      setApplying(false);
     }
   };
 
@@ -350,7 +272,7 @@ export default function CVUpload() {
               <Upload className="h-5 w-5 text-primary" /> Upload your resume
             </CardTitle>
             <CardDescription>
-              PDF or DOCX up to 10 MB. We create one complete replacement review in Profile Settings; your profile stays unchanged until approval.
+              PDF or DOCX up to 10 MB. After analysis, the new CV automatically replaces every CV-managed profile field. Your account email is unchanged.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -377,9 +299,7 @@ export default function CVUpload() {
                   if (candidate && !validationError) {
                     setFile(candidate);
                     setExtractedData(null);
-                    setMergeFields([]);
                     setApplied(false);
-                    setReplacementReady(false);
                     setExtractionInfo(null);
                     ats.clear();
                   } else if (candidate) {
@@ -425,98 +345,6 @@ export default function CVUpload() {
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {replacementReady && (
-          <Card className="border-cyan-400/25 bg-cyan-500/[0.06] shadow-card">
-            <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="font-display font-semibold text-cyan-200">Complete replacement review ready</p>
-                <p className="mt-1 text-sm text-muted-foreground">Review additions, changes, removals, and confidence scores together in Profile Settings.</p>
-              </div>
-              <Button asChild className="shrink-0">
-                <Link to="/dashboard/settings"><ShieldCheck className="mr-2 h-4 w-4" />Review profile replacement</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {extractedData && mergeFields.length > 0 && (
-          <>
-            {/* Merge Review */}
-            <Card className="shadow-card border-cyan-400/20 bg-gradient-to-br from-cyan-500/8 via-cyan-500/2 to-transparent">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-display text-cyan-400">
-                  <ShieldCheck className="h-5 w-5" /> Merge Review
-                </CardTitle>
-                <CardDescription className="text-cyan-200/40">
-                  Data from your CV is being auto-filled into your profile. Existing data is preserved.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {applying && (
-                  <div className="flex items-center justify-center gap-2 py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                    <span className="text-sm font-medium">Auto-filling your profile...</span>
-                  </div>
-                )}
-                {mergeFields.filter(f => f.action !== "skip").map((field) => {
-                  const Icon = field.icon;
-                  return (
-                    <div key={field.key} className={`flex items-start gap-3 rounded-lg p-3 border ${field.action === "fill" ? "border-cyan-400/40 bg-cyan-500/5" : "border-white/[0.06] bg-[#0d1230]/50"}`}>
-                      <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium text-slate-200">{field.label}</span>
-                          {field.action === "fill" ? (
-                            <Badge variant="secondary" className="bg-cyan-500/15 text-cyan-300 border-0 text-xs gap-1">
-                              <ArrowRight className="h-3 w-3" /> Auto-filled
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-xs gap-1 border-emerald-500/20 text-emerald-300">
-                              <CheckCircle2 className="h-3 w-3" /> Already set
-                            </Badge>
-                          )}
-                        </div>
-                        {field.action === "fill" && field.extracted && (
-                          <p className="text-sm text-cyan-200 truncate">{field.extracted}</p>
-                        )}
-                        {field.action === "keep" && field.existing && (
-                          <p className="text-sm text-slate-400 truncate">{field.existing}</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {mergeFields.filter(f => f.action === "fill").length === 0 && (
-                  <div className="text-center py-4">
-                    <CheckCircle2 className="h-8 w-8 text-success mx-auto mb-2" />
-                    <p className="font-medium text-slate-200">All extracted data already exists in your profile!</p>
-                    <p className="text-sm text-muted-foreground">No changes needed.</p>
-                  </div>
-                )}
-
-                {mergeFields.some(f => f.action === "fill") && !applied && (
-                  <div className="flex flex-col gap-3 rounded-xl border border-primary/25 bg-primary/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-100">Ready to update your Career Passport?</p>
-                      <p className="text-xs text-muted-foreground">Only empty fields are included. Nothing is saved until you approve.</p>
-                    </div>
-                    <Button onClick={handleApplyExtracted} disabled={applying} className="gradient-primary shrink-0">
-                      {applying ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><ShieldCheck className="mr-2 h-4 w-4" /> Approve &amp; save</>}
-                    </Button>
-                  </div>
-                )}
-
-                <div className="pt-3 border-t border-white/[0.06]">
-                  <span className="text-sm text-slate-400">
-                    {mergeFields.filter(f => f.action === "fill").length} field(s) auto-filled • {mergeFields.filter(f => f.action === "keep").length} field(s) preserved
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </>
         )}
 
         {/* ── Post-Merge Results ──────────────────────────── */}
