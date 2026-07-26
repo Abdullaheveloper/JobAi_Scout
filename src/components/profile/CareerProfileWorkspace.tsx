@@ -36,9 +36,9 @@ const emptyDraft = (kind: EditorKind): Draft => {
   const id = createCareerId();
   switch (kind) {
     case "experience": return { id, company: "", title: "", location: "", employmentType: "", startDate: "", endDate: "", isCurrent: false, summary: "", highlights: "", skills: "" };
-    case "education": return { id, institution: "", degree: "", fieldOfStudy: "", location: "", startDate: "", endDate: "", grade: "", activities: "" };
+    case "education": return { id, institution: "", degree: "", fieldOfStudy: "", location: "", startDate: "", endDate: "", grade: "", activities: "", status: "", source: "user" };
     case "project": return { id, name: "", role: "", url: "", startDate: "", endDate: "", description: "", highlights: "", skills: "" };
-    case "achievement": return { id, type: "certification", title: "", issuer: "", date: "", url: "", description: "" };
+    case "achievement": return { id, type: "certification", title: "", issuer: "", date: "", url: "", description: "", source: "user" };
     case "reference": return { id, fullName: "", relationship: "", company: "", email: "", phone: "", permissionToContact: false };
   }
 };
@@ -65,10 +65,14 @@ function toExperience(draft: Draft): CareerExperience {
 }
 
 function toEducation(draft: Draft): CareerEducation {
+  const statusRaw = text(draft.status);
+  const status = statusRaw === "Completed" || statusRaw === "Ongoing" ? statusRaw : "";
   return {
     id: text(draft.id) || createCareerId(), institution: text(draft.institution), degree: text(draft.degree),
     fieldOfStudy: text(draft.fieldOfStudy), location: text(draft.location), startDate: text(draft.startDate),
     endDate: text(draft.endDate), grade: text(draft.grade), activities: text(draft.activities),
+    status,
+    source: text(draft.source) || "user",
   };
 }
 
@@ -85,6 +89,7 @@ function toAchievement(draft: Draft): CareerAchievement {
   return {
     id: text(draft.id) || createCareerId(), type: type === "award" || type === "publication" ? type : "certification",
     title: text(draft.title), issuer: text(draft.issuer), date: text(draft.date), url: text(draft.url), description: text(draft.description),
+    source: text(draft.source) || "user",
   };
 }
 
@@ -164,8 +169,8 @@ export default function CareerProfileWorkspace({ value, onChange }: Props) {
       </section>
 
       <section className="border-t border-white/[0.06] pt-7">
-        <CareerHeader icon={GraduationCap} title="Education" description="Keep degrees, institutions and dates structured instead of putting everything in one line." count={value.education.length} label="Add education" onAdd={() => open("education")} />
-        {value.education.length ? <div className="grid gap-3 md:grid-cols-2">{value.education.map((entry, index) => <div key={entry.id} className="rounded-xl border border-white/[0.08] bg-black/15 p-4"><div className="flex justify-between gap-3"><div><p className="font-semibold">{entry.degree || "Degree not added"}</p><p className="mt-0.5 text-sm text-muted-foreground">{entry.institution || "Institution not added"}</p></div><EntryActions onEdit={() => open("education", index)} onDelete={() => remove("education", index)} /></div>{entry.fieldOfStudy && <p className="mt-2 text-sm text-muted-foreground">{entry.fieldOfStudy}</p>}<p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />{dates(entry.startDate, entry.endDate)}</p></div>)}</div> : <EmptySection title="education entries" description="Add each degree separately so applications with multiple education blocks can be completed correctly." label="Add education" onAdd={() => open("education")} />}
+        <CareerHeader icon={GraduationCap} title="Education" description="Degree, institution, start/end year and Completed/Ongoing status — kept in sync with the Education readiness field." count={value.education.length} label="Add education" onAdd={() => open("education")} />
+        {value.education.length ? <div className="grid gap-3 md:grid-cols-2">{value.education.map((entry, index) => <div key={entry.id} className="rounded-xl border border-white/[0.08] bg-black/15 p-4"><div className="flex justify-between gap-3"><div><p className="font-semibold">{entry.degree || "Degree not added"}</p><p className="mt-0.5 text-sm text-muted-foreground">{entry.institution || "Institution not added"}</p></div><EntryActions onEdit={() => open("education", index)} onDelete={() => remove("education", index)} /></div>{entry.fieldOfStudy && <p className="mt-2 text-sm text-muted-foreground">{entry.fieldOfStudy}</p>}<p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />{dates(entry.startDate, entry.endDate)}{entry.status ? ` · ${entry.status}` : ""}</p></div>)}</div> : <EmptySection title="education entries" description="Add each degree separately so applications with multiple education blocks can be completed correctly." label="Add education" onAdd={() => open("education")} />}
       </section>
 
       <section className="border-t border-white/[0.06] pt-7">
@@ -189,7 +194,7 @@ export default function CareerProfileWorkspace({ value, onChange }: Props) {
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-primary/20 bg-[#0b1028] p-5 text-foreground sm:p-6">
         <DialogHeader><DialogTitle className="font-display text-xl">{editor?.index === null ? "Add" : "Edit"} {editor?.kind === "experience" ? "work experience" : editor?.kind === "education" ? "education" : editor?.kind === "project" ? "project" : editor?.kind === "achievement" ? "credential or recognition" : "reference"}</DialogTitle><DialogDescription>Enter only information you can honestly use in an application. You can edit it any time before saving.</DialogDescription></DialogHeader>
         {editor?.kind === "experience" && <div className="grid gap-4 sm:grid-cols-2">{field("title", "Job title", "Frontend Developer")}{field("company", "Company", "Company name")}{field("location", "Location", "City, Country")}{field("employmentType", "Employment type", "Full-time, contract…")} {field("startDate", "Start date", "", "month")} {editor.draft.isCurrent ? <div className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-muted-foreground">Current role — no end date needed.</div> : field("endDate", "End date", "", "month")}<label className="col-span-full flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"><input type="checkbox" checked={Boolean(editor.draft.isCurrent)} onChange={(event) => update("isCurrent", event.target.checked)} /> I currently work here</label><div className="col-span-full">{textarea("summary", "Role summary", "Describe your responsibilities and impact.")}</div><div className="col-span-full">{textarea("highlights", "Highlights", "One achievement per line", "Use real outcomes only.")}</div><div className="col-span-full">{textarea("skills", "Skills used", "React, TypeScript, …", "Separate skills with commas.")}</div></div>}
-        {editor?.kind === "education" && <div className="grid gap-4 sm:grid-cols-2">{field("institution", "Institution", "University name")}{field("degree", "Degree", "BSc, MSc, Diploma…")}{field("fieldOfStudy", "Field of study", "Computer Science")}{field("location", "Location", "City, Country")}{field("startDate", "Start date", "", "month")}{field("endDate", "End date", "", "month")}{field("grade", "Grade / GPA", "Optional")}<div className="col-span-full">{textarea("activities", "Activities or details", "Optional societies, thesis or honours")}</div></div>}
+        {editor?.kind === "education" && <div className="grid gap-4 sm:grid-cols-2">{field("degree", "Degree", "BSc, MSc, Diploma…")}{field("institution", "Institution", "University name")}{field("fieldOfStudy", "Field of study", "Computer Science")}{field("location", "Location", "City, Country")}{field("startDate", "Start year", "2022", "text")}{field("endDate", "End year", "2026", "text")}<div className="space-y-1.5"><Label htmlFor="education-status">Status</Label><select id="education-status" value={text(editor.draft.status)} onChange={(event) => update("status", event.target.value)} className="flex h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm"><option value="">Not set</option><option value="Completed">Completed</option><option value="Ongoing">Ongoing</option></select></div>{field("grade", "Grade / GPA", "Optional")}<div className="col-span-full">{textarea("activities", "Activities or details", "Optional societies, thesis or honours")}</div></div>}
         {editor?.kind === "project" && <div className="grid gap-4 sm:grid-cols-2">{field("name", "Project name", "Project name")}{field("role", "Your role", "Lead developer")}{field("url", "Project URL", "https://…", "url")}{field("startDate", "Start date", "", "month")}{field("endDate", "End date", "", "month")}<div className="col-span-full">{textarea("description", "Project description", "What did you build and why?")}</div><div className="col-span-full">{textarea("highlights", "Highlights", "One achievement per line")}</div><div className="col-span-full">{textarea("skills", "Tools and skills", "React, Node.js…", "Separate skills with commas.")}</div></div>}
         {editor?.kind === "achievement" && <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1.5"><Label htmlFor="career-type">Type</Label><select id="career-type" value={text(editor.draft.type)} onChange={(event) => update("type", event.target.value)} className="flex h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm"><option value="certification">Certification</option><option value="award">Award</option><option value="publication">Publication</option></select></div>{field("title", "Title", "Certification, award or publication")}{field("issuer", "Issuer / publisher", "Organization")}{field("date", "Date", "", "month")}{field("url", "Credential URL", "https://…", "url")}<div className="col-span-full">{textarea("description", "Details", "Optional context")}</div></div>}
         {editor?.kind === "reference" && <div className="grid gap-4 sm:grid-cols-2">{field("fullName", "Full name", "Reference name")}{field("relationship", "Relationship", "Former manager")}{field("company", "Company", "Organization")}{field("email", "Email", "name@example.com", "email")}{field("phone", "Phone", "+92 …", "tel")}<label className="col-span-full flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-3 py-2.5 text-sm"><input type="checkbox" checked={Boolean(editor.draft.permissionToContact)} onChange={(event) => update("permissionToContact", event.target.checked)} /> This person has given permission to be contacted</label></div>}

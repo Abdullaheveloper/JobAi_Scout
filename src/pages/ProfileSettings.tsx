@@ -23,6 +23,14 @@ import {
   AutofillPreferences, CareerProfile, defaultAutofillPreferences, emptyCareerProfile,
   normalizeAutofillPreferences, normalizeCareerProfile,
 } from "@/lib/career-profile";
+import {
+  EXPERIENCE_INVALID_MESSAGE,
+  SALARY_INVALID_MESSAGE,
+  clampExperienceYears,
+  formatEducationFlat,
+  parseEducationString,
+  validateSalary,
+} from "../../supabase/functions/_shared/cv-profile-merge.ts";
 
 // ── Color-coded section themes ─────────────────────────────────
 const SECTION_THEMES = {
@@ -217,7 +225,28 @@ export default function ProfileSettings() {
           .map(([question, answer]) => `${question} = ${String(answer)}`)
           .join("\n"),
       });
-      setCareerProfile(normalizeCareerProfile((profile as any).career_profile));
+      const normalizedCareer = normalizeCareerProfile((profile as any).career_profile);
+      const flatEducation = String((profile as any).education || "").trim();
+      // Hydrate structured education from the flat readiness field when Career Passport is empty.
+      if (!normalizedCareer.education.length && flatEducation) {
+        const parsed = parseEducationString(flatEducation);
+        if (parsed.length) {
+          normalizedCareer.education = parsed.map((entry) => ({
+            id: crypto.randomUUID?.() || `edu_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            institution: entry.institution || "",
+            degree: entry.degree || "",
+            fieldOfStudy: entry.fieldOfStudy || "",
+            location: "",
+            startDate: entry.startYear || "",
+            endDate: entry.endYear || "",
+            grade: entry.grade || "",
+            activities: "",
+            status: entry.status || "",
+            source: "cv",
+          }));
+        }
+      }
+      setCareerProfile(normalizedCareer);
       setAutofillPreferences(normalizeAutofillPreferences((profile as any).autofill_preferences));
     }
   }, [profile]);
@@ -317,12 +346,22 @@ export default function ProfileSettings() {
     if (errors[key]) setErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
   };
 
+  const experienceCalcNote = useMemo(() => {
+    const meta = (profile as any)?.field_metadata?.experience_years;
+    if (meta && typeof meta === "object" && typeof meta.calcNote === "string") return meta.calcNote as string;
+    return "";
+  }, [profile]);
+
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
     if (form.linkedin_url && !isValidUrl(form.linkedin_url)) errs.linkedin_url = "Invalid URL";
     if (form.github_url && !isValidUrl(form.github_url)) errs.github_url = "Invalid URL";
     if (form.portfolio_url && !isValidUrl(form.portfolio_url)) errs.portfolio_url = "Invalid URL";
     if (form.phone && form.phone.toLowerCase() !== "no" && !/^[+\d\s()-]*$/.test(form.phone)) errs.phone = "Invalid phone format";
+    const experienceCheck = clampExperienceYears(form.experience_years);
+    if (!experienceCheck.valid) errs.experience_years = experienceCheck.message || EXPERIENCE_INVALID_MESSAGE;
+    const salaryCheck = validateSalary(form.expected_salary);
+    if (!salaryCheck.valid) errs.expected_salary = salaryCheck.message || SALARY_INVALID_MESSAGE;
     for (const [index, line] of form.application_answers.split("\n").entries()) {
       if (line.trim() && !line.includes("=")) errs.application_answers = `Line ${index + 1} needs: question = answer`;
     }
@@ -338,6 +377,27 @@ export default function ProfileSettings() {
     }
     setSaving(true);
 
+    const experienceCheck = clampExperienceYears(form.experience_years);
+    const salaryCheck = validateSalary(form.expected_salary);
+    if (!experienceCheck.valid || !salaryCheck.valid) {
+      setSaving(false);
+      return;
+    }
+
+    // Keep flat education (readiness badge) in sync with structured Career Passport entries.
+    const structuredFlat = careerProfile.education.length
+      ? formatEducationFlat(careerProfile.education.map((entry) => ({
+        degree: entry.degree,
+        institution: entry.institution,
+        startYear: entry.startDate,
+        endYear: entry.endDate,
+        status: entry.status === "Completed" || entry.status === "Ongoing" ? entry.status : undefined,
+        grade: entry.grade,
+        fieldOfStudy: entry.fieldOfStudy,
+      })))
+      : "";
+    const educationValue = structuredFlat || form.education.trim() || null;
+
     const corePayload: Record<string, any> = {
       full_name: form.full_name.trim(),
       phone: form.phone.trim() || null,
@@ -346,7 +406,7 @@ export default function ProfileSettings() {
       github_url: form.github_url.trim() || null,
       skills: form.skills ? form.skills.split(",").map(s => s.trim()).filter(Boolean) : [],
       desired_roles: form.desired_roles ? form.desired_roles.split(",").map(s => s.trim()).filter(Boolean) : [],
-      experience_years: Number(form.experience_years) || 0,
+      experience_years: experienceCheck.value ?? 0,
       location: form.location.trim() || null,
     };
 
@@ -360,8 +420,8 @@ export default function ProfileSettings() {
     const extendedPayload: Record<string, any> = {
       portfolio_url: form.portfolio_url.trim() || null,
       current_company: form.current_company.trim() || null,
-      expected_salary: form.expected_salary.trim() || null,
-      education: form.education.trim() || null,
+      expected_salary: salaryCheck.raw,
+      education: educationValue,
       certifications: form.certifications ? form.certifications.split(",").map(s => s.trim()).filter(Boolean) : [],
       languages: form.languages ? form.languages.split(",").map(s => s.trim()).filter(Boolean) : [],
       work_authorization: form.work_authorization || null,
@@ -579,7 +639,25 @@ export default function ProfileSettings() {
                   <Briefcase className="h-3.5 w-3.5" /> Experience (years)
                   <DataSourceBadge source={dataSources.experience_years} />
                 </Label>
-                <ColorInput id="experience" type="number" min={0} value={form.experience_years} onChange={e => updateField("experience_years", Number(e.target.value))} inputFocus={P.inputFocus} />
+                <ColorInput
+                  id="experience"
+                  type="number"
+                  min={0}
+                  max={40}
+                  step={0.1}
+                  value={form.experience_years}
+                  onChange={e => updateField("experience_years", Number(e.target.value))}
+                  inputFocus={P.inputFocus}
+                  className={errors.experience_years ? "border-rose-400/50" : ""}
+                />
+                {errors.experience_years && (
+                  <p className="text-xs text-rose-400 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />{errors.experience_years}
+                  </p>
+                )}
+                {experienceCalcNote && (
+                  <p className="text-xs text-muted-foreground">{experienceCalcNote}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="company" className={`flex items-center gap-1.5 ${P.titleColor}`}>
@@ -595,14 +673,37 @@ export default function ProfileSettings() {
                   <DollarSign className="h-3.5 w-3.5" /> Expected Salary
                   <DataSourceBadge source={dataSources.expected_salary} />
                 </Label>
-                <ColorInput id="salary" value={form.expected_salary} onChange={e => updateField("expected_salary", e.target.value)} placeholder="$80,000" inputFocus={P.inputFocus} />
+                <ColorInput
+                  id="salary"
+                  value={form.expected_salary}
+                  onChange={e => updateField("expected_salary", e.target.value)}
+                  placeholder="$80,000"
+                  inputFocus={P.inputFocus}
+                  className={errors.expected_salary ? "border-rose-400/50" : ""}
+                />
+                {errors.expected_salary && (
+                  <p className="text-xs text-rose-400 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />{errors.expected_salary}
+                  </p>
+                )}
+                <p className="text-xs text-slate-500">Must be greater than 10,000</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="education" className={`flex items-center gap-1.5 ${P.titleColor}`}>
                   <GraduationCap className="h-3.5 w-3.5" /> Education
                   <DataSourceBadge source={dataSources.education} />
                 </Label>
-                <ColorInput id="education" value={form.education} onChange={e => updateField("education", e.target.value)} placeholder="BSc Computer Science, MIT 2022" inputFocus={P.inputFocus} />
+                <ColorInput
+                  id="education"
+                  value={form.education}
+                  onChange={e => updateField("education", e.target.value)}
+                  placeholder="BSc Computer Science, MIT 2022"
+                  inputFocus={P.inputFocus}
+                />
+                <p className="text-xs text-slate-500">
+                  Used for readiness. Structured degree rows live in Career Passport below
+                  {careerProfile.education.length ? ` (${careerProfile.education.length} entr${careerProfile.education.length === 1 ? "y" : "ies"})` : ""}.
+                </p>
               </div>
             </div>
             <div className="space-y-2">

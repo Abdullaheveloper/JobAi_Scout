@@ -168,6 +168,44 @@ export default function ExtractedDataCard({
           </div>
         )}
 
+        {data.experience && data.experience.length > 0 && (
+          <div className="rounded-lg p-3 border border-violet-500/15 bg-[#0d1230]/60">
+            <div className="flex items-center gap-2 mb-2">
+              <Briefcase className="h-3.5 w-3.5 text-violet-400" />
+              <span className="text-xs font-medium text-violet-300">Roles & projects ({data.experience.length})</span>
+            </div>
+            <div className="space-y-2.5">
+              {data.experience.map((entry, index) => {
+                const type = entry.type || "job";
+                const typeClass = type === "internship"
+                  ? "bg-amber-500/10 text-amber-300 border-amber-500/20"
+                  : type === "project"
+                    ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/20"
+                    : "bg-violet-500/10 text-violet-300 border-violet-500/20";
+                return (
+                  <div key={`${entry.title || "entry"}-${index}`} className="rounded-md border border-white/5 bg-black/20 p-2.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="text-sm text-violet-200 font-medium">{entry.title || "Untitled"}</p>
+                      <Badge variant="outline" className={`text-[10px] capitalize ${typeClass}`}>{type}</Badge>
+                    </div>
+                    {(entry.company || entry.dates) && (
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {[entry.company, entry.dates].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
+                    {entry.description && (
+                      <p className="text-xs text-slate-300 mt-1.5 whitespace-pre-line leading-relaxed">{entry.description}</p>
+                    )}
+                    {entry.url && (
+                      <p className="text-[11px] text-cyan-300/80 mt-1 truncate">{entry.url}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {data.education && (
           <div className="rounded-lg p-3 border border-violet-500/15 bg-[#0d1230]/60">
             <div className="flex items-center gap-2 mb-1.5">

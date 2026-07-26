@@ -22,6 +22,10 @@ export type CareerEducation = {
   endDate: string;
   grade: string;
   activities: string;
+  /** Completed or Ongoing when known (CV sync / Profile Settings). */
+  status?: "Completed" | "Ongoing" | "";
+  /** Provenance: "cv" entries are replaced on next CV upload; omit/user for manual. */
+  source?: "cv" | "user" | string;
 };
 
 export type CareerProject = {
@@ -44,6 +48,8 @@ export type CareerAchievement = {
   date: string;
   url: string;
   description: string;
+  /** Provenance: "cv" entries are full-replaced on next CV upload; manual entries are kept. */
+  source?: "cv" | "user" | string;
 };
 
 export type CareerReference = {
@@ -127,6 +133,13 @@ function normalizeEducation(raw: unknown): CareerEducation | null {
   const institution = stringValue(value.institution ?? value.school);
   const degree = stringValue(value.degree);
   if (!institution && !degree) return null;
+  const statusRaw = stringValue(value.status).toLowerCase();
+  const status = statusRaw.includes("ongoing") || statusRaw.includes("progress") || statusRaw === "current"
+    ? "Ongoing" as const
+    : statusRaw.includes("complete") || statusRaw.includes("graduat")
+      ? "Completed" as const
+      : stringValue(value.status) as CareerEducation["status"];
+  const source = stringValue(value.source);
   return {
     id: stringValue(value.id) || createCareerId(),
     institution,
@@ -137,6 +150,8 @@ function normalizeEducation(raw: unknown): CareerEducation | null {
     endDate: stringValue(value.endDate ?? value.end_date),
     grade: stringValue(value.grade),
     activities: stringValue(value.activities ?? value.description),
+    ...(status ? { status } : {}),
+    ...(source ? { source } : {}),
   };
 }
 
@@ -164,6 +179,7 @@ function normalizeAchievement(raw: unknown): CareerAchievement | null {
   const title = stringValue(value.title);
   if (!title) return null;
   const type = stringValue(value.type);
+  const source = stringValue(value.source);
   return {
     id: stringValue(value.id) || createCareerId(),
     type: type === "award" || type === "publication" ? type : "certification",
@@ -172,6 +188,7 @@ function normalizeAchievement(raw: unknown): CareerAchievement | null {
     date: stringValue(value.date),
     url: stringValue(value.url),
     description: stringValue(value.description),
+    ...(source ? { source } : {}),
   };
 }
 

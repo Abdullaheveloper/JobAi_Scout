@@ -161,8 +161,12 @@ export default function CVUpload() {
           ats.setError(String(_ats.error || "Your resume was uploaded successfully, but ATS suggestions could not be generated."));
         }
 
-        setApplied(false);
-        if (_replacement?.id && _replacement.status === "approved") {
+        const profileSaved = Boolean(
+          (_replacement?.id && _replacement.status === "approved")
+          || (_saved?.count && _saved.count > 0),
+        );
+
+        if (profileSaved) {
           await refreshProfile();
           setApplied(true);
           toast({
@@ -170,12 +174,14 @@ export default function CVUpload() {
             description: "Your new CV replaced all CV-managed profile details. Account email was unchanged.",
           });
         } else if (!hasExtractedCvData(extracted)) {
+          setApplied(false);
           toast({
             title: "No data extracted",
             description: "The AI could not find usable fields in your resume.",
             variant: "destructive",
           });
-        } else if (!_replacement?.id) {
+        } else {
+          setApplied(false);
           toast({
             title: "CV analyzed",
             description: "No profile replacement was needed because a newer CV is already active.",
