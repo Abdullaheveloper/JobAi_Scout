@@ -218,7 +218,6 @@ export default function CVUpload() {
   const profileExtractedData = profileToExtractedData(profile);
   const displayExtractedData = extractedData ?? profileExtractedData;
   const showExtractedData = hasExtractedCvData(displayExtractedData);
-  const dataSources = (profile?.data_sources as Record<string, string>) || {};
 
   return (
     <DashboardLayout>
@@ -412,7 +411,6 @@ export default function CVUpload() {
                 ? "Data automatically extracted from your resume by AI (OpenRouter + Gemini 2.5 Flash)"
                 : "Your profile data from CV extraction. Edit fields in Profile Settings."
             }
-            dataSources={dataSources}
           />
         )}
       </div>
