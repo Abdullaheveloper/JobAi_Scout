@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Briefcase, Shield, ArrowLeft } from "lucide-react";
 import { JobAILogo } from "@/components/brand/JobAILogo";
+import { CookieSettingsLink } from "@/components/CookieConsentBanner";
 
 const sections = [
   {
@@ -102,6 +103,7 @@ export default function Privacy() {
             <Link to="/about" className="hover:text-foreground transition-colors">About</Link>
             <Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link>
             <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+            <CookieSettingsLink className="hover:text-foreground transition-colors" />
           </div>
         </div>
       </footer>

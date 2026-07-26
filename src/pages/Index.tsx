@@ -15,6 +15,7 @@ import {
   UserRoundCheck,
 } from "lucide-react";
 import { JobAILogo } from "@/components/brand/JobAILogo";
+import { CookieSettingsLink } from "@/components/CookieConsentBanner";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -189,7 +190,7 @@ export default function Index() {
 
       <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8 sm:pb-28"><div className="relative overflow-hidden rounded-[2rem] border border-violet-300/20 bg-gradient-to-br from-[#25165d] via-[#263f99] to-[#175a9e] px-6 py-16 text-center text-white shadow-2xl shadow-violet-950/45 sm:px-12 sm:py-20"><div className="absolute inset-0 opacity-20 [background-image:radial-gradient(white_1px,transparent_1px)] [background-size:24px_24px]" /><div className="relative mx-auto max-w-2xl"><Sparkles className="mx-auto h-6 w-6 text-violet-100" /><h2 className="mt-6 text-3xl font-semibold tracking-[-.05em] sm:text-4xl">Ready to make your next move clearer?</h2><p className="mt-4 text-base leading-7 text-white/80">Set up your career workspace and begin with the resume you already have.</p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link to="/register" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-[#2f2c7d] transition hover:bg-violet-50">I am looking for work <ArrowRight className="h-4 w-4" /></Link><Link to="/register?role=recruiter" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/45 bg-white/10 px-5 text-sm font-semibold text-white transition hover:bg-white/20">I am hiring <Building2 className="h-4 w-4" /></Link></div></div></div></section>
 
-      <footer className="border-t border-white/10 bg-[#0c1330] py-9"><div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 text-sm sm:px-8 md:flex-row md:items-center md:justify-between"><JobAILogo markClassName="h-8 w-8" /><div className="flex flex-wrap gap-x-5 gap-y-2 text-slate-300"><Link to="/about">About</Link><Link to="/contact">Contact</Link><Link to="/login">Sign in</Link><Link to="/register">Get started</Link></div><p className="text-xs text-slate-500">© 2026 JobAI Scout</p></div></footer>
+      <footer className="border-t border-white/10 bg-[#0c1330] py-9"><div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 text-sm sm:px-8 md:flex-row md:items-center md:justify-between"><JobAILogo markClassName="h-8 w-8" /><div className="flex flex-wrap gap-x-5 gap-y-2 text-slate-300"><Link to="/about">About</Link><Link to="/contact">Contact</Link><Link to="/privacy">Privacy</Link><CookieSettingsLink className="hover:text-white transition-colors" /><Link to="/login">Sign in</Link><Link to="/register">Get started</Link></div><p className="text-xs text-slate-500">© 2026 JobAI Scout</p></div></footer>
     </main>
   );
 }

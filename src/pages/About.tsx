@@ -3,6 +3,7 @@ import { Briefcase, Users, Target, Award, ArrowLeft, Globe, Shield, ArrowRight, 
 import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import { JobAILogo } from "@/components/brand/JobAILogo";
+import { CookieSettingsLink } from "@/components/CookieConsentBanner";
 
 const teamMembers = [
   {
@@ -357,6 +358,7 @@ export default function About() {
             <Link to="/about" className="hover:text-emerald-400 font-semibold transition-colors">About</Link>
             <Link to="/contact" className="hover:text-emerald-400 font-semibold transition-colors">Contact</Link>
             <Link to="/privacy" className="hover:text-emerald-400 font-semibold transition-colors">Privacy Policy</Link>
+            <CookieSettingsLink className="hover:text-emerald-400 font-semibold transition-colors" />
           </div>
         </div>
       </footer>

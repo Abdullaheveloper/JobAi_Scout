@@ -6,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,6 +14,7 @@ import { Search, MapPin, DollarSign, Bookmark, BookmarkCheck, ExternalLink, Buil
 import type { Database, Tables } from "@/integrations/supabase/types";
 import { PORTAL_COLORS } from "@/lib/constants";
 import { JOB_ADAPTER_STEPS, isScrapeSessionActive, isVisibleJobMatch, parseAdapterStatuses, runningAdapterPosition, scrapeCompletionMessage, type JobScrapeSession } from "@/lib/job-scrape";
+import { FuzzyAutocompleteInput, jobTaxonomy, locationTaxonomy } from "@/lib/fuzzy-taxonomy";
 
 type RecommendedJob = Tables<"recommended_jobs">;
 type Job = Tables<"jobs">;
@@ -83,7 +83,6 @@ export default function JobBoard() {
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [jobTypeFilter, setJobTypeFilter] = useState("all");
-  const [sourceFilter, setSourceFilter] = useState("all");
   const [scoreFilter, setScoreFilter] = useState("all");
   const [remoteFilter, setRemoteFilter] = useState("all");
   const [includeRemoteLocations, setIncludeRemoteLocations] = useState(true);
@@ -133,7 +132,7 @@ export default function JobBoard() {
     const rpcParams = {
       p_session_id: sessionId || null,
       p_terms: terms,
-      p_source: sourceFilter === "all" ? null : sourceFilter,
+      p_source: null,
       p_location: locationFilter.trim() || null,
       p_job_type: jobTypeFilter === "all" ? null : jobTypeFilter,
       p_work_mode: remoteFilter === "all" ? null : remoteFilter,
@@ -157,7 +156,7 @@ export default function JobBoard() {
       setCollectedTotal(Number(data?.[0]?.total_count || 0));
     }
     if (!silent) setLoading(false);
-  }, [includeRemoteLocations, jobTypeFilter, locationFilter, remoteFilter, search, sourceFilter, toast, user]);
+  }, [includeRemoteLocations, jobTypeFilter, locationFilter, remoteFilter, search, toast, user]);
 
   const fetchLatestSession = useCallback(async (hydrateInputs = false): Promise<JobScrapeSession | null> => {
     if (!user) return null;
@@ -444,7 +443,7 @@ export default function JobBoard() {
   };
 
   const collectedTotalPages = Math.max(1, Math.ceil(collectedTotal / COLLECTED_PAGE_SIZE));
-  useEffect(() => { setCollectedPage(1); }, [search, locationFilter, jobTypeFilter, sourceFilter, remoteFilter]);
+  useEffect(() => { setCollectedPage(1); }, [search, locationFilter, jobTypeFilter, remoteFilter]);
 
   const toggleSaveRec = async (recJobId: string) => {
     if (!user) return;
@@ -476,7 +475,6 @@ export default function JobBoard() {
         if (jobTypeFilter === "remote" && !emp.includes("remote")) return false;
         if (jobTypeFilter !== "remote" && emp !== jobTypeFilter) return false;
       }
-      if (sourceFilter !== "all" && j.source_portal !== sourceFilter) return false;
       if (scoreFilter !== "all") {
         const score = j.match_score || 0;
         if (scoreFilter === "80+" && score < 80) return false;
@@ -486,33 +484,17 @@ export default function JobBoard() {
       if (remoteFilter === "hybrid" && !(j.location || "").toLowerCase().includes("hybrid")) return false;
       return true;
     });
-  }, [recJobs, search, locationFilter, jobTypeFilter, sourceFilter, scoreFilter, remoteFilter]);
+  }, [recJobs, search, locationFilter, jobTypeFilter, scoreFilter, remoteFilter]);
 
-  const uniquePortals = useMemo(() => {
-    const portals = new Set([
-      ...recJobs.map(j => j.source_portal),
-      ...collectedJobs.map(j => j.source),
-    ].filter(Boolean));
-    return [...portals];
-  }, [recJobs, collectedJobs]);
-
-  const hasActiveFilters = Boolean(search || locationFilter || jobTypeFilter !== "all" || sourceFilter !== "all" || remoteFilter !== "all");
+  const hasActiveFilters = Boolean(search || locationFilter || jobTypeFilter !== "all" || remoteFilter !== "all");
   const clearFilters = () => {
     setSearch("");
     setLocationFilter("");
     setJobTypeFilter("all");
-    setSourceFilter("all");
     setScoreFilter("all");
     setRemoteFilter("all");
   };
   const sourceLabel = (source?: string | null) => (source || "Job board").replace(/[_-]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-  const sourceOptions = useMemo(() => [
-    { value: "linkedin_apify", label: "LinkedIn" },
-    { value: "indeed_apify", label: "Indeed" },
-    { value: "rss", label: "RSS feeds" },
-    { value: "company_career", label: "Company careers" },
-    ...uniquePortals.filter((source) => !["linkedin_apify", "indeed_apify", "rss", "company_career"].includes(String(source))).map((source) => ({ value: String(source), label: sourceLabel(source) })),
-  ], [uniquePortals]);
   const adapterStatuses = useMemo(
     () => parseAdapterStatuses(scraping && !isScrapeSessionActive(scrapeSession) ? null : scrapeSession?.adapter_statuses),
     [scrapeSession, scraping],
@@ -591,12 +573,35 @@ export default function JobBoard() {
           <CardContent className="p-4 md:p-5">
             <div className="flex flex-col gap-3 lg:flex-row">
               <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input aria-required="true" aria-label="Skill, job title, or keyword" placeholder="Skill, job title, or keyword (required)" value={search} disabled={scraping} onChange={(e) => setSearch(e.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && search.trim() && !scraping) void handleScrapeJobs(); }} className="h-11 border-border/80 bg-background/60 pl-11" />
+                <Search className="absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <FuzzyAutocompleteInput
+                  taxonomy={jobTaxonomy}
+                  value={search}
+                  disabled={scraping}
+                  aria-required="true"
+                  aria-label="Skill, job title, or keyword"
+                  placeholder="Skill, job title, or keyword (required)"
+                  onChange={setSearch}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && search.trim() && !scraping) void handleScrapeJobs();
+                  }}
+                  inputClassName="h-11 border-border/80 bg-background/60 pl-11"
+                />
               </div>
               <div className="relative lg:w-64">
-                <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input aria-label="Preferred job location" placeholder="City, country, or remote (optional)" value={locationFilter} disabled={scraping} onChange={(e) => setLocationFilter(e.target.value)} className="h-11 border-border/80 bg-background/60 pl-11" />
+                <MapPin className="absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <FuzzyAutocompleteInput
+                  taxonomy={locationTaxonomy}
+                  value={locationFilter}
+                  disabled={scraping}
+                  aria-label="Preferred job location"
+                  placeholder="City, country, or remote (optional)"
+                  onChange={setLocationFilter}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && search.trim() && !scraping) void handleScrapeJobs();
+                  }}
+                  inputClassName="h-11 border-border/80 bg-background/60 pl-11"
+                />
               </div>
               <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="h-11 gap-2 border-border/80 bg-background/40">
                 <Filter className="h-4 w-4" /> {showFilters ? "Hide filters" : "Filters"}
@@ -606,7 +611,6 @@ export default function JobBoard() {
             {showFilters && (
               <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border/70 pt-4">
                 <Select value={jobTypeFilter} onValueChange={setJobTypeFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder="Job type" /></SelectTrigger><SelectContent><SelectItem value="all">Any job type</SelectItem><SelectItem value="full-time">Full-time</SelectItem><SelectItem value="part-time">Part-time</SelectItem><SelectItem value="contract">Contract</SelectItem><SelectItem value="internship">Internship</SelectItem></SelectContent></Select>
-                <Select value={sourceFilter} onValueChange={setSourceFilter}><SelectTrigger className="w-[170px] bg-background/60"><SelectValue placeholder="Source" /></SelectTrigger><SelectContent><SelectItem value="all">Every source</SelectItem>{sourceOptions.map((source) => <SelectItem key={source.value} value={source.value}>{source.label}</SelectItem>)}</SelectContent></Select>
                 <Select value={remoteFilter} onValueChange={setRemoteFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder="Work mode" /></SelectTrigger><SelectContent><SelectItem value="all">Any work mode</SelectItem><SelectItem value="remote">Remote</SelectItem><SelectItem value="hybrid">Hybrid</SelectItem></SelectContent></Select>
                 <label className="flex h-10 items-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 text-sm text-muted-foreground">
                   <Checkbox checked={includeRemoteLocations} onCheckedChange={(checked) => setIncludeRemoteLocations(checked === true)} />

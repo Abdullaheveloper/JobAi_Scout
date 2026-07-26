@@ -12,6 +12,14 @@ import {
 } from "../_shared/cv-profile-merge.ts";
 import { analyzeAndSaveResumeAts } from "../_shared/ats-resume-analysis.ts";
 import { generateGeminiJson } from "../_shared/gemini.ts";
+import {
+  applyTaxonomyToExtractedData,
+  jobTaxonomy,
+  locationTaxonomy,
+  normalizeListWithTaxonomy,
+  normalizeWithTaxonomy,
+  skillsTaxonomy,
+} from "../_shared/taxonomy/normalizeTaxonomy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -349,10 +357,18 @@ function buildReplacement(extracted: ReturnType<typeof normalizeExtractedData>) 
     const fieldStatus = resolveCvReplacementStatus(extracted, extractionKey, rawValue);
     const score = confidenceForCvReplacementField(extracted, extractionKey, rawValue);
     let value: unknown = fieldStatus === "present" ? rawValue : emptyValue;
-    if (["skills", "desired_roles", "certifications", "languages"].includes(profileKey)) value = normalizeList(value);
+    if (["skills", "desired_roles", "certifications", "languages"].includes(profileKey)) {
+      value = normalizeList(value);
+      if (profileKey === "skills") value = normalizeListWithTaxonomy(value as string[], skillsTaxonomy);
+      if (profileKey === "desired_roles") value = normalizeListWithTaxonomy(value as string[], jobTaxonomy);
+    }
     else if (["portfolio_url", "github_url", "linkedin_url"].includes(profileKey)) value = normalizeUrl(value);
     else if (profileKey === "phone") value = normalizePhone(value);
     else if (["full_name", "current_company"].includes(profileKey)) value = normalizeHumanText(value);
+    else if (profileKey === "location") {
+      const cleaned = cleanString(value);
+      value = cleaned ? normalizeWithTaxonomy(cleaned, locationTaxonomy) : cleaned;
+    }
     else if (profileKey === "experience_years") {
       const clamped = clampExperienceYears(value);
       value = clamped.valid ? (clamped.value ?? 0) : 0;
@@ -462,7 +478,9 @@ Deno.serve(async (req) => {
 
     // Step 2: AI structured extraction from plain text
     const result = await extractStructuredData(extraction.text, resolvedFileName, geminiApiKey);
-    const extracted = normalizeExtractedData(result as Record<string, unknown>);
+    const extracted = applyTaxonomyToExtractedData(
+      normalizeExtractedData(result as Record<string, unknown>),
+    );
 
     // A newly analyzed CV is the source of truth for every CV-managed profile
     // field. Email remains account-owned and is intentionally excluded.

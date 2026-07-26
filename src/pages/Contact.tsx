@@ -4,6 +4,7 @@ import { Briefcase, Mail, Phone, MapPin, ArrowLeft, Send, Clock, MessageSquare, 
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { JobAILogo } from "@/components/brand/JobAILogo";
+import { CookieSettingsLink } from "@/components/CookieConsentBanner";
 
 const contactInfo = [
   { icon: Mail, title: "Email Us", detail: "support@jobai.com", sub: "We reply within 24 hours", color: "from-indigo-500 to-violet-600", glow: "rgba(99,102,241,0.3)" },
@@ -296,6 +297,7 @@ export default function Contact() {
             <Link to="/about" className="hover:text-indigo-400 transition-colors">About</Link>
             <Link to="/contact" className="hover:text-indigo-400 transition-colors">Contact</Link>
             <Link to="/privacy" className="hover:text-indigo-400 transition-colors">Privacy Policy</Link>
+            <CookieSettingsLink className="hover:text-indigo-400 transition-colors" />
           </div>
         </div>
       </footer>

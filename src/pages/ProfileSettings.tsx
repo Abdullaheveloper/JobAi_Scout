@@ -12,8 +12,9 @@ import { hasValue } from "@/lib/constants";
 import {
   Loader2, Save, User, Phone, Linkedin, Github, Mail, Briefcase, Sparkles,
   MapPin, Globe, Building2, GraduationCap, Award,
-  Languages, DollarSign, AlertCircle, ShieldCheck, Bot, ImagePlus, Upload,
+  Languages, DollarSign, AlertCircle, ShieldCheck, Bot, ImagePlus, Upload, X,
 } from "lucide-react";
+import { FuzzyAutocompleteInput, locationTaxonomy, skillsTaxonomy } from "@/lib/fuzzy-taxonomy";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import CareerProfileWorkspace from "@/components/profile/CareerProfileWorkspace";
@@ -183,6 +184,7 @@ export default function ProfileSettings() {
   const [changedFields, setChangedFields] = useState<Set<string>>(new Set());
   const [careerProfile, setCareerProfile] = useState<CareerProfile>(emptyCareerProfile());
   const [autofillPreferences, setAutofillPreferences] = useState<AutofillPreferences>(defaultAutofillPreferences());
+  const [skillDraft, setSkillDraft] = useState("");
 
   const dataSources = useMemo(() => {
     try {
@@ -496,8 +498,12 @@ export default function ProfileSettings() {
     return Math.round((completenessItems.filter(i => i.done).length / completenessItems.length) * 100);
   }, [completenessItems]);
 
-  const skills = profile?.skills || [];
-  const roles = profile?.desired_roles || [];
+  const editableSkills = form.skills
+    ? form.skills.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+  const roles = form.desired_roles
+    ? form.desired_roles.split(",").map((r) => r.trim()).filter(Boolean)
+    : [];
   const P = SECTION_THEMES.personal;
   const S = SECTION_THEMES.social;
   const K = SECTION_THEMES.skills;
@@ -629,7 +635,16 @@ export default function ProfileSettings() {
                   <MapPin className="h-3.5 w-3.5" /> Location
                   <DataSourceBadge source={dataSources.location} />
                 </Label>
-                <ColorInput id="location" value={form.location} onChange={e => updateField("location", e.target.value)} placeholder="New York, NY" inputFocus={P.inputFocus} />
+                <FuzzyAutocompleteInput
+                  id="location"
+                  taxonomy={locationTaxonomy}
+                  value={form.location}
+                  onChange={(value) => updateField("location", value)}
+                  onCommit={(canonical) => updateField("location", canonical)}
+                  placeholder="City, country, or remote"
+                  aria-label="Location"
+                  inputClassName={`transition-all duration-300 bg-background border-border focus:shadow-lg ${P.inputFocus}`}
+                />
                 <p className="text-xs text-slate-500">Used for location-based job matching</p>
               </div>
             </div>
@@ -783,14 +798,53 @@ export default function ProfileSettings() {
               <Label htmlFor="skills" className={`flex items-center gap-1.5 ${K.titleColor}`}>
                 Skills <DataSourceBadge source={dataSources.skills} />
               </Label>
-              <ColorTextarea id="skills" value={form.skills} onChange={e => updateField("skills", e.target.value)} placeholder="React, TypeScript, Node.js, Python..." rows={2} inputFocus={K.inputFocus} />
-              {skills.length > 0 && (
+              <FuzzyAutocompleteInput
+                id="skills"
+                taxonomy={skillsTaxonomy}
+                value={skillDraft}
+                onChange={setSkillDraft}
+                clearOnCommit
+                placeholder="Type a skill and press Enter…"
+                inputClassName={K.inputFocus}
+                onCommit={(canonical) => {
+                  const existing = form.skills
+                    ? form.skills.split(",").map((s) => s.trim()).filter(Boolean)
+                    : [];
+                  if (existing.some((s) => s.toLowerCase() === canonical.toLowerCase())) {
+                    setSkillDraft("");
+                    return;
+                  }
+                  updateField("skills", [...existing, canonical].join(", "));
+                  setSkillDraft("");
+                }}
+              />
+              {editableSkills.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2">
-                  {skills.map((s: string) => (
-                    <Badge key={s} variant="secondary" className="bg-emerald-500/15 text-emerald-300 border-emerald-500/20 text-xs">{s}</Badge>
+                  {editableSkills.map((s: string) => (
+                    <Badge
+                      key={s}
+                      variant="secondary"
+                      className="gap-1 bg-emerald-500/15 text-emerald-300 border-emerald-500/20 text-xs"
+                    >
+                      {s}
+                      <button
+                        type="button"
+                        aria-label={`Remove ${s}`}
+                        className="rounded-sm opacity-70 hover:opacity-100"
+                        onClick={() => {
+                          updateField(
+                            "skills",
+                            editableSkills.filter((item) => item !== s).join(", "),
+                          );
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
                   ))}
                 </div>
               )}
+              <p className="text-xs text-muted-foreground">Select a suggestion or press Enter to add. Canonical names are preferred when matched.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="roles" className={`flex items-center gap-1.5 ${K.titleColor}`}>

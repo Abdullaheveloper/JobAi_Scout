@@ -1,4 +1,10 @@
 import { hasValue } from "@/lib/constants";
+import {
+  applyTaxonomyToExtractedData,
+  jobTaxonomy,
+  locationTaxonomy,
+  skillsTaxonomy,
+} from "@/lib/fuzzy-taxonomy";
 
 export type ExperienceType = "job" | "internship" | "project";
 
@@ -176,31 +182,34 @@ export function normalizeExtractedData(raw: Record<string, unknown>): ExtractedD
     certifications,
   });
 
-  return {
-    fullName: pickString(raw, "fullName", "full_name"),
-    email: pickString(raw, "email"),
-    phone: pickString(raw, "phone"),
-    location: pickString(raw, "location"),
-    linkedinUrl: pickString(raw, "linkedinUrl", "linkedin_url"),
-    githubUrl: pickString(raw, "githubUrl", "github_url"),
-    portfolioUrl: pickString(raw, "portfolioUrl", "portfolio_url"),
-    currentCompany,
-    skills: toStringArray(raw.skills),
-    suggestedRoles: toStringArray(raw.suggestedRoles ?? raw.suggested_roles ?? raw.desired_roles),
-    experienceYears: toNumber(raw.experienceYears ?? raw.experience_years),
-    experienceCalcNote: pickString(raw, "experienceCalcNote", "experience_calc_note"),
-    education: pickString(raw, "education"),
-    educationEntries: Array.isArray(raw.educationEntries)
-      ? (raw.educationEntries as EducationEntry[])
-      : undefined,
-    certifications,
-    credentials: Array.isArray(raw.credentials)
-      ? (raw.credentials as CredentialEntry[])
-      : undefined,
-    languages: toStringArray(raw.languages),
-    cvSummary: pickString(raw, "cvSummary", "cv_summary", "bio", "professionalSummary", "professional_summary"),
-    experience,
-  };
+  return applyTaxonomyToExtractedData(
+    {
+      fullName: pickString(raw, "fullName", "full_name"),
+      email: pickString(raw, "email"),
+      phone: pickString(raw, "phone"),
+      location: pickString(raw, "location"),
+      linkedinUrl: pickString(raw, "linkedinUrl", "linkedin_url"),
+      githubUrl: pickString(raw, "githubUrl", "github_url"),
+      portfolioUrl: pickString(raw, "portfolioUrl", "portfolio_url"),
+      currentCompany,
+      skills: toStringArray(raw.skills),
+      suggestedRoles: toStringArray(raw.suggestedRoles ?? raw.suggested_roles ?? raw.desired_roles),
+      experienceYears: toNumber(raw.experienceYears ?? raw.experience_years),
+      experienceCalcNote: pickString(raw, "experienceCalcNote", "experience_calc_note"),
+      education: pickString(raw, "education"),
+      educationEntries: Array.isArray(raw.educationEntries)
+        ? (raw.educationEntries as EducationEntry[])
+        : undefined,
+      certifications,
+      credentials: Array.isArray(raw.credentials)
+        ? (raw.credentials as CredentialEntry[])
+        : undefined,
+      languages: toStringArray(raw.languages),
+      cvSummary: pickString(raw, "cvSummary", "cv_summary", "bio", "professionalSummary", "professional_summary"),
+      experience,
+    },
+    { skills: skillsTaxonomy, jobs: jobTaxonomy, locations: locationTaxonomy },
+  );
 }
 
 export function buildProfileUpdateFromExtracted(
