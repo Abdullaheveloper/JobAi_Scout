@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
 import { Link, useNavigate } from "react-router-dom";
@@ -8,44 +9,47 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, FileUp, Briefcase, Bookmark, BarChart3, Users, UserCog, LogOut,
-  Shield, Mic, Zap, Plus, Clock, Bell,
+  Shield, Mic, Zap, Plus, CalendarClock, Bell,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import { JobAILogo } from "@/components/brand/JobAILogo";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 
-const userNav = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Upload CV", url: "/dashboard/cv", icon: FileUp },
-  { title: "Browse Jobs", url: "/dashboard/jobs", icon: Briefcase },
-  { title: "Automation", url: "/dashboard/automation", icon: Clock },
-  { title: "Saved Jobs", url: "/dashboard/saved", icon: Bookmark },
-  { title: "Form Fill", url: "/dashboard/auto-fill", icon: Zap },
-  { title: "Voice Assistant", url: "/dashboard/assistant", icon: Mic },
-  { title: "Profile Settings", url: "/dashboard/settings", icon: UserCog },
-];
-
-const recruiterNav = [
-  { title: "Company Profile", url: "/recruiter/profile", icon: UserCog },
-  { title: "Post a Job", url: "/recruiter/jobs?new=1", icon: Plus },
-  { title: "My Jobs", url: "/recruiter/jobs", icon: Briefcase },
-  { title: "Applicants", url: "/recruiter/candidates", icon: Users },
-  { title: "Application Status", url: "/recruiter/application-status", icon: BarChart3 },
-];
-
-const adminNav = [
-  { title: "Admin Dashboard", url: "/admin", icon: Shield },
-  { title: "Manage Users", url: "/admin/users", icon: Users },
-  { title: "Manage Jobs", url: "/admin/jobs", icon: Briefcase },
-  { title: "Platform Analytics", url: "/admin/analytics", icon: BarChart3 },
-];
-
 function AppSidebar() {
+  const { t } = useTranslation();
   const { role, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+
+  const userNav = [
+    { title: t("nav.dashboard"), url: "/dashboard", icon: LayoutDashboard },
+    { title: t("nav.uploadCv"), url: "/dashboard/cv", icon: FileUp },
+    { title: t("nav.browseJobs"), url: "/dashboard/jobs", icon: Briefcase },
+    { title: t("nav.automation"), url: "/dashboard/automation", icon: CalendarClock },
+    { title: t("nav.savedJobs"), url: "/dashboard/saved", icon: Bookmark },
+    { title: t("nav.formFill"), url: "/dashboard/auto-fill", icon: Zap },
+    { title: t("nav.voiceAssistant"), url: "/dashboard/assistant", icon: Mic },
+    { title: t("nav.profileSettings"), url: "/dashboard/settings", icon: UserCog },
+  ];
+
+  const recruiterNav = [
+    { title: t("nav.companyProfile"), url: "/recruiter/profile", icon: UserCog },
+    { title: t("nav.postJob"), url: "/recruiter/jobs?new=1", icon: Plus },
+    { title: t("nav.myJobs"), url: "/recruiter/jobs", icon: Briefcase },
+    { title: t("nav.applicants"), url: "/recruiter/candidates", icon: Users },
+    { title: t("nav.applicationStatus"), url: "/recruiter/application-status", icon: BarChart3 },
+  ];
+
+  const adminNav = [
+    { title: t("nav.adminDashboard"), url: "/admin", icon: Shield },
+    { title: t("nav.manageUsers"), url: "/admin/users", icon: Users },
+    { title: t("nav.manageJobs"), url: "/admin/jobs", icon: Briefcase },
+    { title: t("nav.platformAnalytics"), url: "/admin/analytics", icon: BarChart3 },
+  ];
 
   let navItems = userNav;
   if (role === "recruiter") navItems = recruiterNav;
@@ -55,17 +59,22 @@ function AppSidebar() {
     ? profile.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
     : "U";
 
-  const roleLabel = role === "recruiter" ? "Recruiter" : role === "admin" ? "Admin" : "Job Seeker";
-  const roleColor = role === "recruiter" ? "text-cyan-400" : role === "admin" ? "text-rose-400" : "text-indigo-400";
+  const portalLabel =
+    role === "recruiter"
+      ? t("nav.recruiterPortal")
+      : role === "admin"
+        ? t("nav.adminPortal")
+        : t("nav.jobSeekerPortal");
+  const roleColor = role === "recruiter"
+    ? "text-cyan-600 dark:text-cyan-400"
+    : role === "admin"
+      ? "text-rose-600 dark:text-rose-400"
+      : "text-indigo-600 dark:text-indigo-400";
 
   return (
     <Sidebar
       collapsible="icon"
-      className="border-r border-indigo-500/10"
-      style={{
-        background: "linear-gradient(180deg, rgba(6,13,36,0.98) 0%, rgba(2,8,23,0.98) 100%)",
-        backdropFilter: "blur(20px)",
-      }}
+      className="portal-sidebar border-r"
     >
       <SidebarContent className="flex flex-col">
         <div className={`flex items-center gap-3 p-4 border-b border-indigo-500/10 ${collapsed ? "justify-center" : ""}`}>
@@ -76,7 +85,7 @@ function AppSidebar() {
 
         {!collapsed && (
           <div className="px-4 pt-3 pb-1">
-            <span className={`text-xs font-semibold tracking-wider uppercase ${roleColor}`}>{roleLabel} Portal</span>
+            <span className={`text-xs font-semibold tracking-wider uppercase ${roleColor}`}>{portalLabel}</span>
           </div>
         )}
 
@@ -89,8 +98,8 @@ function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.url === "/dashboard" || item.url === "/admin"}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:text-white transition-all duration-200 hover:bg-indigo-500/10 ${collapsed ? "justify-center" : ""}`}
-                      activeClassName="bg-indigo-500/15 text-indigo-300 border-r-2 border-indigo-500 font-medium"
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground transition-all duration-200 hover:bg-indigo-500/10 ${collapsed ? "justify-center" : ""}`}
+                      activeClassName="bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border-r-2 border-indigo-500 font-medium"
                     >
                       <item.icon className="h-4.5 w-4.5 h-4 w-4 flex-shrink-0" />
                       {!collapsed && <span>{item.title}</span>}
@@ -106,7 +115,7 @@ function AppSidebar() {
           <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
             <Avatar className="h-8 w-8 ring-2 ring-indigo-500/30">
               <AvatarFallback
-                className="text-xs font-semibold text-indigo-300"
+                className="text-xs font-semibold text-indigo-700 dark:text-indigo-300"
                 style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.25) 100%)" }}
               >
                 {initials}
@@ -114,17 +123,17 @@ function AppSidebar() {
             </Avatar>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
-                  {profile?.full_name || "User"}
+                <p className="text-sm font-medium text-foreground truncate" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+                  {profile?.full_name || t("common.user")}
                 </p>
-                <p className="text-xs text-gray-600 truncate">{profile?.email}</p>
+                <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
               </div>
             )}
             {!collapsed && (
               <button
                 onClick={() => { signOut(); navigate("/"); }}
-                className="p-1.5 rounded-lg hover:bg-rose-500/15 text-gray-600 hover:text-rose-400 transition-all"
-                title="Sign out"
+                className="p-1.5 rounded-lg hover:bg-rose-500/15 text-muted-foreground hover:text-rose-500 dark:hover:text-rose-400 transition-all"
+                title={t("common.signOut")}
               >
                 <LogOut className="h-4 w-4" />
               </button>
@@ -137,12 +146,13 @@ function AppSidebar() {
 }
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const { role, profile, clearApprovalNotice } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
   const workspaceTabs = role === "admin"
-    ? [{ label: "Admin", url: "/admin", icon: Shield }]
+    ? [{ label: t("nav.admin"), url: "/admin", icon: Shield }]
     : role === "recruiter"
-      ? [{ label: "Recruitment", url: "/recruiter/jobs", icon: Users }]
+      ? [{ label: t("nav.recruitment"), url: "/recruiter/jobs", icon: Users }]
       : [];
 
   useEffect(() => {
@@ -174,37 +184,27 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div
-        className="min-h-screen flex w-full"
-        style={{ background: "linear-gradient(135deg, #020817 0%, #060d24 50%, #020817 100%)" }}
-      >
+      <div className="portal-shell min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header
-            className="flex min-h-14 flex-wrap items-center gap-3 px-4 py-2 sm:flex-nowrap"
-            style={{
-              background: "rgba(6, 13, 36, 0.9)",
-              backdropFilter: "blur(20px)",
-              borderBottom: "1px solid rgba(99, 102, 241, 0.1)",
-            }}
-          >
-            <SidebarTrigger className="text-gray-500 hover:text-white transition-colors" />
-            <div className="h-4 w-px bg-indigo-500/20" />
+          <header className="portal-header flex min-h-14 flex-wrap items-center gap-3 px-4 py-2 sm:flex-nowrap">
+            <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors" />
+            <div className="h-4 w-px bg-border" />
             <h2
-              className="hidden font-semibold text-white text-sm sm:block"
+              className="hidden font-semibold text-foreground text-sm sm:block"
               style={{ fontFamily: "Space Grotesk, sans-serif" }}
             >
-              AI Job Intelligence Platform
+              {t("brand.tagline")}
             </h2>
             {workspaceTabs.length > 0 && (
-              <nav className="flex items-center rounded-lg border border-white/10 bg-black/15 p-1" aria-label="Workspace">
+              <nav className="flex items-center rounded-lg border border-border bg-secondary/40 p-1" aria-label={t("nav.workspace")}>
                 {workspaceTabs.map((tab) => (
                   <NavLink
                     key={tab.url}
                     to={tab.url}
                     end={tab.url === "/admin"}
-                    className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:text-white"
-                    activeClassName="bg-white/10 text-white shadow-sm"
+                    className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    activeClassName="bg-background text-foreground shadow-sm"
                   >
                     <tab.icon className="h-3.5 w-3.5" />
                     {tab.label}
@@ -213,12 +213,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               </nav>
             )}
             <div className="ml-auto flex items-center gap-2">
+              <ThemeToggle />
+              <LanguageSwitcher />
               {role === "admin" && (
                 <Link
                   to="/admin/users?filter=pending"
-                  className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-black/20 text-gray-400 transition-colors hover:border-amber-500/30 hover:text-amber-300"
-                  title="Pending Approvals"
-                  aria-label={`${pendingCount} pending approvals`}
+                  className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-secondary/50 text-muted-foreground transition-colors hover:border-amber-500/30 hover:text-amber-500"
+                  title={t("nav.pendingApprovals")}
+                  aria-label={`${pendingCount} ${t("nav.pendingApprovals")}`}
                 >
                   <Bell className="h-4 w-4" />
                   {pendingCount > 0 && (
@@ -230,7 +232,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               )}
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
                 <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs text-emerald-400 font-medium">AI Active</span>
+                <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">{t("common.aiActive")}</span>
               </div>
             </div>
           </header>

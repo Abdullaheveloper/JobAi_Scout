@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -28,6 +29,7 @@ interface Application {
 }
 
 export default function Applications() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [applications, setApplications] = useState<Application[]>([]);
@@ -74,8 +76,8 @@ export default function Applications() {
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         <div>
-          <h1 className="font-display text-3xl font-bold">My Applications</h1>
-          <p className="text-muted-foreground mt-1">Track all jobs you've applied to</p>
+          <h1 className="font-display text-3xl font-bold">{t("applications.title")}</h1>
+          <p className="text-muted-foreground mt-1">{t("applications.subtitle")}</p>
         </div>
 
         {loading ? (
@@ -86,14 +88,14 @@ export default function Applications() {
           <Card className="shadow-card">
             <CardContent className="py-12 text-center">
               <Briefcase className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="font-display text-xl font-semibold">No applications yet</h3>
-              <p className="text-muted-foreground mt-1">Apply to jobs from the Browse Jobs page to see them here</p>
+              <h3 className="font-display text-xl font-semibold">{t("applications.emptyTitle")}</h3>
+              <p className="text-muted-foreground mt-1">{t("applications.emptyBody")}</p>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-3">
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span className="font-medium">{applications.length} application{applications.length !== 1 ? "s" : ""}</span>
+              <span className="font-medium">{t("applications.count", { count: applications.length })}</span>
             </div>
             {applications.map((app) => {
               const job = app.jobs;

@@ -8,12 +8,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ScheduleCard } from "@/components/automation/ScheduleCard";
 import { ScheduleFormDialog } from "@/components/automation/ScheduleFormDialog";
+import { useTranslation } from "react-i18next";
 import {
   deleteSchedule, listSchedules, toFormState, toggleScheduleActive,
   type JobScrapeSchedule, type ScheduleFormState,
 } from "@/lib/job-scrape-schedule";
 
 export default function Automation() {
+  const { t } = useTranslation();
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [schedules, setSchedules] = useState<JobScrapeSchedule[]>([]);
@@ -28,11 +30,11 @@ export default function Automation() {
     try {
       setSchedules(await listSchedules(user.id));
     } catch (error) {
-      toast({ title: "Could not load schedules", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+      toast({ title: t("automation.toastLoadFailed"), description: error instanceof Error ? error.message : t("common.tryAgain"), variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [user, toast]);
+  }, [user, toast, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -46,7 +48,7 @@ export default function Automation() {
       await toggleScheduleActive(schedule.id, isActive);
       await load();
     } catch (error) {
-      toast({ title: "Could not update schedule", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+      toast({ title: t("automation.toastUpdateFailed"), description: error instanceof Error ? error.message : t("common.tryAgain"), variant: "destructive" });
       await load();
     } finally {
       setTogglingId(null);
@@ -57,9 +59,9 @@ export default function Automation() {
     setSchedules((current) => current.filter((item) => item.id !== schedule.id));
     try {
       await deleteSchedule(schedule.id);
-      toast({ title: "Schedule deleted" });
+      toast({ title: t("automation.toastDeleted") });
     } catch (error) {
-      toast({ title: "Could not delete schedule", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+      toast({ title: t("automation.toastDeleteFailed"), description: error instanceof Error ? error.message : t("common.tryAgain"), variant: "destructive" });
       await load();
     }
   };
@@ -74,15 +76,15 @@ export default function Automation() {
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-                <Clock className="h-3.5 w-3.5" /> Automation
+                <Clock className="h-3.5 w-3.5" /> {t("automation.eyebrow")}
               </div>
-              <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Let JobAI search while you're away.</h1>
+              <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">{t("automation.title")}</h1>
               <p className="mt-3 text-sm leading-6 text-muted-foreground md:text-base">
-                Schedule automatic job scrapes on your own cadence — daily, weekly, monthly, or a one-time run.
+                {t("automation.subtitle")}
               </p>
             </div>
             <Button onClick={openCreate} className="gap-2 border-0 shadow-lg shadow-primary/20 gradient-primary">
-              <Plus className="h-4 w-4" /> New schedule
+              <Plus className="h-4 w-4" /> {t("automation.newSchedule")}
             </Button>
           </div>
         </section>
@@ -90,12 +92,14 @@ export default function Automation() {
         <Card className="border-border/80 bg-card/90 shadow-card">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 md:p-5">
             <p className="text-sm text-muted-foreground">
-              Automated searches use your profile: <span className="font-medium text-foreground">{profile?.desired_roles?.[0] || "no role set"}</span>{" "}
-              in <span className="font-medium text-foreground">{profile?.location || "no location set"}</span>.
+              {t("automation.profileUses", {
+                role: profile?.desired_roles?.[0] || t("automation.noRoleSet"),
+                location: profile?.location || t("automation.noLocationSet"),
+              })}
             </p>
             {missingProfile && (
               <Button asChild variant="outline" size="sm" className="gap-1.5 border-primary/30 text-primary hover:bg-primary/10">
-                <Link to="/dashboard/settings"><Pencil className="h-3.5 w-3.5" /> Complete your profile</Link>
+                <Link to="/dashboard/settings"><Pencil className="h-3.5 w-3.5" /> {t("automation.completeProfile")}</Link>
               </Button>
             )}
           </CardContent>
@@ -107,10 +111,10 @@ export default function Automation() {
           <Card className="border-border/80 bg-card shadow-card">
             <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
               <Clock className="h-8 w-8 text-muted-foreground" />
-              <p className="font-medium text-foreground">No automation schedules yet</p>
-              <p className="max-w-sm text-sm text-muted-foreground">Create one to have JobAI Scout search for you automatically, on whatever cadence works best.</p>
+              <p className="font-medium text-foreground">{t("automation.emptyTitle")}</p>
+              <p className="max-w-sm text-sm text-muted-foreground">{t("automation.emptyBody")}</p>
               <Button onClick={openCreate} className="mt-2 gap-2 border-0 gradient-primary">
-                <Plus className="h-4 w-4" /> New schedule
+                <Plus className="h-4 w-4" /> {t("automation.newSchedule")}
               </Button>
             </CardContent>
           </Card>

@@ -1,34 +1,15 @@
 import { useEffect } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Clock, LogOut, ShieldX, TimerOff } from "lucide-react";
 import { useAuth, ApprovalStatus } from "@/contexts/AuthContext";
 import { JobAILogo } from "@/components/brand/JobAILogo";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 
-const MESSAGES: Record<ApprovalStatus, { title: string; body: string; icon: typeof Clock }> = {
-  pending: {
-    title: "Waiting for approval",
-    body: "Your account is waiting for admin approval. Please wait.",
-    icon: Clock,
-  },
-  rejected: {
-    title: "Account not approved",
-    body: "Your account approval request was rejected. Please try logging in again later to submit a new request, or contact support.",
-    icon: ShieldX,
-  },
-  expired: {
-    title: "Approval request expired",
-    body: "Your approval request expired. Please try logging in again.",
-    icon: TimerOff,
-  },
-  approved: {
-    title: "Account approved",
-    body: "Your account has been approved. You can now log in.",
-    icon: Clock,
-  },
-};
-
 export default function WaitingApproval() {
+  const { t } = useTranslation();
   const { user, loading, role, approvalStatus, isAccountApproved, signOut, profile } = useAuth();
   const location = useLocation();
   const stateStatus = (location.state as { approvalStatus?: ApprovalStatus } | null)?.approvalStatus;
@@ -52,25 +33,32 @@ export default function WaitingApproval() {
     return <Navigate to={dest} replace />;
   }
 
-  const msg = MESSAGES[status] || MESSAGES.pending;
+  const messageMap: Record<ApprovalStatus, { title: string; body: string; icon: typeof Clock }> = {
+    pending: { title: t("waitingApproval.pendingTitle"), body: t("waitingApproval.pendingBody"), icon: Clock },
+    rejected: { title: t("waitingApproval.rejectedTitle"), body: t("waitingApproval.rejectedBody"), icon: ShieldX },
+    expired: { title: t("waitingApproval.expiredTitle"), body: t("waitingApproval.expiredBody"), icon: TimerOff },
+    approved: { title: t("waitingApproval.approvedTitle"), body: t("waitingApproval.approvedBody"), icon: Clock },
+  };
+
+  const msg = messageMap[status] || messageMap.pending;
   const Icon = msg.icon;
-  const notice = (profile as { approval_notice?: string | null } | null)?.approval_notice;
+  const notice = profile?.approval_notice;
 
   return (
     <main className="min-h-screen bg-[#f6f6f2] text-[#1c1c1c]">
       <header className="border-b border-black/10 bg-white">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
-          <Link to="/" aria-label="JobAI Scout home">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 sm:px-8">
+          <Link to="/" aria-label={t("brand.homeAria")}>
             <JobAILogo markClassName="h-9 w-9" />
           </Link>
-          <Button
-            variant="ghost"
-            className="gap-2 text-[#5c5c5c]"
-            onClick={() => signOut()}
-          >
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </Button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <LanguageSwitcher />
+            <Button variant="ghost" className="gap-2 text-[#5c5c5c]" onClick={() => signOut()}>
+              <LogOut className="h-4 w-4" />
+              {t("waitingApproval.signOut")}
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -81,17 +69,14 @@ export default function WaitingApproval() {
         <h1 className="mt-6 text-3xl font-bold tracking-tight">{msg.title}</h1>
         <p className="mt-4 text-base leading-7 text-[#595959]">{notice || msg.body}</p>
         {profile?.email && (
-          <p className="mt-3 text-sm text-[#7a7a7a]">Signed in as {profile.email}</p>
+          <p className="mt-3 text-sm text-[#7a7a7a]">{profile.email}</p>
         )}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Button
-            className="bg-[#0caa41] hover:bg-[#087d30]"
-            onClick={() => signOut()}
-          >
-            Back to sign in
+          <Button className="bg-[#0caa41] hover:bg-[#087d30]" onClick={() => signOut()}>
+            {t("forgotPassword.backToSignIn")}
           </Button>
           <Button variant="outline" asChild>
-            <Link to="/">Home</Link>
+            <Link to="/">{t("waitingApproval.backHome")}</Link>
           </Button>
         </div>
       </section>

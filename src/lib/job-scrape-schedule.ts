@@ -47,6 +47,20 @@ export interface ScheduleFormState {
   isActive: boolean;
 }
 
+export type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
+
+/** i18n key map for day chips / summaries (UI chrome only). */
+export const DAY_OPTION_KEYS: Array<{ value: number; labelKey: string; fullKey: string }> = [
+  { value: 1, labelKey: "automation.dayMon", fullKey: "automation.dayMonday" },
+  { value: 2, labelKey: "automation.dayTue", fullKey: "automation.dayTuesday" },
+  { value: 3, labelKey: "automation.dayWed", fullKey: "automation.dayWednesday" },
+  { value: 4, labelKey: "automation.dayThu", fullKey: "automation.dayThursday" },
+  { value: 5, labelKey: "automation.dayFri", fullKey: "automation.dayFriday" },
+  { value: 6, labelKey: "automation.daySat", fullKey: "automation.daySaturday" },
+  { value: 0, labelKey: "automation.daySun", fullKey: "automation.daySunday" },
+];
+
+/** @deprecated Prefer DAY_OPTION_KEYS + t(); kept for non-UI callers. */
 export const DAY_OPTIONS: Array<{ value: number; label: string; full: string }> = [
   { value: 1, label: "Mon", full: "Monday" },
   { value: 2, label: "Tue", full: "Tuesday" },
@@ -127,9 +141,9 @@ function formatTime(timeOfDay: string): string {
   return format(date, "h:mm a");
 }
 
-function dayLabels(days: number[] | null): string {
-  const ordered = DAY_OPTIONS.filter((d) => (days || []).includes(d.value));
-  return ordered.map((d) => d.label).join(", ");
+function dayLabels(days: number[] | null, t?: TranslateFn): string {
+  const ordered = DAY_OPTION_KEYS.filter((d) => (days || []).includes(d.value));
+  return ordered.map((d) => (t ? t(d.labelKey) : DAY_OPTIONS.find((x) => x.value === d.value)?.label || "")).join(", ");
 }
 
 function ordinal(day: number): string {
@@ -142,30 +156,47 @@ function ordinal(day: number): string {
   }
 }
 
-export function recurrenceSummary(schedule: JobScrapeSchedule): string {
+export function recurrenceSummary(schedule: JobScrapeSchedule, t?: TranslateFn): string {
   const time = formatTime(schedule.time_of_day);
+  const tr = t || ((key: string, options?: Record<string, unknown>) => {
+    const fallbacks: Record<string, string> = {
+      "automation.summaryDaily": `Every day at ${options?.time ?? ""}`,
+      "automation.summaryEveryDayAt": `Every ${options?.day ?? ""} at ${options?.time ?? ""}`,
+      "automation.summaryDaysAt": `Every ${options?.days ?? ""} at ${options?.time ?? ""}`,
+      "automation.summaryMonthly": `Monthly on the ${options?.day ?? ""} at ${options?.time ?? ""}`,
+      "automation.summaryOnce": `One-time on ${options?.date ?? ""} at ${options?.time ?? ""}`,
+      "automation.unsetDate": "an unset date",
+    };
+    return fallbacks[key] ?? key;
+  });
   switch (schedule.recurrence_type) {
     case "daily":
-      return `Every day at ${time}`;
+      return tr("automation.summaryDaily", { time });
     case "days_of_week": {
       const days = schedule.days_of_week || [];
-      if (days.length === 1) return `Every ${DAY_OPTIONS.find((d) => d.value === days[0])?.full || ""} at ${time}`;
-      return `Every ${dayLabels(days)} at ${time}`;
+      if (days.length === 1) {
+        const dayKey = DAY_OPTION_KEYS.find((d) => d.value === days[0])?.fullKey;
+        const day = dayKey ? tr(dayKey) : "";
+        return tr("automation.summaryEveryDayAt", { day, time });
+      }
+      return tr("automation.summaryDaysAt", { days: dayLabels(days, t), time });
     }
     case "monthly_repeat":
-      return `Monthly on the ${ordinal(schedule.day_of_month || 1)} at ${time}`;
+      return tr("automation.summaryMonthly", { day: ordinal(schedule.day_of_month || 1), time });
     case "monthly_once":
     case "once": {
-      const dateLabel = schedule.run_date ? format(new Date(`${schedule.run_date}T00:00:00`), "MMM d, yyyy") : "an unset date";
-      return `One-time on ${dateLabel} at ${time}`;
+      const dateLabel = schedule.run_date
+        ? format(new Date(`${schedule.run_date}T00:00:00`), "MMM d, yyyy")
+        : tr("automation.unsetDate");
+      return tr("automation.summaryOnce", { date: dateLabel, time });
     }
     default:
       return time;
   }
 }
 
-export function formatNextRun(nextRunAt: string | null): string {
-  if (!nextRunAt) return "Calculating next run…";
+export function formatNextRun(nextRunAt: string | null, t?: TranslateFn): string {
+  if (!nextRunAt) return t ? t("automation.calculatingNext") : "Calculating next run…";
   return format(new Date(nextRunAt), "EEEE, MMM d 'at' h:mm a");
 }
 
@@ -174,7 +205,7 @@ export function formatNextRun(nextRunAt: string | null): string {
 // short-month clamping) -- the server's next_run_at (via
 // compute_job_scrape_next_run_at) is the source of truth the moment the row
 // is saved.
-export function previewNextRun(form: ScheduleFormState): string {
+export function previewNextRun(form: ScheduleFormState, t?: TranslateFn): string {
   const [hours, minutes] = form.timeOfDay.split(":").map(Number);
   const now = new Date();
   const withTime = (date: Date) => {
@@ -190,7 +221,7 @@ export function previewNextRun(form: ScheduleFormState): string {
   }
 
   if (form.uiType === "specific_days" || form.uiType === "weekly") {
-    if (!form.daysOfWeek.length) return "Pick at least one day";
+    if (!form.daysOfWeek.length) return t ? t("automation.pickAtLeastOneDay") : "Pick at least one day";
     for (let i = 0; i <= 7; i += 1) {
       const candidate = withTime(new Date(now.getTime() + i * 86_400_000));
       if (form.daysOfWeek.includes(candidate.getDay()) && candidate > now) {
@@ -202,7 +233,7 @@ export function previewNextRun(form: ScheduleFormState): string {
 
   if (form.uiType === "monthly") {
     if (form.monthlyMode === "once") {
-      if (!form.runDate) return "Pick a date";
+      if (!form.runDate) return t ? t("automation.pickADate") : "Pick a date";
       return format(withTime(form.runDate), "EEEE, MMM d 'at' h:mm a");
     }
     let candidate = withTime(new Date(now.getFullYear(), now.getMonth(), form.dayOfMonth));
@@ -211,7 +242,7 @@ export function previewNextRun(form: ScheduleFormState): string {
   }
 
   if (form.uiType === "once") {
-    if (!form.runDate) return "Pick a date";
+    if (!form.runDate) return t ? t("automation.pickADate") : "Pick a date";
     return format(withTime(form.runDate), "EEEE, MMM d 'at' h:mm a");
   }
 

@@ -25,7 +25,7 @@ export function StreamingIndicator({ phase = 'thinking', className }: StreamingI
         <div className="absolute inset-0 rounded-full bg-indigo-500/30 animate-ping" />
       </div>
       <div className="space-y-0.5">
-        <p className="text-sm text-white/70 animate-pulse">{PHASE_LABELS[phase]}</p>
+        <p className="text-sm text-muted-foreground animate-pulse">{PHASE_LABELS[phase]}</p>
         {phase === 'searching' && <div className="h-0.5 w-16 bg-gradient-to-r from-indigo-500 to-transparent rounded-full animate-pulse" />}
       </div>
     </div>

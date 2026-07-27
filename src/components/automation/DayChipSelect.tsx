@@ -1,5 +1,6 @@
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { DAY_OPTIONS } from "@/lib/job-scrape-schedule";
+import { DAY_OPTION_KEYS } from "@/lib/job-scrape-schedule";
 
 interface DayChipSelectProps {
   value: number[];
@@ -13,6 +14,8 @@ interface DayChipSelectProps {
  * ToggleGroup so one component can serve both selection modes via `multiple`.
  */
 export function DayChipSelect({ value, onChange, multiple = true }: DayChipSelectProps) {
+  const { t } = useTranslation();
+
   const toggle = (day: number) => {
     if (multiple) {
       onChange(value.includes(day) ? value.filter((d) => d !== day) : [...value, day].sort());
@@ -23,7 +26,7 @@ export function DayChipSelect({ value, onChange, multiple = true }: DayChipSelec
 
   return (
     <div className="flex flex-wrap gap-2">
-      {DAY_OPTIONS.map((day) => {
+      {DAY_OPTION_KEYS.map((day) => {
         const selected = value.includes(day.value);
         return (
           <button
@@ -38,7 +41,7 @@ export function DayChipSelect({ value, onChange, multiple = true }: DayChipSelec
                 : "border-border/80 bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground",
             )}
           >
-            {day.label}
+            {t(day.labelKey)}
           </button>
         );
       })}

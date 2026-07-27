@@ -18,6 +18,7 @@ import {
   Linkedin, Github, Pencil, Check, X, Trash2,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { useTranslation } from "react-i18next";
 
 type ApprovalFilter = "all" | "pending" | "approved" | "rejected" | "expired";
 
@@ -37,6 +38,7 @@ const FILTERS: { id: ApprovalFilter; label: string }[] = [
 ];
 
 export default function AdminUsers() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -251,7 +253,7 @@ export default function AdminUsers() {
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         <div>
-          <h1 className="font-display text-3xl font-bold">Manage Users</h1>
+          <h1 className="font-display text-3xl font-bold">{t("admin.manageUsers")}</h1>
           <p className="text-muted-foreground mt-1">
             Approve new signups, manage roles, and permanently delete accounts
           </p>
@@ -272,9 +274,9 @@ export default function AdminUsers() {
                 className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition ${
                   active
                     ? f.id === "pending"
-                      ? "border-amber-500/40 bg-amber-500/15 text-amber-200"
-                      : "border-indigo-500/40 bg-indigo-500/15 text-indigo-200"
-                    : "border-white/10 bg-black/20 text-gray-400 hover:text-white"
+                      ? "border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-200"
+                      : "border-indigo-500/40 bg-indigo-500/15 text-indigo-700 dark:text-indigo-200"
+                    : "border-border bg-muted text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {f.label}

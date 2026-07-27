@@ -5,8 +5,10 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Briefcase, TrendingUp, Shield, MousePointerClick, UserCheck } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useTranslation } from "react-i18next";
 
 export default function AdminDashboard() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState({ users: 0, jobs: 0, applications: 0, fillClicks: 0, fieldsFilled: 0, pending: 0 });
   const [fieldBreakdown, setFieldBreakdown] = useState<{ field: string; count: number }[]>([]);
   const [topUsers, setTopUsers] = useState<{ email: string; clicks: number; fields: number }[]>([]);
@@ -58,15 +60,15 @@ export default function AdminDashboard() {
       <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="font-display text-3xl font-bold flex items-center gap-2">
-            <Shield className="h-8 w-8 text-primary" /> Admin Dashboard
+            <Shield className="h-8 w-8 text-primary" /> {t("admin.dashboardTitle")}
           </h1>
-          <p className="text-muted-foreground mt-1">Platform overview and management</p>
+          <p className="text-muted-foreground mt-1">{t("admin.dashboardSubtitle")}</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
           <Card className="shadow-card hover:shadow-card-hover transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t("admin.totalUsers")}</CardTitle>
               <Users className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
@@ -76,7 +78,7 @@ export default function AdminDashboard() {
           <Link to="/admin/users?filter=pending" className="block">
             <Card className="shadow-card hover:shadow-card-hover transition-shadow border-amber-500/20 h-full">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approvals</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">{t("admin.pendingApprovals")}</CardTitle>
                 <UserCheck className="h-5 w-5 text-amber-400" />
               </CardHeader>
               <CardContent>
@@ -87,7 +89,7 @@ export default function AdminDashboard() {
           </Link>
           <Card className="shadow-card hover:shadow-card-hover transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Jobs</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t("admin.totalJobs")}</CardTitle>
               <Briefcase className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
@@ -96,7 +98,7 @@ export default function AdminDashboard() {
           </Card>
           <Card className="shadow-card hover:shadow-card-hover transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Applications</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t("admin.applications")}</CardTitle>
               <TrendingUp className="h-5 w-5 text-warning" />
             </CardHeader>
             <CardContent>
@@ -115,13 +117,13 @@ export default function AdminDashboard() {
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="shadow-card">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Total Fill Clicks</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">{t("admin.totalFillClicks")}</CardTitle>
             </CardHeader>
             <CardContent><div className="text-3xl font-bold font-display">{stats.fillClicks}</div></CardContent>
           </Card>
           <Card className="shadow-card">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Total Fields Filled</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">{t("admin.totalFieldsFilled")}</CardTitle>
             </CardHeader>
             <CardContent><div className="text-3xl font-bold font-display">{stats.fieldsFilled}</div></CardContent>
           </Card>
@@ -129,7 +131,7 @@ export default function AdminDashboard() {
 
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="shadow-card">
-            <CardHeader><CardTitle className="text-base">Fields Filled (Breakdown)</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">{t("admin.fieldsBreakdown")}</CardTitle></CardHeader>
             <CardContent>
               {fieldBreakdown.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No data yet.</p>
@@ -147,7 +149,7 @@ export default function AdminDashboard() {
           </Card>
 
           <Card className="shadow-card">
-            <CardHeader><CardTitle className="text-base">Top Users by Fill Clicks</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">{t("admin.topUsers")}</CardTitle></CardHeader>
             <CardContent>
               {topUsers.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No data yet.</p>

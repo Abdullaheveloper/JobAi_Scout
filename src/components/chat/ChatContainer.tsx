@@ -85,8 +85,8 @@ export function ChatContainer({ className }: ChatContainerProps) {
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mb-6 shadow-2xl shadow-indigo-500/30">
               <Sparkles size={28} className="text-white" />
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">AI Knowledge Assistant</h2>
-            <p className="text-white/50 text-sm mb-8 max-w-sm">
+            <h2 className="text-xl font-bold text-foreground mb-2">AI Knowledge Assistant</h2>
+            <p className="text-muted-foreground text-sm mb-8 max-w-sm">
               Ask me anything about Job Scout AI, or upload documents to chat with your own knowledge base.
             </p>
             <div className="grid grid-cols-2 gap-3 w-full max-w-lg">
@@ -94,10 +94,10 @@ export function ChatContainer({ className }: ChatContainerProps) {
                 <button
                   key={i}
                   onClick={() => sendMessage(prompt.text)}
-                  className="flex items-start gap-3 p-3.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl text-left transition-all group"
+                  className="flex items-start gap-3 p-3.5 bg-muted hover:bg-muted/80 border border-border hover:border-border rounded-xl text-left transition-all group"
                 >
                   <span className="text-lg">{prompt.icon}</span>
-                  <span className="text-xs text-white/60 group-hover:text-white/80 transition-colors leading-relaxed">{prompt.text}</span>
+                  <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">{prompt.text}</span>
                 </button>
               ))}
             </div>
@@ -129,12 +129,12 @@ export function ChatContainer({ className }: ChatContainerProps) {
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-white/10 p-4">
+      <div className="border-t border-border p-4">
         <div className="max-w-3xl mx-auto">
           {/* Voice interim transcript */}
           {voice.interimTranscript && (
             <div className="mb-2 px-3 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
-              <p className="text-sm text-indigo-300 italic">{voice.interimTranscript}...</p>
+              <p className="text-sm text-indigo-600 dark:text-indigo-300 italic">{voice.interimTranscript}...</p>
             </div>
           )}
 
@@ -154,7 +154,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
                 rows={rows}
                 disabled={store.isStreaming}
                 className={cn(
-                  'resize-none bg-white/5 border-white/10 text-white placeholder:text-white/30',
+                  'resize-none bg-muted border-border text-foreground placeholder:text-muted-foreground',
                   'focus:border-indigo-500/50 focus:ring-0 focus:ring-offset-0',
                   'rounded-2xl px-4 py-3 text-sm transition-all',
                   store.isStreaming && 'opacity-50 cursor-not-allowed',
@@ -172,7 +172,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
                   'h-10 w-10 rounded-xl flex-shrink-0 transition-all',
                   voice.state === 'listening'
                     ? 'bg-rose-500 hover:bg-rose-400 shadow-lg shadow-rose-500/40 animate-pulse'
-                    : 'bg-white/10 hover:bg-white/20 text-white/70'
+                    : 'bg-muted hover:bg-muted/80 text-muted-foreground'
                 )}
               >
                 {voice.state === 'listening' ? <MicOff size={16} /> : <Mic size={16} />}
@@ -195,7 +195,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
             </Button>
           </div>
 
-          <p className="text-xs text-white/20 text-center mt-2">
+          <p className="text-xs text-muted-foreground text-center mt-2">
             Press Enter to send · Shift+Enter for new line · {voice.isRecognitionSupported ? 'Mic for voice input' : 'Voice not supported in this browser'}
           </p>
         </div>

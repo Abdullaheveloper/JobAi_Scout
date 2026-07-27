@@ -15,6 +15,7 @@ import type { Database, Tables } from "@/integrations/supabase/types";
 import { PORTAL_COLORS } from "@/lib/constants";
 import { JOB_ADAPTER_STEPS, isScrapeSessionActive, isVisibleJobMatch, parseAdapterStatuses, runningAdapterPosition, scrapeCompletionMessage, type JobScrapeSession } from "@/lib/job-scrape";
 import { FuzzyAutocompleteInput, jobTaxonomy, locationTaxonomy } from "@/lib/fuzzy-taxonomy";
+import { useTranslation } from "react-i18next";
 
 type RecommendedJob = Tables<"recommended_jobs">;
 type Job = Tables<"jobs">;
@@ -35,6 +36,7 @@ function isNewJob(dateStr?: string | null): boolean {
 }
 
 function MatchExplanation({ explanation }: { explanation: MatchExplanationData | null }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   if (!explanation || typeof explanation !== "object") return null;
   const items = [];
@@ -52,7 +54,7 @@ function MatchExplanation({ explanation }: { explanation: MatchExplanationData |
     <div className="mt-2">
       <button onClick={() => setOpen(!open)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
         {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-        Why this matches
+        {t("jobs.whyMatches")}
       </button>
       {open && (
         <div className="mt-1.5 space-y-0.5">
@@ -69,6 +71,7 @@ function MatchExplanation({ explanation }: { explanation: MatchExplanationData |
 }
 
 export default function JobBoard() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [recJobs, setRecJobs] = useState<RecommendedJob[]>([]);
@@ -277,7 +280,7 @@ export default function JobBoard() {
   const handleScrapeJobs = async () => {
     if (scrapeLockRef.current) return;
     if (!search.trim()) {
-      toast({ title: "Add a skill or keyword", description: "Enter the role, skill, or keyword you want JobAI Scout to find.", variant: "destructive" });
+      toast({ title: t("jobs.toastAddKeywordTitle"), description: t("jobs.toastAddKeywordBody"), variant: "destructive" });
       return;
     }
     previousSessionIdRef.current = scrapeSession?.id || null;
@@ -516,7 +519,7 @@ export default function JobBoard() {
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary"><Sparkles className="h-3.5 w-3.5" /> Job discovery</div>
-              <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">A better way to find your next role.</h1>
+              <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">{t("jobs.title")}</h1>
               <p className="mt-3 text-sm leading-6 text-muted-foreground md:text-base">Search a clean, deduplicated stream of roles from job boards, employer career pages, recruiter listings, and feeds.</p>
               <div className="mt-5 flex flex-wrap gap-2">
                 {JOB_ADAPTER_STEPS.map((adapter) => {
@@ -561,7 +564,7 @@ export default function JobBoard() {
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-end">
               <Button onClick={scraping ? handleStopScraping : handleScrapeJobs} disabled={!scraping && !search.trim()} className={`min-w-48 gap-2 border-0 shadow-lg ${scraping ? "bg-rose-600 hover:bg-rose-500 shadow-rose-500/20" : "gradient-primary shadow-primary/20"}`}>
                 {scraping ? <Square className="h-4 w-4 fill-current" /> : <RefreshCw className="h-4 w-4" />}
-                {scraping ? "Stop Scraping" : "Scrape Jobs"}
+                {scraping ? t("jobs.stopScraping") : t("jobs.scrapeButton")}
               </Button>
               <p className="max-w-56 text-right text-xs text-muted-foreground">One click checks all four sources in order. Location is optional.</p>
               <p className="text-xs text-muted-foreground">{collectedTotal} matching roles in this session</p>
@@ -579,8 +582,8 @@ export default function JobBoard() {
                   value={search}
                   disabled={scraping}
                   aria-required="true"
-                  aria-label="Skill, job title, or keyword"
-                  placeholder="Skill, job title, or keyword (required)"
+                  aria-label={t("jobs.searchPlaceholder")}
+                  placeholder={t("jobs.searchPlaceholder")}
                   onChange={setSearch}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && search.trim() && !scraping) void handleScrapeJobs();
@@ -595,7 +598,7 @@ export default function JobBoard() {
                   value={locationFilter}
                   disabled={scraping}
                   aria-label="Preferred job location"
-                  placeholder="City, country, or remote (optional)"
+                  placeholder={t("jobs.locationPlaceholder")}
                   onChange={setLocationFilter}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && search.trim() && !scraping) void handleScrapeJobs();
@@ -662,7 +665,7 @@ export default function JobBoard() {
           <section className="space-y-3">
             <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="font-display text-xl font-semibold">Open roles</h2>
+                <h2 className="font-display text-xl font-semibold">{t("jobs.openRoles")}</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">{collectedTotal} matching role{collectedTotal !== 1 ? "s" : ""} · Page {collectedPage} of {collectedTotalPages}</p>
               </div>
               <Badge variant="secondary" className="w-fit border border-border/70 bg-muted/50 font-normal">Updated from live sources</Badge>
@@ -859,7 +862,7 @@ export default function JobBoard() {
               <div><p className="font-medium">Reading the role and your profile</p><p className="mt-1 text-sm text-muted-foreground">Creating a specific, truthful letter…</p></div>
             </div>
           ) : (
-            <Textarea aria-label="Tailored cover letter" value={coverLetter} onChange={(event) => setCoverLetter(event.target.value)} rows={13} className="resize-y border-white/15 bg-black text-white leading-7 placeholder:text-white/45 focus-visible:ring-primary" />
+            <Textarea aria-label="Tailored cover letter" value={coverLetter} onChange={(event) => setCoverLetter(event.target.value)} rows={13} className="resize-y border-border bg-background text-foreground leading-7 placeholder:text-muted-foreground focus-visible:ring-primary" />
           )}
           <DialogFooter className="gap-2 sm:gap-2">
             <Button type="button" variant="outline" onClick={() => setCoverLetterJob(null)} disabled={Boolean(generatingCoverLetterFor)}>Close</Button>

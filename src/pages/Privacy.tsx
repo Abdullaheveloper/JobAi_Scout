@@ -4,6 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Briefcase, Shield, ArrowLeft } from "lucide-react";
 import { JobAILogo } from "@/components/brand/JobAILogo";
 import { CookieSettingsLink } from "@/components/CookieConsentBanner";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { useTranslation } from "react-i18next";
 
 const sections = [
   {
@@ -56,6 +59,8 @@ export default function Privacy() {
         <div className="container flex h-16 items-center justify-between">
           <Link to="/" aria-label="JobAI Scout home"><JobAILogo /></Link>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <LanguageSwitcher />
             <Button variant="ghost" asChild><Link to="/about">About</Link></Button>
             <Button asChild><Link to="/register">Get Started</Link></Button>
           </div>

@@ -14,6 +14,7 @@ import {
   Activity, BarChart3, Briefcase, FileText, Globe2, Loader2, MapPin,
   Mic, MousePointerClick, RefreshCw, Users, Bookmark,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type Range = "7" | "30" | "90" | "all";
 
@@ -102,15 +103,15 @@ function Kpi({
   hint?: string;
 }) {
   return (
-    <Card className="bg-white/5 border-white/10 text-white rounded-2xl">
+    <Card className="bg-card border-border text-foreground rounded-2xl">
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">{label}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</p>
             <p className="mt-1 text-2xl font-bold tabular-nums truncate">{value}</p>
-            {hint ? <p className="mt-1 text-xs text-white/35">{hint}</p> : null}
+            {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
           </div>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-300">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
             <Icon className="h-4 w-4" />
           </div>
         </div>
@@ -133,13 +134,13 @@ function ChartCard({
   className?: string;
 }) {
   return (
-    <Card className={`bg-white/5 border-white/10 text-white rounded-2xl ${className}`}>
+    <Card className={`bg-card border-border text-foreground rounded-2xl ${className}`}>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-base font-semibold text-white">
-          {Icon ? <Icon className="h-4 w-4 text-indigo-300" /> : null}
+        <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+          {Icon ? <Icon className="h-4 w-4 text-indigo-600 dark:text-indigo-300" /> : null}
           {title}
         </CardTitle>
-        {description ? <CardDescription className="text-xs text-white/40">{description}</CardDescription> : null}
+        {description ? <CardDescription className="text-xs text-muted-foreground">{description}</CardDescription> : null}
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
@@ -148,7 +149,7 @@ function ChartCard({
 
 function EmptyChart({ msg = "No data in this range" }: { msg?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-14 text-white/35">
+    <div className="flex flex-col items-center justify-center py-14 text-muted-foreground">
       <Activity className="h-8 w-8 mb-2 opacity-50" />
       <p className="text-sm">{msg}</p>
     </div>
@@ -160,6 +161,7 @@ function hasSeriesData(series: { value: number }[]) {
 }
 
 export default function AdminAnalytics() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [range, setRange] = useState<Range>("30");
   const [loading, setLoading] = useState(true);
@@ -219,7 +221,7 @@ export default function AdminAnalytics() {
               <BarChart3 className="h-6 w-6 text-indigo-400" />
             </div>
             <div>
-              <h1 className="font-display text-3xl font-bold text-foreground">Platform Analytics</h1>
+              <h1 className="font-display text-3xl font-bold text-foreground">{t("admin.analytics")}</h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 Live metrics from users, jobs, applications, CVs, extension, and voice usage.
               </p>
@@ -227,7 +229,7 @@ export default function AdminAnalytics() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Tabs value={range} onValueChange={(v) => setRange(v as Range)}>
-              <TabsList className="bg-white/5 border border-white/10">
+              <TabsList className="bg-muted border border-border">
                 <TabsTrigger value="7">7d</TabsTrigger>
                 <TabsTrigger value="30">30d</TabsTrigger>
                 <TabsTrigger value="90">90d</TabsTrigger>
@@ -238,7 +240,7 @@ export default function AdminAnalytics() {
               variant="outline"
               size="sm"
               onClick={() => void load()}
-              className="border-white/10 hover:bg-white/5 gap-1.5"
+              className="border-border hover:bg-muted gap-1.5"
               disabled={loading}
             >
               {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
@@ -250,11 +252,11 @@ export default function AdminAnalytics() {
         {loading && !data ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <Skeleton key={i} className="h-24 rounded-2xl bg-white/5" />
+              <Skeleton key={i} className="h-24 rounded-2xl bg-muted" />
             ))}
           </div>
         ) : !data || !totals ? (
-          <Card className="bg-white/5 border-white/10 rounded-2xl">
+          <Card className="bg-card border-border rounded-2xl">
             <CardContent className="py-16">
               <EmptyChart msg="Analytics unavailable. Try refreshing, or ensure the analytics RPC is deployed." />
             </CardContent>

@@ -1,10 +1,13 @@
 import { lazy, Suspense } from "react";
+import { useTranslation } from "react-i18next";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { LocaleProvider } from "@/i18n/LocaleProvider";
+import { ThemeProvider } from "@/theme/ThemeProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 
@@ -42,14 +45,17 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const queryClient = new QueryClient();
 
 /* ─── Page Loader (shown while chunk downloads) ─────────── */
-const PageLoader = () => (
-  <div className="flex min-h-screen items-center justify-center bg-[#020817]">
-    <div className="flex flex-col items-center gap-4">
-      <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-      <p className="text-sm text-gray-500 animate-pulse">Loading…</p>
+const PageLoader = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <p className="text-sm text-muted-foreground animate-pulse">{t("common.loading")}</p>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -58,6 +64,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <ThemeProvider>
+          <LocaleProvider>
           <CookieConsentBanner />
           <Suspense fallback={<PageLoader />}>
             <Routes>
@@ -97,6 +105,8 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+          </LocaleProvider>
+          </ThemeProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

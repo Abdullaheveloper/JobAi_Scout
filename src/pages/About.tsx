@@ -4,6 +4,9 @@ import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import { JobAILogo } from "@/components/brand/JobAILogo";
 import { CookieSettingsLink } from "@/components/CookieConsentBanner";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { useTranslation } from "react-i18next";
 
 const teamMembers = [
   {
@@ -102,12 +105,14 @@ export default function About() {
   }, []);
 
   return (
-    <div className="public-page min-h-screen text-white overflow-x-hidden page-enter">
+    <div className="public-page min-h-screen text-foreground overflow-x-hidden page-enter">
       {/* Navigation */}
       <nav className="sticky top-0 z-50 nav-premium">
         <div className="container mx-auto px-6 flex h-16 items-center justify-between">
           <Link to="/" aria-label="JobAI Scout home"><JobAILogo /></Link>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <LanguageSwitcher />
             <Link to="/contact" className="nav-link-premium">Contact</Link>
             <Link to="/register" className="btn-premium text-sm">Get Started <ArrowRight className="inline h-4 w-4 ml-1" /></Link>
           </div>
@@ -134,7 +139,7 @@ export default function About() {
           </motion.div>
 
           <motion.h1
-            className="heading-xl text-white mb-6"
+            className="heading-xl text-foreground mb-6"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.7 }}
@@ -172,7 +177,7 @@ export default function About() {
         <div className="container mx-auto px-6 relative z-10">
           <motion.div className="text-center mb-16" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
             <span className="overline block mb-3">What Drives Us</span>
-            <h2 className="heading-lg text-white">Our Foundation</h2>
+            <h2 className="heading-lg text-foreground">Our Foundation</h2>
           </motion.div>
 
           <div className="grid gap-6 md:grid-cols-3">
@@ -214,7 +219,7 @@ export default function About() {
                 >
                   <item.icon className="h-7 w-7 text-white" />
                 </div>
-                <h3 className="font-bold text-xl text-white mb-3" style={{ fontFamily: 'Syne, sans-serif' }}>{item.title}</h3>
+                <h3 className="font-bold text-xl text-foreground mb-3" style={{ fontFamily: 'Syne, sans-serif' }}>{item.title}</h3>
                 <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
               </motion.div>
             ))}
@@ -223,11 +228,11 @@ export default function About() {
       </section>
 
       {/* Timeline */}
-      <section className="py-24 relative overflow-hidden bg-[#060d24]/40">
+      <section className="py-24 relative overflow-hidden bg-muted/40">
         <div className="container mx-auto px-6">
           <motion.div className="text-center mb-16" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
             <span className="overline block mb-3">Our Journey</span>
-            <h2 className="heading-lg text-white">From Idea to Impact</h2>
+            <h2 className="heading-lg text-foreground">From Idea to Impact</h2>
           </motion.div>
 
           <div className="relative max-w-3xl mx-auto">
@@ -254,7 +259,7 @@ export default function About() {
                   <div className={`ml-20 md:ml-0 ${isRight ? "md:mr-8 md:text-right md:w-5/12" : "md:ml-8 md:text-left md:w-5/12 md:ml-auto"} w-full`}>
                     <div className="glass-card p-5">
                       <span className="text-xs text-emerald-400 font-bold tracking-wider uppercase">{item.year}</span>
-                      <h3 className="font-bold text-white mt-1 mb-2" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{item.title}</h3>
+                      <h3 className="font-bold text-foreground mt-1 mb-2" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{item.title}</h3>
                       <p className="text-sm text-gray-400 leading-relaxed">{item.desc}</p>
                     </div>
                   </div>
@@ -272,7 +277,7 @@ export default function About() {
         <div className="container mx-auto px-6">
           <motion.div className="text-center mb-16" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
             <span className="overline block mb-3">The Founders</span>
-            <h2 className="heading-lg text-white">Meet the Team</h2>
+            <h2 className="heading-lg text-foreground">Meet the Team</h2>
             <p className="body-lg text-gray-500 mt-3">The minds behind JobAI Scout</p>
           </motion.div>
 
@@ -295,7 +300,7 @@ export default function About() {
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
                   </div>
-                  <h3 className="font-bold text-lg text-white" style={{ fontFamily: 'Syne, sans-serif' }}>{member.name}</h3>
+                  <h3 className="font-bold text-lg text-foreground" style={{ fontFamily: 'Syne, sans-serif' }}>{member.name}</h3>
                   <p className="text-sm text-emerald-400 font-medium mt-0.5">{member.role}</p>
                   <p className="text-sm text-gray-300 font-medium leading-relaxed mt-4 mb-4">{member.bio}</p>
                 </div>

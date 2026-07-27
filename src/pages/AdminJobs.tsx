@@ -10,10 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const PAGE_SIZE = 20;
 
 export default function AdminJobs() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,14 +124,14 @@ export default function AdminJobs() {
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         <div>
-          <h1 className="font-display text-3xl font-bold">Manage Jobs</h1>
+          <h1 className="font-display text-3xl font-bold">{t("admin.manageJobs")}</h1>
           <p className="text-muted-foreground mt-1">View and manage all job listings</p>
         </div>
 
         <Card className="shadow-card">
           <CardContent className="p-5 space-y-4">
             <div>
-              <h2 className="font-display text-lg font-semibold">Collection Sources</h2>
+              <h2 className="font-display text-lg font-semibold">{t("admin.collectionSources")}</h2>
               <p className="text-sm text-muted-foreground">Add permitted RSS feeds or official company careers pages.</p>
             </div>
             <div className="grid gap-3 md:grid-cols-[160px_1fr_2fr_auto] items-end">

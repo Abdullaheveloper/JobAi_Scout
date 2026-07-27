@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,36 +14,25 @@ import {
   UserRound,
 } from "lucide-react";
 
-const installSteps = [
-  {
-    number: "1",
-    title: "Download the package",
-    description: "Click Download extension above to get job-form-fill.zip, then extract the folder.",
-  },
-  {
-    number: "2",
-    title: "Open Chrome extensions",
-    description: "Go to chrome://extensions (or edge://extensions) and turn on Developer mode.",
-  },
-  {
-    number: "3",
-    title: "Load unpacked",
-    description: "Choose Load unpacked and select the extracted folder. Sign in with your JobAI Scout account.",
-  },
-];
-
-const filledData = [
-  { label: "Name", Icon: UserRound },
-  { label: "Email", Icon: Mail },
-  { label: "Phone", Icon: Phone },
-  { label: "Location", Icon: MapPin },
-  { label: "Experience", Icon: BriefcaseBusiness },
-  { label: "Education", Icon: GraduationCap },
-  { label: "Resume details", Icon: FileText },
-];
-
 export default function AutoFormFill() {
+  const { t } = useTranslation();
   const [downloadState, setDownloadState] = useState<"idle" | "loading" | "error">("idle");
+
+  const installSteps = [
+    { number: "1", title: t("formFill.step1Title"), description: t("formFill.step1Desc") },
+    { number: "2", title: t("formFill.step2Title"), description: t("formFill.step2Desc") },
+    { number: "3", title: t("formFill.step3Title"), description: t("formFill.step3Desc") },
+  ];
+
+  const filledData = [
+    { label: t("formFill.dataName"), Icon: UserRound },
+    { label: t("formFill.dataEmail"), Icon: Mail },
+    { label: t("formFill.dataPhone"), Icon: Phone },
+    { label: t("formFill.dataLocation"), Icon: MapPin },
+    { label: t("formFill.dataExperience"), Icon: BriefcaseBusiness },
+    { label: t("formFill.dataEducation"), Icon: GraduationCap },
+    { label: t("formFill.dataResume"), Icon: FileText },
+  ];
 
   const handleDownload = async () => {
     setDownloadState("loading");
@@ -67,25 +57,23 @@ export default function AutoFormFill() {
     }
   };
 
-  const downloadLabel = downloadState === "loading" ? "Preparing download..." : "Download extension";
+  const downloadLabel = downloadState === "loading" ? t("formFill.downloading") : t("formFill.downloadExtension");
 
   return (
     <DashboardLayout>
       <main className="mx-auto max-w-3xl space-y-8 pb-10 pt-1 animate-fade-in" aria-labelledby="autofill-title">
-        {/* Section 1 — Download */}
-        <section className="relative isolate overflow-hidden rounded-[28px] border border-indigo-300/20 bg-[#080f2a] px-5 py-8 shadow-[0_25px_80px_rgba(2,8,23,0.5)] sm:px-8 sm:py-10">
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_9%_9%,rgba(99,102,241,0.30),transparent_30%),radial-gradient(circle_at_91%_24%,rgba(139,92,246,0.24),transparent_28%),linear-gradient(145deg,rgba(15,23,66,0.88),rgba(4,9,28,0.96))]" />
+        <section className="relative isolate overflow-hidden rounded-[28px] border border-primary/20 bg-gradient-to-br from-primary/15 via-card to-card px-5 py-8 shadow-card sm:px-8 sm:py-10">
           <div className="pointer-events-none absolute -right-20 top-8 -z-10 h-64 w-64 rounded-full bg-violet-500/20 blur-3xl" />
 
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-300/25 bg-indigo-400/10 text-indigo-200">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-500/25 bg-indigo-500/10 text-indigo-700 dark:text-indigo-200">
             <Chrome className="h-5 w-5" aria-hidden="true" />
           </div>
 
-          <h1 id="autofill-title" className="mt-4 font-display text-3xl font-bold tracking-tight text-slate-50 sm:text-4xl">
-            Job Form Fill
+          <h1 id="autofill-title" className="mt-4 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+            {t("formFill.title")}
           </h1>
-          <p className="mt-3 max-w-xl text-base leading-7 text-slate-300">
-            Download the browser extension to auto-fill job applications with your Career Passport data.
+          <p className="mt-3 max-w-xl text-base leading-7 text-muted-foreground">
+            {t("formFill.subtitle")}
           </p>
 
           <div className="mt-7">
@@ -93,28 +81,25 @@ export default function AutoFormFill() {
               onClick={handleDownload}
               disabled={downloadState === "loading"}
               size="lg"
-              className="gradient-primary h-12 rounded-xl px-5 font-semibold shadow-[0_12px_30px_rgba(99,102,241,0.32)] hover:brightness-110"
+              className="gradient-primary h-12 rounded-xl px-5 font-semibold text-white shadow-[0_12px_30px_rgba(99,102,241,0.32)] hover:brightness-110"
             >
               <Download className="h-4 w-4" aria-hidden="true" />
               {downloadLabel}
             </Button>
           </div>
 
-          <p aria-live="polite" className="mt-3 min-h-5 text-xs text-slate-400">
-            {downloadState === "error"
-              ? "The extension package could not be downloaded. Please try again."
-              : "Works with Chrome, Edge, and other Chromium browsers."}
+          <p aria-live="polite" className="mt-3 min-h-5 text-xs text-muted-foreground">
+            {downloadState === "error" ? t("formFill.downloadFailed") : t("formFill.browserCompat")}
           </p>
         </section>
 
-        {/* Section 2 — How to install */}
         <section className="space-y-4" aria-labelledby="install-title">
           <div>
-            <h2 id="install-title" className="font-display text-2xl font-bold tracking-tight text-slate-100">
-              How to install
+            <h2 id="install-title" className="font-display text-2xl font-bold tracking-tight text-foreground">
+              {t("formFill.installTitle")}
             </h2>
-            <p className="mt-1.5 text-sm leading-6 text-slate-400">
-              Three quick steps to get the extension running in your browser.
+            <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
+              {t("formFill.installSubtitle")}
             </p>
           </div>
 
@@ -122,45 +107,44 @@ export default function AutoFormFill() {
             {installSteps.map((step) => (
               <li
                 key={step.number}
-                className="flex gap-4 rounded-2xl border border-white/8 bg-card/80 p-4"
+                className="flex gap-4 rounded-2xl border border-border bg-card/80 p-4"
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-indigo-300/20 bg-indigo-400/10 font-mono text-sm font-semibold text-indigo-200">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 font-mono text-sm font-semibold text-indigo-700 dark:text-indigo-200">
                   {step.number}
                 </span>
                 <div className="min-w-0">
-                  <h3 className="font-display text-base font-semibold text-slate-100">{step.title}</h3>
-                  <p className="mt-1 text-sm leading-5 text-slate-400">{step.description}</p>
+                  <h3 className="font-display text-base font-semibold text-foreground">{step.title}</h3>
+                  <p className="mt-1 text-sm leading-5 text-muted-foreground">{step.description}</p>
                 </div>
               </li>
             ))}
           </ol>
         </section>
 
-        {/* Section 3 — What data gets filled */}
         <section className="space-y-4" aria-labelledby="data-title">
           <div>
-            <h2 id="data-title" className="font-display text-2xl font-bold tracking-tight text-slate-100">
-              What data gets filled
+            <h2 id="data-title" className="font-display text-2xl font-bold tracking-tight text-foreground">
+              {t("formFill.dataTitle")}
             </h2>
-            <p className="mt-1.5 text-sm leading-6 text-slate-400">
-              The extension uses facts from your Career Passport profile — nothing invented, nothing guessed.
+            <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
+              {t("formFill.dataSubtitle")}
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2 rounded-2xl border border-white/8 bg-card/80 p-5">
+          <div className="flex flex-wrap gap-2 rounded-2xl border border-border bg-card/80 p-5">
             {filledData.map(({ label, Icon }) => (
               <span
                 key={label}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/8 bg-slate-950/25 px-2.5 py-2 text-xs font-medium text-slate-300"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-2.5 py-2 text-xs font-medium text-foreground"
               >
-                <Icon className="h-3.5 w-3.5 text-indigo-300" aria-hidden="true" />
+                <Icon className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-300" aria-hidden="true" />
                 {label}
               </span>
             ))}
           </div>
 
-          <p className="px-1 text-xs leading-5 text-slate-500">
-            Sensitive questions (legal, diversity, consent) and final submission always stay with you.
+          <p className="px-1 text-xs leading-5 text-muted-foreground">
+            {t("formFill.sensitiveNote")}
           </p>
         </section>
       </main>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,6 +36,7 @@ const emptyForm: JobForm = {
 };
 
 export default function RecruiterJobs() {
+  const { t } = useTranslation();
   const { user, recruiterProfile } = useAuth();
   const { toast } = useToast();
   const [jobs, setJobs] = useState<any[]>([]);
@@ -116,35 +118,35 @@ export default function RecruiterJobs() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold">My Job Postings</h1>
-            <p className="text-muted-foreground">Create and manage job listings</p>
+            <h1 className="font-display text-3xl font-bold">{t("recruiter.myJobs")}</h1>
+            <p className="text-muted-foreground">{t("recruiter.postJob")}</p>
           </div>
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setForm(emptyForm); setEditId(null); } }}>
             <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" /> Post Job</Button>
+              <Button><Plus className="mr-2 h-4 w-4" /> {t("recruiter.postJob")}</Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editId ? "Edit Job" : "Post New Job"}</DialogTitle>
+                <DialogTitle>{editId ? t("common.edit") : t("recruiter.postJob")}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Job Title *</Label>
+                    <Label>{t("recruiter.jobTitle")}</Label>
                     <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Senior React Developer" required />
                   </div>
                   <div className="space-y-2">
-                    <Label>Company</Label>
-                    <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder={recruiterProfile?.company_name || "Company"} />
+                    <Label>{t("recruiter.jobCompany")}</Label>
+                    <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder={recruiterProfile?.company_name || t("common.company")} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Location</Label>
+                    <Label>{t("recruiter.jobLocation")}</Label>
                     <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Remote / City" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Job Type</Label>
+                    <Label>{t("recruiter.jobType")}</Label>
                     <Select value={form.job_type} onValueChange={(v) => setForm({ ...form, job_type: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>

@@ -13,7 +13,7 @@ export function SuggestionItem({ suggestion, compact = false }: { suggestion: Re
   return (
     <li className={`group rounded-2xl border transition-colors duration-200 ${meta.classes} ${compact ? "px-3 py-2" : "p-4 hover:bg-white/[0.07]"}`}>
       <div className="flex items-start gap-3">
-        {!compact && <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-current/15 bg-black/10 text-xs font-bold tabular-nums">{suggestion.priority}</span>}
+        {!compact && <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-current/15 bg-muted/40 text-xs font-bold tabular-nums">{suggestion.priority}</span>}
         <Icon className="mt-1 h-4 w-4 shrink-0" aria-hidden="true" />
         <div className="min-w-0">
           {!compact && <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-current/70">{meta.label} · {suggestion.category}</p>}

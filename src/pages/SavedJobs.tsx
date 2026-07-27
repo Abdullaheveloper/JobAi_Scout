@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Bookmark, MapPin, Building2, Trash2, ExternalLink, Sparkles, Briefcase } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { PORTAL_COLORS } from "@/lib/constants";
+import { useTranslation } from "react-i18next";
 
 type RecommendedJob = Tables<"recommended_jobs">;
 type Job = Tables<"jobs">;
@@ -24,6 +25,7 @@ interface SavedRegularJob {
 }
 
 export default function SavedJobs() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [savedRecJobs, setSavedRecJobs] = useState<SavedRecommendedJob[]>([]);
@@ -97,7 +99,7 @@ export default function SavedJobs() {
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold">Saved Jobs</h1>
+            <h1 className="font-display text-3xl font-bold">{t("saved.title")}</h1>
             <p className="text-muted-foreground mt-1">Jobs you've bookmarked — never auto-deleted</p>
           </div>
           {totalCount > 0 && (
@@ -192,7 +194,7 @@ export default function SavedJobs() {
               </div>
             )}
 
-            {/* Regular Saved Jobs (backward compat) */}
+            {/* Regular saved jobs (backward compat) */}
             {savedRegJobs.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-3">

@@ -1,0 +1,23 @@
+export default {
+  contextSeparator: "_",
+  createOldCatalogs: false,
+  defaultNamespace: "translation",
+  defaultValue: (locale, _namespace, key) => (locale === "en" ? key : ""),
+  indentation: 2,
+  keepRemoved: true,
+  keySeparator: ".",
+  lexers: {
+    js: ["JavascriptLexer"],
+    jsx: ["JsxLexer"],
+    ts: ["JavascriptLexer"],
+    tsx: ["JsxLexer"],
+  },
+  locales: ["en", "fr", "de", "hi"],
+  namespaceSeparator: ":",
+  output: "src/locales/$LOCALE.json",
+  input: ["src/**/*.{ts,tsx}"],
+  sort: true,
+  verbose: false,
+  failOnWarnings: false,
+  failOnUpdate: false,
+};

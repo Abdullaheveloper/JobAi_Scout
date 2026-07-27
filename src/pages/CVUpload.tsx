@@ -20,14 +20,15 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useResumeATSAnalysis } from "@/hooks/useResumeATSAnalysis";
+import { useTranslation } from "react-i18next";
 
 const MAX_RESUME_BYTES = 10 * 1024 * 1024;
-function validateResume(candidate: File): string | null {
+function validateResume(candidate: File, t: (key: string) => string): string | null {
   const name = candidate.name.toLowerCase();
-  if (!candidate.name.includes(".")) return "The file has no extension. Choose a PDF or DOCX resume.";
-  if (!/\.(pdf|docx)$/.test(name)) return "Unsupported resume format. Please upload a PDF or DOCX file.";
-  if (candidate.size <= 0) return "This file is empty. Choose a resume that contains readable content.";
-  if (candidate.size > MAX_RESUME_BYTES) return "Your resume is larger than 10 MB. Choose a smaller file.";
+  if (!candidate.name.includes(".")) return t("cv.errorNoExtension");
+  if (!/\.(pdf|docx)$/.test(name)) return t("cv.errorFormat");
+  if (candidate.size <= 0) return t("cv.errorEmpty");
+  if (candidate.size > MAX_RESUME_BYTES) return t("cv.errorTooLarge");
   return null;
 }
 
@@ -48,6 +49,7 @@ async function getEdgeFunctionError(error: unknown, fallback: string): Promise<s
 }
 
 export default function CVUpload() {
+  const { t } = useTranslation();
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
@@ -79,31 +81,31 @@ export default function CVUpload() {
   const completionInfo = useMemo(() => {
     if (!profile) return { percent: 0, fields: [], missing: [] };
     const checks = [
-      { key: "full_name", label: "Name", done: hasValue(profile.full_name) },
-      { key: "email", label: "Email", done: hasValue(profile.email) },
-      { key: "phone", label: "Phone", done: hasValue(profile.phone) },
-      { key: "location", label: "Location", done: hasValue(profile.location) },
-      { key: "bio", label: "Bio", done: hasValue(profile.bio) },
-      { key: "skills", label: "Skills", done: hasValue(profile.skills) },
-      { key: "desired_roles", label: "Roles", done: hasValue(profile.desired_roles) },
-      { key: "experience_years", label: "Experience", done: hasValue(profile.experience_years) },
-      { key: "resume_url", label: "Resume", done: hasValue(profile.resume_url) },
-      { key: "linkedin_url", label: "LinkedIn", done: hasValue(profile.linkedin_url) },
-      { key: "github_url", label: "GitHub", done: hasValue(profile.github_url) },
-      { key: "portfolio_url", label: "Portfolio", done: hasValue((profile as any).portfolio_url) },
-      { key: "current_company", label: "Company", done: hasValue((profile as any).current_company) },
-      { key: "education", label: "Education", done: hasValue((profile as any).education) },
+      { key: "full_name", label: t("cv.fieldName"), done: hasValue(profile.full_name) },
+      { key: "email", label: t("cv.fieldEmail"), done: hasValue(profile.email) },
+      { key: "phone", label: t("cv.fieldPhone"), done: hasValue(profile.phone) },
+      { key: "location", label: t("cv.fieldLocation"), done: hasValue(profile.location) },
+      { key: "bio", label: t("cv.fieldBio"), done: hasValue(profile.bio) },
+      { key: "skills", label: t("cv.fieldSkills"), done: hasValue(profile.skills) },
+      { key: "desired_roles", label: t("cv.fieldRoles"), done: hasValue(profile.desired_roles) },
+      { key: "experience_years", label: t("cv.fieldExperience"), done: hasValue(profile.experience_years) },
+      { key: "resume_url", label: t("cv.fieldResume"), done: hasValue(profile.resume_url) },
+      { key: "linkedin_url", label: t("cv.fieldLinkedIn"), done: hasValue(profile.linkedin_url) },
+      { key: "github_url", label: t("cv.fieldGitHub"), done: hasValue(profile.github_url) },
+      { key: "portfolio_url", label: t("cv.fieldPortfolio"), done: hasValue((profile as { portfolio_url?: string | null }).portfolio_url) },
+      { key: "current_company", label: t("cv.fieldCompany"), done: hasValue((profile as { current_company?: string | null }).current_company) },
+      { key: "education", label: t("cv.fieldEducation"), done: hasValue((profile as { education?: string | null }).education) },
     ];
     const done = checks.filter(c => c.done);
     const missing = checks.filter(c => !c.done);
     return { percent: Math.round((done.length / checks.length) * 100), fields: checks, missing };
-  }, [profile]);
+  }, [profile, t]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     const dropped = e.dataTransfer.files[0];
-    const validationError = dropped ? validateResume(dropped) : "No resume file was selected.";
+    const validationError = dropped ? validateResume(dropped, t) : t("cv.errorNoFile");
     if (dropped && !validationError) {
       setFile(dropped);
       setExtractedData(null);
@@ -111,9 +113,9 @@ export default function CVUpload() {
       setExtractionInfo(null);
       clearAts();
     } else {
-      toast({ title: "Resume not accepted", description: validationError, variant: "destructive" });
+      toast({ title: t("cv.toastNotAccepted"), description: validationError, variant: "destructive" });
     }
-  }, [clearAts, toast]);
+  }, [clearAts, toast, t]);
 
   const handleUploadAndAnalyze = async () => {
     if (!file || !user) return;
@@ -123,7 +125,7 @@ export default function CVUpload() {
     const filePath = `${user.id}/${Date.now()}_${file.name}`;
     const { error: uploadError } = await supabase.storage.from("resumes").upload(filePath, file);
     if (uploadError) {
-      toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
+      toast({ title: t("cv.toastUploadFailed"), description: uploadError.message, variant: "destructive" });
       setUploading(false);
       return;
     }
@@ -158,7 +160,7 @@ export default function CVUpload() {
         if (_ats?.analysis_status === "completed") {
           ats.acceptResult(_ats);
         } else if (_ats?.analysis_status === "failed") {
-          ats.setError(String(_ats.error || "Your resume was uploaded successfully, but ATS suggestions could not be generated."));
+          ats.setError(String(_ats.error || t("cv.atsFailedUploadOk")));
         }
 
         const profileSaved = Boolean(
@@ -170,27 +172,27 @@ export default function CVUpload() {
           await refreshProfile();
           setApplied(true);
           toast({
-            title: "Profile updated from your CV",
-            description: "Your new CV replaced all CV-managed profile details. Account email was unchanged.",
+            title: t("cv.toastProfileUpdatedTitle"),
+            description: t("cv.toastProfileUpdatedBody"),
           });
         } else if (!hasExtractedCvData(extracted)) {
           setApplied(false);
           toast({
-            title: "No data extracted",
-            description: "The AI could not find usable fields in your resume.",
+            title: t("cv.toastNoDataTitle"),
+            description: t("cv.toastNoDataBody"),
             variant: "destructive",
           });
         } else {
           setApplied(false);
           toast({
-            title: "CV analyzed",
-            description: "No profile replacement was needed because a newer CV is already active.",
+            title: t("cv.toastAnalyzedTitle"),
+            description: t("cv.toastAnalyzedBody"),
           });
         }
       }
     } catch (err: unknown) {
-      const message = await getEdgeFunctionError(err, "The resume analysis service could not process this file. Please try again.");
-      toast({ title: "Analysis failed", description: message, variant: "destructive" });
+      const message = await getEdgeFunctionError(err, t("cv.toastAnalysisFallback"));
+      toast({ title: t("cv.toastAnalysisFailed"), description: message, variant: "destructive" });
       ats.setError(message);
     }
     setAnalyzing(false);
@@ -207,9 +209,9 @@ export default function CVUpload() {
       if (error) throw error;
       const result = (data as { _ats?: unknown } | null)?._ats;
       const failure = result && typeof result === "object" ? (result as { error?: string }).error : undefined;
-      if (!ats.acceptResult(result)) throw new Error(failure || "ATS suggestions could not be generated.");
+      if (!ats.acceptResult(result)) throw new Error(failure || t("cv.atsFailedRetry"));
     } catch (error: unknown) {
-      ats.setError(await getEdgeFunctionError(error, "ATS suggestions could not be generated. Your uploaded resume is still safe."));
+      ats.setError(await getEdgeFunctionError(error, t("cv.atsFailedRetry")));
     } finally {
       setRetryingAts(false);
     }
@@ -223,9 +225,9 @@ export default function CVUpload() {
     <DashboardLayout>
       <div className="mx-auto max-w-4xl space-y-6 animate-fade-in">
         <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card px-6 py-7 sm:px-8">
-          <Badge variant="outline" className="mb-3 border-primary/25 bg-primary/10 text-primary">Step 1 of 2 · Your profile</Badge>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Bring your CV to life.</h1>
-          <p className="mt-2 max-w-2xl text-muted-foreground">Upload one resume and we will extract the information that improves job matching and application autofill.</p>
+          <Badge variant="outline" className="mb-3 border-primary/25 bg-primary/10 text-primary">{t("cv.stepBadge", { step: 1, total: 2 })}</Badge>
+          <h1 className="font-display text-3xl font-bold tracking-tight">{t("cv.title")}</h1>
+          <p className="mt-2 max-w-2xl text-muted-foreground">{t("cv.subtitle")}</p>
         </section>
 
         <ResumeSuggestionNotification
@@ -242,9 +244,9 @@ export default function CVUpload() {
         <Card className="border-border bg-card shadow-card">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-3">
-              <span className="font-display font-semibold text-sm">Profile readiness</span>
+              <span className="font-display font-semibold text-sm">{t("cv.profileReadiness")}</span>
               <Badge variant="outline" className="border-primary/25 bg-primary/10 text-primary">
-                {completionInfo.percent}%
+                {t("cv.percent", { percent: completionInfo.percent })}
               </Badge>
             </div>
             <div className="w-full h-2.5 rounded-full bg-muted overflow-hidden">
@@ -274,10 +276,10 @@ export default function CVUpload() {
         <Card className="overflow-hidden border-border bg-card shadow-card">
           <CardHeader className="border-b border-border/70 bg-muted/20">
             <CardTitle className="flex items-center gap-2 font-display">
-              <Upload className="h-5 w-5 text-primary" /> Upload your resume
+              <Upload className="h-5 w-5 text-primary" /> {t("cv.uploadTitle")}
             </CardTitle>
             <CardDescription>
-              PDF or DOCX up to 10 MB. After analysis, the new CV automatically replaces every CV-managed profile field. Your account email is unchanged.
+              {t("cv.uploadDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -291,8 +293,9 @@ export default function CVUpload() {
               onClick={() => document.getElementById("cv-input")?.click()}
             >
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10"><FileUp className="h-6 w-6 text-primary" /></div>
-              <p className="text-base font-semibold">{file ? file.name : "Drop your CV here"}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{file ? "Ready for AI review" : "or click to choose a PDF or DOCX"}</p>
+              {/* File name is user data — not translated */}
+              <p className="text-base font-semibold">{file ? file.name : t("cv.dropHere")}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{file ? t("cv.readyForReview") : t("cv.orClickChoose")}</p>
               <input
                 id="cv-input"
                 type="file"
@@ -300,7 +303,7 @@ export default function CVUpload() {
                 className="hidden"
                 onChange={(e) => {
                   const candidate = e.target.files?.[0];
-                  const validationError = candidate ? validateResume(candidate) : null;
+                  const validationError = candidate ? validateResume(candidate, t) : null;
                   if (candidate && !validationError) {
                     setFile(candidate);
                     setExtractedData(null);
@@ -308,7 +311,7 @@ export default function CVUpload() {
                     setExtractionInfo(null);
                     ats.clear();
                   } else if (candidate) {
-                    toast({ title: "Resume not accepted", description: validationError || "Choose a PDF or DOCX file up to 10 MB.", variant: "destructive" });
+                    toast({ title: t("cv.toastNotAccepted"), description: validationError || t("cv.toastChooseFile"), variant: "destructive" });
                   }
                 }}
               />
@@ -317,11 +320,11 @@ export default function CVUpload() {
             {file && !extractedData && (
               <Button onClick={handleUploadAndAnalyze} disabled={uploading || analyzing} className="mt-4 w-full sm:w-auto">
                 {uploading ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("cv.uploading")}</>
                 ) : analyzing ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> AI Analyzing...</>
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("cv.analyzing")}</>
                 ) : (
-                  <><Sparkles className="mr-2 h-4 w-4" /> Upload & Analyze with AI</>
+                  <><Sparkles className="mr-2 h-4 w-4" /> {t("cv.analyze")}</>
                 )}
               </Button>
             )}
@@ -334,17 +337,17 @@ export default function CVUpload() {
             <CardContent className="pt-6">
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <Badge variant="outline" className="bg-emerald-500/10 text-emerald-300 border-emerald-500/25">
-                  Text extraction: {extractionInfo.method}
+                  {t("cv.freshExtraction", { method: extractionInfo.method })}
                 </Badge>
                 <Badge variant="outline" className="text-xs">
-                  {extractionInfo.pages} page{extractionInfo.pages === 1 ? "" : "s"}
+                  {t("cv.pages", { count: extractionInfo.pages, pages: extractionInfo.pages })}
                 </Badge>
                 <Badge variant="outline" className="text-xs">
-                  {extractionInfo.charCount.toLocaleString()} chars
+                  {t("cv.chars", { chars: extractionInfo.charCount.toLocaleString() })}
                 </Badge>
                 {extractionInfo.ocrUsed && (
                   <Badge variant="outline" className="bg-amber-500/10 text-amber-300 border-amber-500/25">
-                    OCR used
+                    {t("cv.ocrUsed")}
                   </Badge>
                 )}
               </div>
@@ -359,12 +362,12 @@ export default function CVUpload() {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-2 mb-3">
                   <CheckCircle2 className="h-5 w-5 text-success" />
-                  <span className="font-display font-semibold text-emerald-300">Profile Updated</span>
+                  <span className="font-display font-semibold text-emerald-300">{t("cv.profileUpdated")}</span>
                 </div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-400">New Completion</span>
+                  <span className="text-sm text-slate-400">{t("cv.newCompletion")}</span>
                   <Badge variant="default" className="gradient-primary border-0">
-                    {completionInfo.percent}%
+                    {t("cv.percent", { percent: completionInfo.percent })}
                   </Badge>
                 </div>
                 <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
@@ -378,9 +381,9 @@ export default function CVUpload() {
               <Card className="shadow-card border-amber-400/20 bg-gradient-to-br from-amber-500/8 via-amber-500/2 to-transparent">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 font-display text-base text-amber-400">
-                    <AlertTriangle className="h-5 w-5" /> Remaining Gaps
+                    <AlertTriangle className="h-5 w-5" /> {t("cv.remainingGaps")}
                   </CardTitle>
-                  <CardDescription className="text-amber-200/40">Complete these fields for better job matching and auto-fill</CardDescription>
+                  <CardDescription className="text-amber-200/40">{t("cv.remainingGapsDesc")}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2 mb-4">
@@ -392,7 +395,7 @@ export default function CVUpload() {
                   </div>
                   <Button asChild variant="outline" className="w-full border-violet-400/30 hover:border-violet-400/60">
                     <Link to="/dashboard/settings">
-                      <ExternalLink className="mr-2 h-4 w-4" /> Complete Profile in Settings
+                      <ExternalLink className="mr-2 h-4 w-4" /> {t("cv.completeInSettings")}
                     </Link>
                   </Button>
                 </CardContent>
@@ -405,11 +408,11 @@ export default function CVUpload() {
         {showExtractedData && (
           <ExtractedDataCard
             data={displayExtractedData}
-            title={extractedData ? "Extracted Data from Resume" : "Extracted CV Data"}
+            title={extractedData ? t("cv.extractedFromResume") : t("cv.extractedCvData")}
             description={
               extractedData
-                ? "Data automatically extracted from your resume by AI (OpenRouter + Gemini 2.5 Flash)"
-                : "Your profile data from CV extraction. Edit fields in Profile Settings."
+                ? t("cv.extractedFreshDesc")
+                : t("cv.extractedProfileDesc")
             }
           />
         )}

@@ -775,6 +775,8 @@ export type Database = {
           location: string | null
           phone: string | null
           portfolio_url: string | null
+          preferred_locale: string
+          preferred_theme: string
           profile_completion: number | null
           resume_url: string | null
           signup_requested_at: string
@@ -812,6 +814,8 @@ export type Database = {
           location?: string | null
           phone?: string | null
           portfolio_url?: string | null
+          preferred_locale?: string
+          preferred_theme?: string
           profile_completion?: number | null
           resume_url?: string | null
           signup_requested_at?: string
@@ -849,6 +853,8 @@ export type Database = {
           location?: string | null
           phone?: string | null
           portfolio_url?: string | null
+          preferred_locale?: string
+          preferred_theme?: string
           profile_completion?: number | null
           resume_url?: string | null
           signup_requested_at?: string

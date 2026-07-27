@@ -24,6 +24,9 @@ import {
   AutofillPreferences, CareerProfile, defaultAutofillPreferences, emptyCareerProfile,
   normalizeAutofillPreferences, normalizeCareerProfile,
 } from "@/lib/career-profile";
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   EXPERIENCE_INVALID_MESSAGE,
   SALARY_INVALID_MESSAGE,
@@ -133,7 +136,7 @@ function DataSourceBadge({ source }: { source?: string }) {
     return <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-300 border-emerald-500/20 gap-1"><ShieldCheck className="h-3 w-3" /> You</Badge>;
   }
   if (source === "cv_upload") {
-    return <Badge variant="outline" className="text-xs bg-violet-500/10 text-violet-300 border-violet-500/20 gap-1"><Upload className="h-3 w-3" /> CV</Badge>;
+    return <Badge variant="outline" className="text-xs bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20 gap-1"><Upload className="h-3 w-3" /> CV</Badge>;
   }
   return <Badge variant="outline" className="text-xs">{source}</Badge>;
 }
@@ -146,6 +149,7 @@ function isValidUrl(str: string): boolean {
 }
 
 export default function ProfileSettings() {
+  const { t } = useTranslation();
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -515,11 +519,23 @@ export default function ProfileSettings() {
         {/* ── Page Header ─────────────────────────────────── */}
         <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card px-6 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Your job profile</p>
-            <h1 className="mt-1 font-display text-3xl font-bold tracking-tight">Profile settings</h1>
-            <p className="mt-1 text-muted-foreground">Keep the details that matter for matching and autofill up to date.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">{t("settings.eyebrow")}</p>
+            <h1 className="mt-1 font-display text-3xl font-bold tracking-tight">{t("settings.title")}</h1>
+            <p className="mt-1 text-muted-foreground">{t("settings.subtitle")}</p>
           </div>
-          <Badge variant="outline" className="w-fit border-primary/25 bg-primary/10 px-3 py-1 text-primary">{completeness}% complete</Badge>
+          <div className="flex flex-col items-start gap-3 sm:items-end">
+            <Badge variant="outline" className="w-fit border-primary/25 bg-primary/10 px-3 py-1 text-primary">{completeness}% complete</Badge>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">{t("settings.languagePreference")}</p>
+                <LanguageSwitcher />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">{t("settings.themePreference")}</p>
+                <ThemeToggle />
+              </div>
+            </div>
+          </div>
         </section>
 
         <ResumeSuggestionNotification
@@ -599,11 +615,11 @@ export default function ProfileSettings() {
                 <ColorInput id="full_name" value={form.full_name} onChange={e => updateField("full_name", e.target.value)} placeholder="John Doe" inputFocus={P.inputFocus} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email" className="flex items-center gap-1.5 text-slate-300">
+                <Label htmlFor="email" className="flex items-center gap-1.5 text-muted-foreground">
                   <Mail className="h-3.5 w-3.5" /> Email
                 </Label>
                 <Input id="email" value={form.email} disabled className="border-border bg-muted/50 text-muted-foreground" />
-                <p className="text-xs text-slate-500">Email cannot be changed here</p>
+                <p className="text-xs text-muted-foreground">Email cannot be changed here</p>
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -645,7 +661,7 @@ export default function ProfileSettings() {
                   aria-label="Location"
                   inputClassName={`transition-all duration-300 bg-background border-border focus:shadow-lg ${P.inputFocus}`}
                 />
-                <p className="text-xs text-slate-500">Used for location-based job matching</p>
+                <p className="text-xs text-muted-foreground">Used for location-based job matching</p>
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -701,7 +717,7 @@ export default function ProfileSettings() {
                     <AlertCircle className="h-3 w-3" />{errors.expected_salary}
                   </p>
                 )}
-                <p className="text-xs text-slate-500">Must be greater than 10,000</p>
+                <p className="text-xs text-muted-foreground">Must be greater than 10,000</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="education" className={`flex items-center gap-1.5 ${P.titleColor}`}>
@@ -715,7 +731,7 @@ export default function ProfileSettings() {
                   placeholder="BSc Computer Science, MIT 2022"
                   inputFocus={P.inputFocus}
                 />
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   Used for readiness. Structured degree rows live in Career Passport below
                   {careerProfile.education.length ? ` (${careerProfile.education.length} entr${careerProfile.education.length === 1 ? "y" : "ies"})` : ""}.
                 </p>
@@ -854,7 +870,7 @@ export default function ProfileSettings() {
               {roles.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {roles.map((r: string) => (
-                    <Badge key={r} variant="secondary" className="bg-violet-500/15 text-violet-300 border-violet-500/20 text-xs">{r}</Badge>
+                    <Badge key={r} variant="secondary" className="bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/20 text-xs">{r}</Badge>
                   ))}
                 </div>
               )}
@@ -885,7 +901,7 @@ export default function ProfileSettings() {
                 <DataSourceBadge source={dataSources.certifications} />
               </Label>
               <ColorTextarea id="certifications" value={form.certifications} onChange={e => updateField("certifications", e.target.value)} placeholder="AWS Certified, PMP, Google Analytics..." rows={2} inputFocus={A.inputFocus} />
-              <p className="text-xs text-slate-500">Comma-separated list of certifications</p>
+              <p className="text-xs text-muted-foreground">Comma-separated list of certifications</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="languages" className={`flex items-center gap-1.5 ${A.titleColor}`}>
@@ -893,7 +909,7 @@ export default function ProfileSettings() {
                 <DataSourceBadge source={dataSources.languages} />
               </Label>
               <ColorInput id="languages" value={form.languages} onChange={e => updateField("languages", e.target.value)} placeholder="English, Spanish, French" inputFocus={A.inputFocus} />
-              <p className="text-xs text-slate-500">Comma-separated list of languages you speak</p>
+              <p className="text-xs text-muted-foreground">Comma-separated list of languages you speak</p>
             </div>
           </CardContent>
         </Card>
@@ -905,16 +921,16 @@ export default function ProfileSettings() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2"><Label htmlFor="work_authorization" className="text-indigo-200">Work authorization</Label><select id="work_authorization" value={form.work_authorization} onChange={e => updateField("work_authorization", e.target.value)} className="flex h-10 w-full rounded-md border border-white/10 bg-[#0d1230]/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose an answer</option><option value="yes">Authorized to work</option><option value="no">Not authorized to work</option></select></div>
-              <div className="space-y-2"><Label htmlFor="willing_to_relocate" className="text-indigo-200">Willing to relocate</Label><select id="willing_to_relocate" value={form.willing_to_relocate} onChange={e => updateField("willing_to_relocate", e.target.value)} className="flex h-10 w-full rounded-md border border-white/10 bg-[#0d1230]/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option></select></div>
-              <div className="space-y-2"><Label htmlFor="work_type" className="text-indigo-200">Work preference</Label><select id="work_type" value={form.work_type} onChange={e => updateField("work_type", e.target.value)} className="flex h-10 w-full rounded-md border border-white/10 bg-[#0d1230]/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose a preference</option><option value="onsite">On-site</option><option value="hybrid">Hybrid</option><option value="remote">Remote</option></select></div>
-              <div className="space-y-2"><Label htmlFor="commute_to_office" className="text-indigo-200">Comfortable commuting to an office</Label><select id="commute_to_office" value={form.commute_to_office} onChange={e => updateField("commute_to_office", e.target.value)} className="flex h-10 w-full rounded-md border border-white/10 bg-[#0d1230]/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option><option value="depends">Depends on location</option></select><p className="text-xs text-muted-foreground">Used only for explicit commute questions; location-dependent answers remain for review.</p></div>
-              <div className="space-y-2"><Label htmlFor="availability" className="text-indigo-200">Availability to start</Label><ColorInput id="availability" value={form.availability} onChange={e => updateField("availability", e.target.value)} placeholder="Immediately, 2 weeks, 4 weeks..." inputFocus="focus-visible:ring-indigo-400/60" /></div>
+              <div className="space-y-2"><Label htmlFor="work_authorization" className="text-foreground">Work authorization</Label><select id="work_authorization" value={form.work_authorization} onChange={e => updateField("work_authorization", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose an answer</option><option value="yes">Authorized to work</option><option value="no">Not authorized to work</option></select></div>
+              <div className="space-y-2"><Label htmlFor="willing_to_relocate" className="text-foreground">Willing to relocate</Label><select id="willing_to_relocate" value={form.willing_to_relocate} onChange={e => updateField("willing_to_relocate", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+              <div className="space-y-2"><Label htmlFor="work_type" className="text-foreground">Work preference</Label><select id="work_type" value={form.work_type} onChange={e => updateField("work_type", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose a preference</option><option value="onsite">On-site</option><option value="hybrid">Hybrid</option><option value="remote">Remote</option></select></div>
+              <div className="space-y-2"><Label htmlFor="commute_to_office" className="text-foreground">Comfortable commuting to an office</Label><select id="commute_to_office" value={form.commute_to_office} onChange={e => updateField("commute_to_office", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option><option value="depends">Depends on location</option></select><p className="text-xs text-muted-foreground">Used only for explicit commute questions; location-dependent answers remain for review.</p></div>
+              <div className="space-y-2"><Label htmlFor="availability" className="text-foreground">Availability to start</Label><ColorInput id="availability" value={form.availability} onChange={e => updateField("availability", e.target.value)} placeholder="Immediately, 2 weeks, 4 weeks..." inputFocus="focus-visible:ring-indigo-400/60" /></div>
             </div>
             <div className="grid gap-4 rounded-xl border border-primary/20 bg-primary/[0.04] p-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
-              <div className="space-y-2"><Label htmlFor="text-confidence" className="text-indigo-200">Text-field confidence</Label><Input id="text-confidence" type="number" min="0.75" max="1" step="0.01" value={autofillPreferences.textAutofillConfidence} onChange={event => setAutofillPreferences(current => ({ ...current, textAutofillConfidence: Math.min(1, Math.max(0.75, Number(event.target.value) || 0.75)) }))} className="border-white/10 bg-[#0d1230]/80" /><p className="text-xs text-muted-foreground">Safe text fields are filled at or above this evidence score.</p></div>
-              <div className="space-y-2"><Label htmlFor="checkbox-confidence" className="text-indigo-200">Non-sensitive checkbox threshold</Label><Input id="checkbox-confidence" type="number" min="0.41" max="1" step="0.01" value={autofillPreferences.checkboxConfidence} onChange={event => setAutofillPreferences(current => ({ ...current, checkboxConfidence: Math.min(1, Math.max(0.41, Number(event.target.value) || 0.41)) }))} className="border-white/10 bg-[#0d1230]/80" /><p className="text-xs text-muted-foreground">40% is the minimum suggestion threshold; direct evidence is still required.</p></div>
-              <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-black/15 px-3 py-2.5 text-sm"><Switch checked={autofillPreferences.reviewBeforeSensitiveAnswers} onCheckedChange={checked => setAutofillPreferences(current => ({ ...current, reviewBeforeSensitiveAnswers: checked }))} /><span>Review sensitive suggestions</span></label>
+              <div className="space-y-2"><Label htmlFor="text-confidence" className="text-foreground">Text-field confidence</Label><Input id="text-confidence" type="number" min="0.75" max="1" step="0.01" value={autofillPreferences.textAutofillConfidence} onChange={event => setAutofillPreferences(current => ({ ...current, textAutofillConfidence: Math.min(1, Math.max(0.75, Number(event.target.value) || 0.75)) }))} className="border-border bg-background" /><p className="text-xs text-muted-foreground">Safe text fields are filled at or above this evidence score.</p></div>
+              <div className="space-y-2"><Label htmlFor="checkbox-confidence" className="text-foreground">Non-sensitive checkbox threshold</Label><Input id="checkbox-confidence" type="number" min="0.41" max="1" step="0.01" value={autofillPreferences.checkboxConfidence} onChange={event => setAutofillPreferences(current => ({ ...current, checkboxConfidence: Math.min(1, Math.max(0.41, Number(event.target.value) || 0.41)) }))} className="border-border bg-background" /><p className="text-xs text-muted-foreground">40% is the minimum suggestion threshold; direct evidence is still required.</p></div>
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-sm"><Switch checked={autofillPreferences.reviewBeforeSensitiveAnswers} onCheckedChange={checked => setAutofillPreferences(current => ({ ...current, reviewBeforeSensitiveAnswers: checked }))} /><span>Review sensitive suggestions</span></label>
             </div>
             <div className="rounded-xl border border-amber-400/20 bg-amber-500/[0.06] px-4 py-3 text-sm leading-6 text-amber-100/90"><strong>Always manual:</strong> terms, privacy consent, declarations, diversity/self-identification, CAPTCHA, verification codes, assessments, and final submission. The extension can explain a suggestion but will never click them.</div>
           </CardContent>

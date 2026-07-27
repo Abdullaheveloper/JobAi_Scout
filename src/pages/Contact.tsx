@@ -5,6 +5,9 @@ import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { JobAILogo } from "@/components/brand/JobAILogo";
 import { CookieSettingsLink } from "@/components/CookieConsentBanner";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { useTranslation } from "react-i18next";
 
 const contactInfo = [
   { icon: Mail, title: "Email Us", detail: "support@jobai.com", sub: "We reply within 24 hours", color: "from-indigo-500 to-violet-600", glow: "rgba(99,102,241,0.3)" },
@@ -51,12 +54,14 @@ export default function Contact() {
   };
 
   return (
-    <div className="public-page min-h-screen text-white overflow-x-hidden page-enter">
+    <div className="public-page min-h-screen text-foreground overflow-x-hidden page-enter">
       {/* Navigation */}
       <nav className="sticky top-0 z-50 nav-premium">
         <div className="container mx-auto px-6 flex h-16 items-center justify-between">
           <Link to="/" aria-label="JobAI Scout home"><JobAILogo /></Link>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <LanguageSwitcher />
             <Link to="/about" className="nav-link-premium">About</Link>
             <Link to="/register" className="btn-premium text-sm">Get Started <ArrowRight className="inline h-4 w-4 ml-1" /></Link>
           </div>
@@ -82,7 +87,7 @@ export default function Contact() {
           </motion.div>
 
           <motion.h1
-            className="heading-xl text-white mb-5"
+            className="heading-xl text-foreground mb-5"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.7 }}
@@ -121,7 +126,7 @@ export default function Contact() {
                 >
                   <item.icon className="h-5 w-5 text-white" />
                 </div>
-                <p className="font-semibold text-white text-sm mb-1" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{item.title}</p>
+                <p className="font-semibold text-foreground text-sm mb-1" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{item.title}</p>
                 <p className="text-sm text-gray-300">{item.detail}</p>
                 <p className="text-xs text-gray-600 mt-0.5">{item.sub}</p>
               </motion.div>
@@ -143,7 +148,7 @@ export default function Contact() {
             >
               <div>
                 <span className="overline block mb-3">Let's connect</span>
-                <h2 className="heading-md text-white mb-4">We're here to help</h2>
+                <h2 className="heading-md text-foreground mb-4">We're here to help</h2>
                 <p className="text-gray-400 text-sm leading-relaxed">
                   Whether you're a job seeker with questions about our AI matching, a recruiter looking to partner, or a company exploring enterprise plans — reach out.
                 </p>
@@ -162,7 +167,7 @@ export default function Contact() {
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
                 >
-                  <p className="font-semibold text-white text-sm mb-1.5" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{faq.q}</p>
+                  <p className="font-semibold text-foreground text-sm mb-1.5" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{faq.q}</p>
                   <p className="text-xs text-gray-500 leading-relaxed">{faq.a}</p>
                 </motion.div>
               ))}
@@ -181,7 +186,7 @@ export default function Contact() {
                     <Send className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Send us a message</h3>
+                    <h3 className="font-bold text-foreground" style={{ fontFamily: 'Syne, sans-serif' }}>Send us a message</h3>
                     <p className="text-xs text-gray-500">We'll get back to you within 24 hours</p>
                   </div>
                 </div>
@@ -198,7 +203,7 @@ export default function Contact() {
                       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 mb-4">
                         <CheckCircle className="h-8 w-8 text-emerald-400" />
                       </div>
-                      <h3 className="font-bold text-white text-xl mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>Message Sent!</h3>
+                      <h3 className="font-bold text-foreground text-xl mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>Message Sent!</h3>
                       <p className="text-gray-400 text-sm">We'll get back to you within 24 hours. Check your email for confirmation.</p>
                     </motion.div>
                   ) : (
@@ -270,7 +275,7 @@ export default function Contact() {
                       >
                         {loading ? (
                           <>
-                            <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <div className="h-4 w-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
                             Sending...
                           </>
                         ) : (

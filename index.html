@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -24,6 +24,31 @@
   <meta name="twitter:title" content="JobAI Scout — AI Career Copilot">
   <meta property="og:description" content="Upload your CV, get AI skill extraction, and discover jobs that match your expertise with semantic matching.">
   <meta name="twitter:description" content="Upload your CV, get AI skill extraction, and discover jobs that match your expertise with semantic matching.">
+  <!-- Prevent FOUC: apply theme class before React boots (localStorage → OS → dark). -->
+  <script>
+    (function () {
+      try {
+        var key = "jobai_theme";
+        var stored = null;
+        try { stored = localStorage.getItem(key); } catch (e) {}
+        var theme = (stored === "light" || stored === "dark") ? stored : null;
+        if (!theme) {
+          try {
+            theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          } catch (e) {
+            theme = "dark";
+          }
+        }
+        var root = document.documentElement;
+        root.classList.remove("light", "dark");
+        root.classList.add(theme);
+        root.style.colorScheme = theme;
+        root.dataset.theme = theme;
+      } catch (e) {
+        document.documentElement.classList.add("dark");
+      }
+    })();
+  </script>
 </head>
 
   <body>

@@ -6,6 +6,7 @@ type JobAILogoProps = {
   markClassName?: string;
   showWordmark?: boolean;
   animated?: boolean;
+  /** Force white wordmark (e.g. on a dark photo overlay). Default follows theme. */
   inverse?: boolean;
 };
 
@@ -18,7 +19,7 @@ export function JobAILogo({
   markClassName,
   showWordmark = true,
   animated = true,
-  inverse = true,
+  inverse = false,
 }: JobAILogoProps) {
   const rawId = useId().replace(/:/g, "");
   const gradientId = `scout-gradient-${rawId}`;
@@ -41,14 +42,14 @@ export function JobAILogo({
           </defs>
           <circle className="jobai-mark__halo" cx="24" cy="24" r="20.5" fill="none" stroke={`url(#${gradientId})`} strokeWidth="1.25" opacity=".42" />
           <path className="jobai-mark__orbit" d="M7.3 28.4C10 39 21.8 44.8 32.2 40.6 42.6 36.5 46.9 24.4 42.1 14.2" fill="none" stroke={`url(#${gradientId})`} strokeWidth="2" strokeLinecap="round" />
-          <path d="M17.5 10.5v18.2c0 5.8 3.1 8.8 8.4 8.8 5.5 0 8.7-3.3 8.7-9.1v-6.1" fill="none" stroke="white" strokeWidth="4.2" strokeLinecap="round" strokeLinejoin="round" />
+          <path className="jobai-mark__needle" d="M17.5 10.5v18.2c0 5.8 3.1 8.8 8.4 8.8 5.5 0 8.7-3.3 8.7-9.1v-6.1" fill="none" stroke="currentColor" strokeWidth="4.2" strokeLinecap="round" strokeLinejoin="round" />
           <path d="m29.7 15.2 5.2-8.6 5.2 8.6-5.2-2.2-5.2 2.2Z" fill={`url(#${gradientId})`} filter={`url(#${glowId})`} />
           <circle className="jobai-mark__signal" cx="8.2" cy="27.3" r="2.75" fill="#67E8F9" filter={`url(#${glowId})`} />
           <circle className="jobai-mark__satellite" cx="42" cy="14" r="2.15" fill="#C084FC" />
         </svg>
       </span>
       {showWordmark && (
-        <span className={cn("jobai-wordmark", inverse ? "text-white" : "text-slate-950")}>
+        <span className={cn("jobai-wordmark", inverse ? "jobai-wordmark--inverse" : undefined)}>
           JobAI <span>Scout</span>
         </span>
       )}

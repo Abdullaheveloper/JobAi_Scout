@@ -41,23 +41,20 @@ body {
 .glass-card {
   position: relative;
   z-index: 2;
-  background: rgba(1, 15, 11, 0.6);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(16, 185, 129, 0.18);
+  border: 1px solid var(--glass-border);
   border-radius: 20px;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: var(--shadow-md);
+  color: hsl(var(--foreground));
   transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .glass-card:hover {
-  border-color: rgba(16, 185, 129, 0.4);
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.7),
-    0 0 40px rgba(16, 185, 129, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-color: var(--glass-border-hover);
+  background: var(--glass-hover-bg);
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
   transform: translateY(-4px);
   z-index: 3;
 }
@@ -65,33 +62,34 @@ body {
 .glass-card-sm {
   position: relative;
   z-index: 2;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--glass-bg-light);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-sm);
+  color: hsl(var(--foreground));
   transition: all 0.3s ease;
 }
 
 .glass-card-sm:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(16, 185, 129, 0.3);
+  background: var(--glass-hover-bg);
+  border-color: var(--glass-border-hover);
   z-index: 3;
 }
 
 /* ─── Navigation ────────────────────────────────────────────── */
 .nav-premium {
-  background: rgba(2, 10, 8, 0.85);
+  background: var(--header-bg);
   backdrop-filter: blur(24px) saturate(200%);
   -webkit-backdrop-filter: blur(24px) saturate(200%);
-  border-bottom: 1px solid rgba(16, 185, 129, 0.12);
-  box-shadow: 0 1px 0 rgba(16, 185, 129, 0.05);
+  border-bottom: 1px solid var(--header-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .nav-link-premium {
   position: relative;
-  color: #a7f3d0;
+  color: var(--text-muted);
   font-size: 0.875rem;
   font-weight: 500;
   transition: color 0.2s ease;
@@ -105,13 +103,13 @@ body {
   left: 0;
   width: 0;
   height: 2px;
-  background: linear-gradient(90deg, #10b981, #2dd4bf);
+  background: var(--gradient-primary);
   border-radius: 2px;
   transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .nav-link-premium:hover {
-  color: #f0fdf4;
+  color: var(--text-primary);
 }
 .nav-link-premium:hover::after {
   width: 100%;
@@ -576,16 +574,18 @@ body {
 .metric-card {
   position: relative;
   z-index: 2;
-  background: linear-gradient(145deg, rgba(1, 15, 11, 0.8) 0%, rgba(0, 10, 8, 0.8) 100%);
-  border: 1px solid rgba(16, 185, 129, 0.15);
+  background: var(--gradient-card), var(--bg-card);
+  border: 1px solid var(--glass-border);
   border-radius: 16px;
   padding: 1.5rem;
+  color: hsl(var(--foreground));
+  box-shadow: var(--shadow-sm);
   transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .metric-card:hover {
-  border-color: rgba(16, 185, 129, 0.35);
-  box-shadow: 0 8px 32px rgba(16, 185, 129, 0.1);
+  border-color: var(--glass-border-hover);
+  box-shadow: var(--shadow-md), var(--shadow-glow);
   transform: translateY(-2px);
   z-index: 3;
 }
@@ -593,18 +593,18 @@ body {
 /* ─── Input Premium ─────────────────────────────────────────── */
 .input-premium {
   width: 100%;
-  background: #000000 !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.82) !important;
+  background: var(--bg-elevated) !important;
+  border: 1.5px solid var(--glass-border) !important;
   border-radius: 12px !important;
-  color: #f8fafc !important;
+  color: var(--text-primary) !important;
   font-size: 0.9375rem !important;
   transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1) !important;
-  -webkit-text-fill-color: #f8fafc !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
 }
 
 .input-premium:hover {
-  border-color: #ffffff !important;
-  background: #000000 !important;
+  border-color: var(--glass-border-hover) !important;
+  background: var(--bg-elevated) !important;
 }
 
 .input-premium:focus {

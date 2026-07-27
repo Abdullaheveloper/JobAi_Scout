@@ -1,196 +1,445 @@
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import {
-  ArrowRight,
-  AudioLines,
-  BriefcaseBusiness,
-  Building2,
-  Check,
-  FileSearch,
-  FileText,
-  MousePointerClick,
-  Search,
-  Sparkles,
-  Target,
-  UserRoundCheck,
-} from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { JobAILogo } from "@/components/brand/JobAILogo";
 import { CookieSettingsLink } from "@/components/CookieConsentBanner";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { useLandingHeroMetrics } from "@/hooks/useLandingHeroMetrics";
+import "./LandingRedesign.css";
 
-const ease = [0.22, 1, 0.36, 1] as const;
-
-const reveal = {
-  hidden: { opacity: 0, y: 18 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease } },
-};
-
-const features = [
-  {
-    icon: FileSearch,
-    title: "Understand your resume",
-    text: "Turn the information already in your CV into a clear, structured career profile.",
-    points: ["Skills and experience signals", "Readable profile context"],
-  },
-  {
-    icon: Target,
-    title: "Evaluate relevant roles",
-    text: "Compare your profile with a role and see the context behind the match.",
-    points: ["Role requirements in one view", "Practical match insights"],
-  },
-  {
-    icon: MousePointerClick,
-    title: "Keep applications moving",
-    text: "Reuse your details, track activity, and keep the next step visible.",
-    points: ["Supported form assistance", "Focused application tracking"],
-  },
+const RAIL_DOTS = [
+  { pct: 0.06, top: "0%", labelKey: "landing.railResume" as const },
+  { pct: 0.38, top: "38%", labelKey: "landing.railExplore" as const },
+  { pct: 0.68, top: "68%", labelKey: "landing.railDecide" as const },
+  { pct: 0.94, top: "100%", labelKey: "landing.railNextRole" as const },
 ];
 
-const steps = [
-  { icon: FileText, label: "01", title: "Add your resume", text: "Start with the CV you already have." },
-  { icon: Search, label: "02", title: "Explore opportunities", text: "Find roles with your career context in mind." },
-  { icon: UserRoundCheck, label: "03", title: "Take the next step", text: "Track decisions and prepare with confidence." },
-];
-
-function SectionTitle({ eyebrow, title, copy }: { eyebrow: string; title: string; copy: string }) {
+function CheckIcon() {
   return (
-    <motion.div
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, amount: 0.2 }}
-      variants={reveal}
-      className="max-w-2xl"
-    >
-      <p className="text-xs font-bold uppercase tracking-[.16em] text-violet-300">{eyebrow}</p>
-      <h2 className="mt-3 text-3xl font-semibold tracking-[-.05em] text-white sm:text-4xl">{title}</h2>
-      <p className="mt-4 text-base leading-7 text-slate-300">{copy}</p>
-    </motion.div>
-  );
-}
-
-function ProductPreview() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.7, delay: 0.18, ease }}
-      className="relative mx-auto w-full max-w-[34rem]"
-    >
-      <div className="absolute -inset-8 -z-10 rounded-full bg-gradient-to-r from-violet-500/35 via-blue-500/25 to-fuchsia-500/30 blur-3xl" />
-      <div className="overflow-hidden rounded-[1.75rem] border border-white/15 bg-[#131b3d]/90 p-3 shadow-2xl shadow-blue-950/45 backdrop-blur-xl sm:p-4">
-        <div className="rounded-[1.25rem] bg-[#0e1633] p-5 text-white sm:p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-blue-500"><BriefcaseBusiness className="h-4 w-4" /></span>
-              <div><p className="text-sm font-semibold">Example career workspace</p><p className="text-[11px] text-white/55">Profile overview</p></div>
-            </div>
-            <span className="rounded-full bg-blue-300/15 px-2.5 py-1 text-[10px] font-semibold text-blue-200">Ready</span>
-          </div>
-          <div className="mt-6 rounded-2xl bg-white/[.09] p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div><p className="text-xs text-white/55">Profile strength</p><p className="mt-1 text-xl font-semibold">Frontend Engineer</p><p className="mt-1 text-xs text-white/55">React · TypeScript · Remote</p></div>
-              <span className="grid h-12 w-12 place-items-center rounded-full border-[5px] border-violet-300 border-r-[#0e1633] text-xs font-bold">82%</span>
-            </div>
-          </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-[1.15fr_.85fr]">
-            <div className="rounded-2xl bg-white/[.09] p-4">
-              <div className="flex items-center justify-between"><p className="text-xs text-white/55">Recommended role</p><span className="text-xs font-semibold text-blue-200">89% fit</span></div>
-              <p className="mt-3 text-sm font-semibold">Product Designer</p>
-              <div className="mt-3 h-1.5 rounded-full bg-white/10"><div className="h-1.5 w-[89%] rounded-full bg-gradient-to-r from-violet-300 to-blue-300" /></div>
-              <p className="mt-3 text-xs leading-5 text-white/55">Relevant skills and role context in one view.</p>
-            </div>
-            <div className="rounded-2xl bg-gradient-to-br from-violet-400/30 to-blue-400/20 p-4">
-              <AudioLines className="h-5 w-5 text-violet-100" />
-              <p className="mt-5 text-sm font-semibold">Ask JobAI</p>
-              <p className="mt-1 text-xs leading-5 text-white/60">Get focused support when you need it.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </motion.div>
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M4 10l4 4 8-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
   );
 }
 
 export default function Index() {
+  const { t } = useTranslation();
+  const metrics = useLandingHeroMetrics();
+  const [navScrolled, setNavScrolled] = useState(false);
+  const [railPct, setRailPct] = useState(0);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const stackRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setNavScrolled(window.scrollY > 40);
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = docHeight > 0 ? Math.min(Math.max(window.scrollY / docHeight, 0), 1) : 0;
+      setRailPct(pct);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const nodes = root.querySelectorAll(".reveal, .feature-card");
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) {
+      nodes.forEach((el) => el.classList.add("is-visible"));
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) entry.target.classList.add("is-visible");
+        });
+      },
+      { threshold: 0.18 },
+    );
+    nodes.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    const stack = stackRef.current;
+    if (!stage || !stack) return;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const finePointer = window.matchMedia("(pointer: fine)").matches;
+    if (reduceMotion || !finePointer) return;
+
+    const onMove = (e: MouseEvent) => {
+      const rect = stage.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      stack.style.transform = `rotateY(${x * 14}deg) rotateX(${-y * 10}deg)`;
+    };
+    const onLeave = () => {
+      stack.style.transform = "rotateY(0deg) rotateX(0deg)";
+    };
+
+    stage.addEventListener("mousemove", onMove);
+    stage.addEventListener("mouseleave", onLeave);
+    return () => {
+      stage.removeEventListener("mousemove", onMove);
+      stage.removeEventListener("mouseleave", onLeave);
+    };
+  }, []);
+
+  const features = [
+    {
+      title: t("landing.feature1Title"),
+      text: t("landing.feature1Text"),
+      points: [t("landing.feature1Point1"), t("landing.feature1Point2")],
+      delay: undefined as string | undefined,
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6 2h9l5 5v15H6z" stroke="currentColor" strokeWidth="1.6" />
+          <path d="M9 12h6M9 16h6" stroke="currentColor" strokeWidth="1.6" />
+        </svg>
+      ),
+    },
+    {
+      title: t("landing.feature2Title"),
+      text: t("landing.feature2Text"),
+      points: [t("landing.feature2Point1"), t("landing.feature2Point2")],
+      delay: "0.08s",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.6" />
+          <path d="M21 21l-4.3-4.3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      title: t("landing.feature3Title"),
+      text: t("landing.feature3Text"),
+      points: [t("landing.feature3Point1"), t("landing.feature3Point2")],
+      delay: "0.16s",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M13 2 3 14h7l-1 8 10-12h-7z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+        </svg>
+      ),
+    },
+  ];
+
+  const steps = [
+    { num: "01", coord: "N 34.02°", title: t("landing.step1Title"), text: t("landing.step1Text"), delay: undefined as string | undefined },
+    { num: "02", coord: "N 34.18°", title: t("landing.step2Title"), text: t("landing.step2Text"), delay: "0.08s" },
+    { num: "03", coord: "N 34.31°", title: t("landing.step3Title"), text: t("landing.step3Text"), delay: "0.16s" },
+  ];
+
+  const matchBadge =
+    metrics.matchPct != null
+      ? t("landing.previewFitBadge", { pct: metrics.matchPct })
+      : metrics.isLive
+        ? t("landing.previewMatchPending")
+        : t("landing.previewFit");
+  const appsBadge = t("landing.previewActiveBadge", {
+    count: metrics.activeApplications ?? (metrics.isLive ? 0 : 3),
+  });
+
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#080d21] text-white">
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
-        <div className="absolute -left-36 -top-24 h-[34rem] w-[34rem] rounded-full bg-violet-600/25 blur-[110px]" />
-        <div className="absolute right-[-13rem] top-[27rem] h-[31rem] w-[31rem] rounded-full bg-blue-500/20 blur-[120px]" />
+    <main className="landing-redesign" ref={rootRef}>
+      <svg className="contour-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M-50,120 C 200,80 400,180 650,120 S 1100,60 1300,140" stroke="#06b6d4" strokeWidth="1" fill="none" />
+        <path d="M-50,320 C 250,260 500,380 750,300 S 1150,260 1350,340" stroke="#06b6d4" strokeWidth="1" fill="none" />
+        <path d="M-50,560 C 220,510 480,610 720,540 S 1120,500 1350,580" stroke="#6366f1" strokeWidth="1" fill="none" />
+        <path d="M-50,800 C 260,740 520,840 780,770 S 1150,730 1360,820" stroke="#06b6d4" strokeWidth="1" fill="none" />
+      </svg>
+
+      <div className="trail-rail" aria-hidden="true">
+        <div className="track" />
+        <div className="fill" style={{ height: `${railPct * 100}%` }} />
+        {RAIL_DOTS.map((dot) => (
+          <div
+            key={dot.labelKey}
+            className={`rail-dot${railPct >= dot.pct ? " lit" : ""}`}
+            style={{ top: dot.top }}
+          >
+            <span className="rail-label">{t(dot.labelKey)}</span>
+          </div>
+        ))}
       </div>
 
-      <header className="px-4 pt-4 sm:px-6">
-        <nav className="mx-auto flex max-w-6xl items-center justify-between rounded-2xl border border-white/10 bg-[#111936]/75 px-4 py-3 shadow-lg shadow-black/20 backdrop-blur-xl sm:px-5" aria-label="Main navigation">
-          <Link to="/" className="flex shrink-0 items-center gap-2" aria-label="JobAI Scout home">
-            <JobAILogo markClassName="h-9 w-9" />
+      <nav className={`lr-nav${navScrolled ? " scrolled" : ""}`} aria-label={t("brand.homeAria")}>
+        <div className="wrap nav-row">
+          <Link to="/" className="logo" aria-label={t("brand.homeAria")}>
+            <JobAILogo markClassName="h-[30px] w-[30px]" />
           </Link>
-          <div className="hidden items-center gap-1 text-sm md:flex">
-            <a href="#features" className="rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/10 hover:text-white">Features</a>
-            <a href="#workflow" className="rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/10 hover:text-white">How it works</a>
-            <Link to="/register?role=recruiter" className="rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/10 hover:text-white">For recruiters</Link>
-            <Link to="/login" className="rounded-lg px-3 py-2 font-medium text-violet-200 transition hover:bg-white/10">Sign in</Link>
-            <Link to="/register" className="rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 px-4 py-2 font-semibold text-white shadow-sm shadow-violet-500/30 transition hover:from-violet-500 hover:to-blue-500">Get started</Link>
+          <div className="nav-links">
+            <a href="#features">{t("nav.features")}</a>
+            <a href="#workflow">{t("nav.howItWorks")}</a>
+            <a href="#recruiters">{t("nav.forRecruiters")}</a>
+            <Link to="/login">{t("common.signIn")}</Link>
           </div>
-          <Link to="/register" className="rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 px-3 py-2 text-sm font-semibold text-white md:hidden">Get started</Link>
-        </nav>
+          <div className="nav-cta">
+            <ThemeToggle />
+            <LanguageSwitcher />
+            <Link to="/register" className="btn btn-primary btn-sm">
+              {t("common.getStarted")}
+            </Link>
+          </div>
+        </div>
+      </nav>
+
+      <header className="hero wrap">
+        <div>
+          <div className="eyebrow">{t("landing.heroEyebrow")}</div>
+          <h1>
+            {t("landing.heroTitle")} <em>{t("landing.heroTitleAccent")}</em>
+          </h1>
+          <p className="hero-sub">{t("landing.heroSubtitle")}</p>
+          <div className="hero-ctas">
+            <Link to="/register" className="btn btn-primary">
+              {t("landing.ctaStartWorkspace")}
+            </Link>
+            <a href="#workflow" className="btn btn-ghost">
+              {t("landing.ctaSeeHow")}
+            </a>
+          </div>
+          <div className="trust-row">
+            <span>
+              <CheckIcon />
+              {t("landing.proofResume")}
+            </span>
+            <span>
+              <CheckIcon />
+              {t("landing.proofRoles")}
+            </span>
+            <span>
+              <CheckIcon />
+              {t("landing.proofApps")}
+            </span>
+          </div>
+        </div>
+
+        <div className="stage" ref={stageRef}>
+          <div className="stack" ref={stackRef}>
+            <div className="orbit-dot" style={{ top: 200, left: 200, animationDelay: "0s" }} />
+            <div className="orbit-dot" style={{ top: 200, left: 200, animationDelay: "-5s" }} />
+
+            <div className="glass-card card-a">
+              <div className="waypoint-label">
+                {t("landing.waypointResume")}
+                <span className="badge">
+                  {metrics.profileReady ? t("landing.previewReady") : t("landing.previewBuilding")}
+                </span>
+              </div>
+              <h4>{t("landing.previewStrength")}</h4>
+              <p>
+                {metrics.profileLabel} · {metrics.profileStack}
+              </p>
+              <div className="metric">{metrics.profileStrength}%</div>
+            </div>
+
+            <div className="glass-card card-b">
+              <div className="waypoint-label">
+                {t("landing.waypointMatch")}
+                <span className="badge">{matchBadge}</span>
+              </div>
+              <h4>{metrics.matchTitle}</h4>
+              <p>{t("landing.previewInsight")}</p>
+            </div>
+
+            <div className="glass-card card-c">
+              <div className="waypoint-label">
+                {t("landing.waypointApply")}
+                <span className="badge">{appsBadge}</span>
+              </div>
+              <h4>{t("landing.previewAsk")}</h4>
+              <p>{t("landing.previewAskText")}</p>
+            </div>
+          </div>
+          <div className="hero-waypoint">
+            <span className="dot" />
+            {t("landing.heroRoute")}
+          </div>
+        </div>
       </header>
 
-      <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-16 sm:px-8 sm:pb-28 sm:pt-24 lg:grid-cols-[1.05fr_.95fr] lg:gap-16">
-        <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.1 } } }} className="text-center lg:text-left">
-          <motion.p variants={reveal} className="inline-flex items-center gap-1.5 rounded-full border border-violet-400/25 bg-violet-400/10 px-3 py-1.5 text-xs font-semibold text-violet-200"><Sparkles className="h-3.5 w-3.5" /> AI-powered career intelligence</motion.p>
-          <motion.h1 variants={reveal} className="mt-6 max-w-3xl text-5xl font-semibold leading-[.98] tracking-[-.07em] sm:text-6xl lg:text-[4.25rem]">Make your next career move <span className="bg-gradient-to-r from-violet-300 to-blue-300 bg-clip-text text-transparent">with clarity.</span></motion.h1>
-          <motion.p variants={reveal} className="mt-6 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">One workspace for your resume, relevant opportunities, and every application decision that follows.</motion.p>
-          <motion.div variants={reveal} className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center lg:justify-start">
-            <Link to="/register" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:from-violet-500 hover:to-blue-500">Create a job-seeker workspace <ArrowRight className="h-4 w-4" /></Link>
-            <a href="#workflow" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 text-sm font-semibold text-blue-100 transition hover:bg-white/10">See how it works <Search className="h-4 w-4" /></a>
-          </motion.div>
-          <motion.div variants={reveal} className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs font-medium text-slate-300 lg:justify-start">
-            {["Resume intelligence", "Role context", "Application tracking"].map((item) => <span key={item} className="inline-flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-violet-300" />{item}</span>)}
-          </motion.div>
-        </motion.div>
-        <ProductPreview />
-      </section>
+      <div className="legend-strip">
+        <div className="wrap legend-row">
+          <p>{t("landing.bannerText")}</p>
+          <div className="legend-tags">
+            <span>
+              <b>01</b> {t("landing.bannerResume")}
+            </span>
+            <span>
+              <b>02</b> {t("landing.bannerRoles")}
+            </span>
+            <span>
+              <b>03</b> {t("landing.bannerApplications")}
+            </span>
+          </div>
+        </div>
+      </div>
 
-      <section className="border-y border-white/10 bg-[#0c1330]/70 py-7">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 text-center sm:flex-row sm:px-8 sm:text-left">
-          <p className="text-sm font-medium text-slate-300">A focused job search starts with the opportunities you choose to track.</p>
-          <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs font-bold uppercase tracking-[.13em] text-violet-300/80"><span>Resume</span><span>Relevant roles</span><span>Applications</span></div>
+      <section id="features" className="wrap">
+        <div className="section-head reveal">
+          <div className="eyebrow">{t("landing.featuresEyebrow")}</div>
+          <h2>{t("landing.featuresTitle")}</h2>
+          <p>{t("landing.featuresCopy")}</p>
+        </div>
+
+        <div className="feature-grid">
+          {features.map((feature) => (
+            <article
+              key={feature.title}
+              className="feature-card reveal"
+              style={feature.delay ? { transitionDelay: feature.delay } : undefined}
+            >
+              <div className="waypoint-dot-abs" />
+              <div className="icon">{feature.icon}</div>
+              <h3>{feature.title}</h3>
+              <p>{feature.text}</p>
+              <div className="checks">
+                {feature.points.map((point) => (
+                  <span key={point}>
+                    <CheckIcon />
+                    {point}
+                  </span>
+                ))}
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20" aria-label="Choose your workspace">
-        <div className="rounded-[2rem] border border-white/10 bg-[#111936]/75 p-6 shadow-xl shadow-black/20 sm:p-8">
-          <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-end">
-            <div><p className="text-xs font-bold uppercase tracking-[.16em] text-violet-300">Built for both sides of the search</p><h2 className="mt-2 text-2xl font-semibold tracking-[-.04em] sm:text-3xl">Choose the workspace that matches your goal.</h2></div>
-            <p className="max-w-md text-sm leading-6 text-slate-300">Your account type sets up the right starting point. You can create either workspace in under a minute.</p>
+      <section id="workflow" className="wrap">
+        <div className="section-head-row reveal">
+          <div className="section-head" style={{ marginBottom: 0 }}>
+            <div className="eyebrow">{t("landing.workflowEyebrow")}</div>
+            <h2>{t("landing.workflowTitle")}</h2>
           </div>
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <Link to="/register" className="group rounded-2xl border border-violet-400/25 bg-gradient-to-br from-violet-500/15 to-blue-500/10 p-6 transition hover:border-violet-300/60 hover:bg-violet-500/20">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 text-white"><BriefcaseBusiness className="h-5 w-5" /></span><h3 className="mt-5 text-lg font-semibold">I am looking for work</h3><p className="mt-2 text-sm leading-6 text-slate-300">Build a profile, organise suitable roles, and keep applications moving.</p><span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-violet-200">Create job-seeker account <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" /></span>
-            </Link>
-            <Link to="/register?role=recruiter" className="group rounded-2xl border border-white/10 bg-[#0c1330] p-6 transition hover:border-blue-300/50 hover:bg-blue-500/10">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-500/20 text-blue-200"><Building2 className="h-5 w-5" /></span><h3 className="mt-5 text-lg font-semibold">I am hiring</h3><p className="mt-2 text-sm leading-6 text-slate-300">Set up your company profile, publish roles, and manage candidates.</p><span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-blue-200">Create recruiter account <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" /></span>
+          <p style={{ color: "var(--lr-paper-dim)", fontSize: 15, maxWidth: 320 }}>{t("landing.workflowCopy")}</p>
+        </div>
+
+        <div className="workflow-grid" style={{ marginTop: 56 }}>
+          {steps.map((step) => (
+            <article
+              key={step.num}
+              className="waypoint-card reveal"
+              style={step.delay ? { transitionDelay: step.delay } : undefined}
+            >
+              <div className="waypoint-connector" />
+              <div className="coord">
+                <span className="num">{step.num}</span>
+                <span>{step.coord}</span>
+              </div>
+              <h3>{step.title}</h3>
+              <p>{step.text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="wrap">
+        <div className="assistant-wrap">
+          <div className="reveal">
+            <div className="eyebrow">{t("landing.assistantEyebrow")}</div>
+            <h2 style={{ fontSize: "clamp(26px,3.2vw,36px)", color: "var(--lr-paper)", lineHeight: 1.18 }}>
+              {t("landing.assistantTitle")}
+            </h2>
+            <p style={{ marginTop: 16, color: "var(--lr-paper-dim)", fontSize: 15.5, maxWidth: 400, lineHeight: 1.65 }}>
+              {t("landing.assistantCopy")}
+            </p>
+          </div>
+          <div className="assistant-card reveal" style={{ transitionDelay: "0.1s" }}>
+            <div className="assistant-head">
+              <div className="assistant-avatar">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 2 3 7v10l9 5 9-5V7z" stroke="#020817" strokeWidth="1.6" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div>
+                <b>{t("landing.assistantName")}</b>
+                <div className="q">{t("landing.assistantSampleQ")}</div>
+              </div>
+            </div>
+            <div className="assistant-bubble">{t("landing.assistantSampleA")}</div>
+            <Link to="/register" className="assistant-cta">
+              {t("landing.meetAssistant")} →
             </Link>
           </div>
         </div>
       </section>
 
-      <section id="features" className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
-        <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end"><SectionTitle eyebrow="What JobAI Scout helps you do" title="Less searching noise. More useful progress." copy="Every tool is designed to make the next decision easier to understand and act on." /><Link to="/register" className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-violet-200 transition hover:text-white">Explore the workspace <ArrowRight className="h-4 w-4" /></Link></div>
-        <div className="mt-12 grid gap-5 lg:grid-cols-3">{features.map((feature, index) => { const Icon = feature.icon; return <motion.article key={feature.title} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={reveal} transition={{ delay: index * 0.08 }} className="rounded-3xl border border-white/10 bg-[#111936]/75 p-7 shadow-xl shadow-black/20"><span className="grid h-11 w-11 place-items-center rounded-xl bg-violet-500/15 text-violet-200"><Icon className="h-5 w-5" /></span><h3 className="mt-7 text-xl font-semibold tracking-[-.03em]">{feature.title}</h3><p className="mt-3 text-sm leading-6 text-slate-300">{feature.text}</p><ul className="mt-6 space-y-2.5 border-t border-white/10 pt-5">{feature.points.map((point) => <li key={point} className="flex items-center gap-2 text-sm text-slate-200"><Check className="h-4 w-4 shrink-0 text-violet-300" />{point}</li>)}</ul></motion.article>; })}</div>
+      <section id="recruiters" className="wrap">
+        <div className="path-grid">
+          <Link to="/register" className="path-card seeker reveal">
+            <div className="icon">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 7h16v13H4z" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M9 7V5a3 3 0 013-3v0a3 3 0 013 3v2" stroke="currentColor" strokeWidth="1.6" />
+              </svg>
+            </div>
+            <h3>{t("landing.seekerTitle")}</h3>
+            <p>{t("landing.seekerText")}</p>
+            <span className="link">{t("landing.seekerCta")} →</span>
+          </Link>
+          <Link to="/register?role=recruiter" className="path-card recruit reveal" style={{ transitionDelay: "0.08s" }}>
+            <div className="icon">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 21V9l8-5 8 5v12" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                <path d="M9 21v-6h6v6" stroke="currentColor" strokeWidth="1.6" />
+              </svg>
+            </div>
+            <h3>{t("landing.recruiterTitle")}</h3>
+            <p>{t("landing.recruiterText")}</p>
+            <span className="link">{t("landing.recruiterCta")} →</span>
+          </Link>
+        </div>
       </section>
 
-      <section id="workflow" className="border-y border-white/10 bg-[#0c1330] py-20 text-white sm:py-28">
-        <div className="mx-auto max-w-6xl px-5 sm:px-8"><div className="max-w-2xl"><p className="text-xs font-bold uppercase tracking-[.16em] text-blue-200">A simple workflow</p><h2 className="mt-3 text-3xl font-semibold tracking-[-.05em] sm:text-4xl">From resume to next step, without the clutter.</h2><p className="mt-4 text-base leading-7 text-white/65">A focused sequence replaces the scattered tabs, repeated entry, and unclear follow-ups of a typical job search.</p></div><div className="mt-12 grid gap-4 lg:grid-cols-3">{steps.map((step, index) => { const Icon = step.icon; return <motion.article key={step.label} initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: index * 0.08, ease }} className="rounded-3xl border border-white/10 bg-[#151e42] p-7"><div className="flex items-center justify-between"><span className="grid h-11 w-11 place-items-center rounded-xl bg-violet-500/15 text-violet-200"><Icon className="h-5 w-5" /></span><span className="text-sm font-semibold text-white/40">{step.label}</span></div><h3 className="mt-8 text-xl font-semibold">{step.title}</h3><p className="mt-3 text-sm leading-6 text-white/65">{step.text}</p></motion.article>; })}</div></div>
+      <section className="wrap">
+        <div className="final-cta reveal">
+          <div className="compass-icon">
+            <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <circle cx="16" cy="16" r="14.5" stroke="#818cf8" strokeWidth="1.4" />
+              <path d="M16 6 L20 16 L16 26 L12 16 Z" fill="#6366f1" />
+            </svg>
+          </div>
+          <h2>{t("landing.ctaTitle")}</h2>
+          <p>{t("landing.ctaCopy")}</p>
+          <div className="hero-ctas">
+            <Link to="/register" className="btn btn-primary">
+              {t("landing.seekerTitle")} →
+            </Link>
+            <Link to="/register?role=recruiter" className="btn btn-ghost">
+              {t("landing.recruiterTitle")}
+            </Link>
+          </div>
+        </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-10 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-[.85fr_1.15fr] lg:items-center">
-        <SectionTitle eyebrow="Practical support when you need it" title="Career help that stays in context." copy="Ask about a role, your resume, or interview preparation without losing the information you have already gathered." />
-        <div className="rounded-[2rem] border border-white/10 bg-[#111936]/75 p-6 shadow-xl shadow-black/20 sm:p-8"><div className="flex items-start gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 text-white"><AudioLines className="h-5 w-5" /></span><div><p className="text-sm font-semibold">JobAI assistant</p><p className="mt-1 text-sm leading-6 text-slate-400">What should I focus on before this interview?</p></div></div><div className="mt-7 rounded-2xl border border-violet-400/15 bg-violet-500/10 p-5 text-sm leading-6 text-slate-200">Start with the role requirements that are most relevant to your experience, then prepare two concise examples that show how you delivered a similar outcome.</div><Link to="/register" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-violet-200">Meet the assistant <ArrowRight className="h-4 w-4" /></Link></div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8 sm:pb-28"><div className="relative overflow-hidden rounded-[2rem] border border-violet-300/20 bg-gradient-to-br from-[#25165d] via-[#263f99] to-[#175a9e] px-6 py-16 text-center text-white shadow-2xl shadow-violet-950/45 sm:px-12 sm:py-20"><div className="absolute inset-0 opacity-20 [background-image:radial-gradient(white_1px,transparent_1px)] [background-size:24px_24px]" /><div className="relative mx-auto max-w-2xl"><Sparkles className="mx-auto h-6 w-6 text-violet-100" /><h2 className="mt-6 text-3xl font-semibold tracking-[-.05em] sm:text-4xl">Ready to make your next move clearer?</h2><p className="mt-4 text-base leading-7 text-white/80">Set up your career workspace and begin with the resume you already have.</p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link to="/register" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-[#2f2c7d] transition hover:bg-violet-50">I am looking for work <ArrowRight className="h-4 w-4" /></Link><Link to="/register?role=recruiter" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/45 bg-white/10 px-5 text-sm font-semibold text-white transition hover:bg-white/20">I am hiring <Building2 className="h-4 w-4" /></Link></div></div></div></section>
-
-      <footer className="border-t border-white/10 bg-[#0c1330] py-9"><div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 text-sm sm:px-8 md:flex-row md:items-center md:justify-between"><JobAILogo markClassName="h-8 w-8" /><div className="flex flex-wrap gap-x-5 gap-y-2 text-slate-300"><Link to="/about">About</Link><Link to="/contact">Contact</Link><Link to="/privacy">Privacy</Link><CookieSettingsLink className="hover:text-white transition-colors" /><Link to="/login">Sign in</Link><Link to="/register">Get started</Link></div><p className="text-xs text-slate-500">© 2026 JobAI Scout</p></div></footer>
+      <footer className="lr-footer wrap">
+        <div className="footer-row">
+          <Link to="/" className="logo" aria-label={t("brand.homeAria")}>
+            <JobAILogo markClassName="h-8 w-8" />
+          </Link>
+          <div className="footer-links">
+            <a href="#features">{t("nav.features")}</a>
+            <Link to="/privacy">{t("common.privacyPolicy")}</Link>
+            <CookieSettingsLink />
+            <Link to="/contact">{t("common.contact")}</Link>
+            <Link to="/about">{t("common.about")}</Link>
+            <Link to="/login">{t("common.signIn")}</Link>
+            <Link to="/register">{t("common.getStarted")}</Link>
+          </div>
+          <div className="footer-coord">{t("landing.footerCoord")}</div>
+        </div>
+        <p className="footer-coord" style={{ marginTop: 24 }}>
+          {t("landing.copyright")}
+        </p>
+      </footer>
     </main>
   );
 }

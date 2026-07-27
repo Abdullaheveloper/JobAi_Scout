@@ -47,37 +47,37 @@ function ConversationItem({
         'group relative flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all',
         isActive
           ? 'bg-indigo-600/20 border border-indigo-500/30'
-          : 'hover:bg-white/5 border border-transparent'
+          : 'hover:bg-muted border border-transparent'
       )}
       onClick={!editing ? onSelect : undefined}
     >
-      <MessageSquare size={14} className={cn('flex-shrink-0', isActive ? 'text-indigo-400' : 'text-white/30')} />
+      <MessageSquare size={14} className={cn('flex-shrink-0', isActive ? 'text-indigo-400' : 'text-muted-foreground')} />
 
       {editing ? (
         <div className="flex-1 flex items-center gap-1" onClick={e => e.stopPropagation()}>
           <input
             value={editTitle}
             onChange={e => setEditTitle(e.target.value)}
-            className="flex-1 bg-white/10 border border-white/20 rounded px-2 py-0.5 text-sm text-white focus:outline-none focus:border-indigo-500 min-w-0"
+            className="flex-1 bg-muted border border-border rounded px-2 py-0.5 text-sm text-foreground focus:outline-none focus:border-indigo-500 min-w-0"
             autoFocus
             onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setEditing(false); }}
           />
           <button onClick={handleRename} className="text-green-400 hover:text-green-300 p-0.5"><Check size={12} /></button>
-          <button onClick={() => setEditing(false)} className="text-white/40 hover:text-white/70 p-0.5"><X size={12} /></button>
+          <button onClick={() => setEditing(false)} className="text-muted-foreground hover:text-foreground p-0.5"><X size={12} /></button>
         </div>
       ) : (
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-white/80 truncate">{conversation.title || 'Untitled'}</p>
-          <p className="text-xs text-white/25">{formatDate(conversation.created_at)}</p>
+          <p className="text-sm text-foreground truncate">{conversation.title || 'Untitled'}</p>
+          <p className="text-xs text-muted-foreground">{formatDate(conversation.created_at)}</p>
         </div>
       )}
 
       {!editing && (
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-          <button onClick={() => setEditing(true)} className="p-1 text-white/30 hover:text-white/70 rounded transition-colors">
+          <button onClick={() => setEditing(true)} className="p-1 text-muted-foreground hover:text-foreground rounded transition-colors">
             <Edit2 size={11} />
           </button>
-          <button onClick={onDelete} className="p-1 text-white/30 hover:text-rose-400 rounded transition-colors">
+          <button onClick={onDelete} className="p-1 text-muted-foreground hover:text-rose-400 rounded transition-colors">
             <Trash2 size={11} />
           </button>
         </div>
@@ -114,14 +114,14 @@ export function ConversationList({ onSelect, className }: ConversationListProps)
   return (
     <div className={cn('flex flex-col h-full', className)}>
       {/* Header */}
-      <div className="px-4 py-3 border-b border-white/10">
+      <div className="px-4 py-3 border-b border-border">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-white/70 uppercase tracking-wider">Conversations</h2>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Conversations</h2>
           <Button
             variant="ghost"
             size="sm"
             onClick={store.startNewChat}
-            className="h-7 w-7 p-0 text-white/50 hover:text-white hover:bg-white/10 rounded-lg"
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
           >
             <Plus size={14} />
           </Button>
@@ -129,12 +129,12 @@ export function ConversationList({ onSelect, className }: ConversationListProps)
 
         {/* Search */}
         <div className="relative">
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/30" />
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search conversations..."
-            className="pl-7 h-7 text-xs bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-indigo-500"
+            className="pl-7 h-7 text-xs bg-muted border-border text-foreground placeholder:text-muted-foreground focus:border-indigo-500"
           />
         </div>
       </div>
@@ -143,8 +143,8 @@ export function ConversationList({ onSelect, className }: ConversationListProps)
       <div className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5 scrollbar-thin scrollbar-thumb-white/10">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <MessageSquare size={24} className="text-white/20 mb-2" />
-            <p className="text-xs text-white/30">
+            <MessageSquare size={24} className="text-muted-foreground mb-2" />
+            <p className="text-xs text-muted-foreground">
               {search ? 'No matching conversations' : 'No conversations yet'}
             </p>
           </div>

@@ -33,7 +33,7 @@ export function MessageBubble({ message, onRegenerate, onDelete, onEdit }: Messa
         'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white shadow-lg',
         isUser
           ? 'bg-gradient-to-br from-indigo-500 to-violet-600'
-          : 'bg-gradient-to-br from-slate-700 to-slate-800 border border-white/10'
+          : 'bg-gradient-to-br from-slate-700 to-slate-800 border border-border'
       )}>
         {isUser ? <User size={14} /> : <Bot size={14} />}
       </div>
@@ -44,7 +44,7 @@ export function MessageBubble({ message, onRegenerate, onDelete, onEdit }: Messa
           'relative px-4 py-3 rounded-2xl shadow-sm',
           isUser
             ? 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white rounded-tr-sm'
-            : 'bg-white/8 backdrop-blur-sm border border-white/10 text-white/90 rounded-tl-sm'
+            : 'bg-muted backdrop-blur-sm border border-border text-foreground rounded-tl-sm'
         )}>
           {isUser ? (
             <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
@@ -75,7 +75,7 @@ export function MessageBubble({ message, onRegenerate, onDelete, onEdit }: Messa
 
         {/* Timestamp + Actions */}
         <div className={cn('flex items-center gap-2 mt-1 px-1', isUser ? 'flex-row-reverse' : 'flex-row')}>
-          <span className="text-xs text-white/25">{formatTime(message.timestamp)}</span>
+          <span className="text-xs text-muted-foreground">{formatTime(message.timestamp)}</span>
           {!message.streaming && (
             <MessageActions
               role={message.role}
