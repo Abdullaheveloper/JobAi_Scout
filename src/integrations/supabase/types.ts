@@ -1240,6 +1240,10 @@ export type Database = {
         Args: Record<string, never>
         Returns: Json
       }
+      get_platform_analytics: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
       search_scrape_session_jobs: {
         Args: {
           p_include_remote?: boolean
