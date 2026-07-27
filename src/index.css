@@ -408,7 +408,14 @@ html.light .auth-success { border-color: rgba(5,150,105,.28); background: rgba(2
 main:has(input[autocomplete]) { color: hsl(var(--foreground)) !important; background: radial-gradient(900px circle at 10% 10%, rgba(99,102,241,.17), transparent 42%), radial-gradient(700px circle at 92% 88%, rgba(139,92,246,.12), transparent 42%), var(--bg-void) !important; }
 main:has(input[autocomplete]) > header { border-color: var(--header-border) !important; background: var(--header-bg) !important; backdrop-filter: blur(18px); }
 main:has(input[autocomplete]) header a { color: var(--text-primary); }
-main:has(input[autocomplete]) header span { background: var(--gradient-primary) !important; border-radius: .55rem; box-shadow: 0 8px 22px rgba(99,102,241,.28); }
+/* Header chrome: logo wordmark + language label stay transparent (never paint all spans). */
+main:has(input[autocomplete]) header .jobai-brand,
+main:has(input[autocomplete]) header .jobai-wordmark,
+main:has(input[autocomplete]) header .jobai-wordmark > span,
+main:has(input[autocomplete]) header button[role="combobox"] > span {
+  background: transparent !important;
+  box-shadow: none !important;
+}
 main:has(input[autocomplete]) [class*="rounded-xl"][class*="bg-white"] { border-color: var(--glass-border) !important; background: var(--glass-bg) !important; box-shadow: var(--shadow-lg) !important; backdrop-filter: blur(20px); }
 main:has(input[autocomplete]) h1, main:has(input[autocomplete]) h2 { color: var(--text-primary); }
 main:has(input[autocomplete]) p, main:has(input[autocomplete]) label { color: var(--text-secondary); }
@@ -422,6 +429,7 @@ main:has(input[autocomplete]) [role="group"] button { border-color: rgba(148,163
 main:has(input[autocomplete]) [role="group"] button:hover { border-color: rgba(129,140,248,.55) !important; }
 
 html.light main:has(input[autocomplete]) { background: radial-gradient(900px circle at 10% 10%, rgba(79,70,229,.1), transparent 42%), radial-gradient(700px circle at 92% 88%, rgba(124,58,237,.08), transparent 42%), var(--bg-void) !important; }
+html.light main:has(input[autocomplete]) header a { color: var(--text-primary); }
 html.light main:has(input[autocomplete]) input:not([type="checkbox"]) { border-color: rgba(15,23,42,.14) !important; background: #ffffff !important; color: #0f172a !important; }
 html.light main:has(input[autocomplete]) input:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,.16) !important; }
 html.light main:has(input[autocomplete]) input:-webkit-autofill, html.light main:has(input[autocomplete]) input:-webkit-autofill:hover, html.light main:has(input[autocomplete]) input:-webkit-autofill:focus { -webkit-text-fill-color: #0f172a !important; -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important; }

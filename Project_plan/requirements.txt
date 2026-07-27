@@ -1,0 +1,8 @@
+# Optional — one-off Project_plan doc generators only
+# (generate_*_explanation_docx.py, generate_*_pdf.py / project report)
+# Not required for the JobAI Scout app or CV extractor service.
+#
+# Install:  pip install -r Project_plan/requirements.txt
+
+python-docx>=1.1.0
+reportlab>=4.0.0

@@ -30,8 +30,8 @@ export function LanguageSwitcher({ className, variant = "auto" }: LanguageSwitch
 
   const triggerClass =
     resolvedVariant === "light"
-      ? "h-9 min-w-[8.5rem] w-auto max-w-[12rem] border-border bg-background text-foreground shadow-none focus:ring-primary/30"
-      : "h-9 min-w-[8.5rem] w-auto max-w-[12rem] border-border bg-muted/40 text-muted-foreground shadow-none hover:border-primary/30 hover:text-foreground focus:ring-primary/30";
+      ? "h-9 min-w-[8.5rem] w-auto max-w-[12rem] border-border/70 bg-transparent text-foreground shadow-none hover:bg-muted/50 focus:ring-primary/30 data-[state=open]:bg-muted/50 data-[state=open]:border-border [&>span]:bg-transparent"
+      : "h-9 min-w-[8.5rem] w-auto max-w-[12rem] border-border bg-transparent text-muted-foreground shadow-none hover:border-primary/30 hover:bg-muted/40 hover:text-foreground focus:ring-primary/30 data-[state=open]:bg-muted/40 [&>span]:bg-transparent";
 
   return (
     <div className={cn("flex items-center gap-1.5", className)} title={t("common.selectLanguage")}>

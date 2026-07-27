@@ -26,8 +26,8 @@ export function ThemeToggle({ className, variant = "auto" }: ThemeToggleProps) {
         "relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border transition-colors duration-300",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary/40 focus-visible:ring-offset-background",
         resolvedVariant === "light"
-          ? "border-border bg-background text-foreground hover:bg-muted"
-          : "border-border bg-muted/40 text-muted-foreground hover:border-primary/30 hover:text-foreground",
+          ? "border-border/70 bg-transparent text-foreground hover:bg-muted/50"
+          : "border-border bg-transparent text-muted-foreground hover:border-primary/30 hover:bg-muted/40 hover:text-foreground",
         className,
       )}
       aria-label={label}

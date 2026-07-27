@@ -1,8 +1,21 @@
+# JobAI Scout — CV Extractor (services/cv-extractor)
+# Python 3.10+ recommended
+# OCR fallback also needs the Tesseract binary on PATH (not a pip package):
+#   https://github.com/tesseract-ocr/tesseract
+#
+# Install:  pip install -r requirements.txt
+# Run:      python main.py   (or: npm run cv-extractor from repo root)
+
+# API
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
-python-multipart>=0.0.12
+python-multipart>=0.0.18
+
+# PDF / DOCX extraction
 PyMuPDF>=1.24.0
 pdfplumber>=0.11.0
 python-docx>=1.1.0
+
+# OCR fallback (optional at runtime if Tesseract is missing)
 pytesseract>=0.3.13
 Pillow>=10.4.0
