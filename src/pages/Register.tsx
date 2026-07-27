@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowRight, Briefcase, Building2, Check, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import { ArrowRight, Building2, Check, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { JobAILogo } from "@/components/brand/JobAILogo";
@@ -37,11 +37,21 @@ export default function Register() {
       options: { data: metadata, emailRedirectTo: `${window.location.origin}/login` },
     });
     setLoading(false);
-    if (signUpError) return setError(signUpError.message);
+    if (signUpError) {
+      const msg = signUpError.message || "";
+      if (msg.toLowerCase().includes("already registered") || msg.toLowerCase().includes("already been registered")) {
+        return setError("This email is already registered — please log in with your password");
+      }
+      return setError(msg);
+    }
     if (data.session) {
-      toast({ title: "Account created", description: "Your workspace is ready." });
-      navigate(role === "recruiter" ? "/recruiter/jobs" : "/dashboard", { replace: true });
+      toast({
+        title: "Account created",
+        description: "Your account is waiting for admin approval. Please wait.",
+      });
+      navigate("/waiting-approval", { replace: true, state: { approvalStatus: "pending" } });
     } else {
+      // Rare path if confirmations are enabled in Supabase dashboard
       navigate("/login", { state: { emailConfirmationPending: true, email: email.trim() }, replace: true });
     }
   };
@@ -80,9 +90,22 @@ export default function Register() {
             })}
           </div>
 
-          <form onSubmit={handleRegister} className="mt-6 space-y-4" noValidate>
+          {role === "recruiter" && (
+            <div className="mt-4">
+              <Field label="Company name" icon={Building2}>
+                <input
+                  className="auth-light-input"
+                  value={companyName}
+                  onChange={(e) => { setCompanyName(e.target.value); setError(""); }}
+                  placeholder="Company or organisation"
+                  autoComplete="organization"
+                />
+              </Field>
+            </div>
+          )}
+
+          <form onSubmit={handleRegister} className="mt-5 space-y-4" noValidate>
             <Field label="Full name" icon={User}><input className="auth-light-input" value={fullName} onChange={(e) => { setFullName(e.target.value); setError(""); }} placeholder="Your full name" autoComplete="name" /></Field>
-            {role === "recruiter" && <Field label="Company name" icon={Building2}><input className="auth-light-input" value={companyName} onChange={(e) => { setCompanyName(e.target.value); setError(""); }} placeholder="Company or organisation" autoComplete="organization" /></Field>}
             <Field label="Email address" icon={Mail}><input className="auth-light-input" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setError(""); }} placeholder="name@example.com" autoComplete="email" /></Field>
             <Field label="Password" icon={Lock} action={<button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? "Hide password" : "Show password"} className="text-[#667085] hover:text-[#1c1c1c]">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>}><input className="auth-light-input pr-10" type={showPassword ? "text" : "password"} value={password} onChange={(e) => { setPassword(e.target.value); setError(""); }} placeholder="At least 8 characters" autoComplete="new-password" /></Field>
             {strength && <p className={`text-xs ${strength === "Too short" ? "text-red-600" : "text-[#087332]"}`}>Password strength: {strength}</p>}

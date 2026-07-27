@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          id: string
+          admin_id: string
+          admin_email: string | null
+          action: string
+          target_user_id: string | null
+          target_user_email: string | null
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          admin_id: string
+          admin_email?: string | null
+          action: string
+          target_user_id?: string | null
+          target_user_email?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          admin_id?: string
+          admin_email?: string | null
+          action?: string
+          target_user_id?: string | null
+          target_user_email?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
       application_answers: {
         Row: {
           answer_text: string | null
@@ -716,6 +749,10 @@ export type Database = {
       }
       profiles: {
         Row: {
+          approval_notice: string | null
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
           avatar_url: string | null
           application_answers: Json
           availability: string | null
@@ -740,6 +777,7 @@ export type Database = {
           portfolio_url: string | null
           profile_completion: number | null
           resume_url: string | null
+          signup_requested_at: string
           skills: string[] | null
           updated_at: string
           user_id: string
@@ -748,6 +786,10 @@ export type Database = {
           work_type: string | null
         }
         Insert: {
+          approval_notice?: string | null
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           avatar_url?: string | null
           application_answers?: Json
           availability?: string | null
@@ -772,6 +814,7 @@ export type Database = {
           portfolio_url?: string | null
           profile_completion?: number | null
           resume_url?: string | null
+          signup_requested_at?: string
           skills?: string[] | null
           updated_at?: string
           user_id: string
@@ -780,6 +823,10 @@ export type Database = {
           work_type?: string | null
         }
         Update: {
+          approval_notice?: string | null
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           avatar_url?: string | null
           application_answers?: Json
           availability?: string | null
@@ -804,6 +851,7 @@ export type Database = {
           portfolio_url?: string | null
           profile_completion?: number | null
           resume_url?: string | null
+          signup_requested_at?: string
           skills?: string[] | null
           updated_at?: string
           user_id?: string
@@ -1206,6 +1254,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_set_account_approval: {
+        Args: { p_user_id: string; p_status: string }
+        Returns: Database["public"]["Tables"]["profiles"]["Row"]
+      }
+      clear_approval_notice: {
+        Args: Record<string, never>
+        Returns: undefined
+      }
+      expire_pending_approvals: {
+        Args: Record<string, never>
+        Returns: number
+      }
+      renew_approval_request: {
+        Args: Record<string, never>
+        Returns: Database["public"]["Tables"]["profiles"]["Row"]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

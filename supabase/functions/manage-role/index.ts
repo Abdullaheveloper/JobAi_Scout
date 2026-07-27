@@ -92,6 +92,19 @@ Deno.serve(async (req) => {
         .insert({ user_id: targetUserId, role: newRole });
     }
 
+    // Promoting to admin implies the account is trusted — ensure approved
+    if (newRole === "admin") {
+      await supabaseAdmin
+        .from("profiles")
+        .update({
+          approval_status: "approved",
+          approved_at: new Date().toISOString(),
+          approved_by: callerId,
+          approval_notice: "Your account has been approved. You can now log in.",
+        })
+        .eq("user_id", targetUserId);
+    }
+
     console.log(`Admin ${callerId} changed ${targetUserId} role to ${newRole}`);
 
     return new Response(

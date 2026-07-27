@@ -1,18 +1,19 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, useSidebar,
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, FileUp, Briefcase, Bookmark, BarChart3, Users, UserCog, LogOut,
-  Shield, Mic, ExternalLink, Zap, Plus, Clock,
+  Shield, Mic, Zap, Plus, Clock, Bell,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import { JobAILogo } from "@/components/brand/JobAILogo";
+import { supabase } from "@/integrations/supabase/client";
 
 const userNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -67,21 +68,18 @@ function AppSidebar() {
       }}
     >
       <SidebarContent className="flex flex-col">
-        {/* Logo */}
         <div className={`flex items-center gap-3 p-4 border-b border-indigo-500/10 ${collapsed ? "justify-center" : ""}`}>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <JobAILogo showWordmark={!collapsed} markClassName="h-9 w-9" />
           </motion.div>
         </div>
 
-        {/* Role Badge */}
         {!collapsed && (
           <div className="px-4 pt-3 pb-1">
             <span className={`text-xs font-semibold tracking-wider uppercase ${roleColor}`}>{roleLabel} Portal</span>
           </div>
         )}
 
-        {/* Nav Items */}
         <SidebarGroup className="flex-1 px-2 py-2">
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
@@ -104,7 +102,6 @@ function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* User Footer */}
         <div className="border-t border-indigo-500/10 p-3">
           <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
             <Avatar className="h-8 w-8 ring-2 ring-indigo-500/30">
@@ -117,7 +114,7 @@ function AppSidebar() {
             </Avatar>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                <p className="text-sm font-medium text-white truncate" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
                   {profile?.full_name || "User"}
                 </p>
                 <p className="text-xs text-gray-600 truncate">{profile?.email}</p>
@@ -140,12 +137,40 @@ function AppSidebar() {
 }
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const { role } = useAuth();
+  const { role, profile, clearApprovalNotice } = useAuth();
+  const [pendingCount, setPendingCount] = useState(0);
   const workspaceTabs = role === "admin"
     ? [{ label: "Admin", url: "/admin", icon: Shield }]
     : role === "recruiter"
       ? [{ label: "Recruitment", url: "/recruiter/jobs", icon: Users }]
       : [];
+
+  useEffect(() => {
+    if (role !== "admin") return;
+    let cancelled = false;
+
+    const loadPending = async () => {
+      const { count } = await supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("approval_status", "pending");
+      if (!cancelled) setPendingCount(count || 0);
+    };
+
+    loadPending();
+    const interval = setInterval(loadPending, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [role]);
+
+  useEffect(() => {
+    const typed = profile as { approval_notice?: string | null; approval_status?: string } | null;
+    if (typed?.approval_notice && typed.approval_status === "approved") {
+      clearApprovalNotice();
+    }
+  }, [profile, clearApprovalNotice]);
 
   return (
     <SidebarProvider>
@@ -155,7 +180,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       >
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Top Header */}
           <header
             className="flex min-h-14 flex-wrap items-center gap-3 px-4 py-2 sm:flex-nowrap"
             style={{
@@ -168,7 +192,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <div className="h-4 w-px bg-indigo-500/20" />
             <h2
               className="hidden font-semibold text-white text-sm sm:block"
-              style={{ fontFamily: 'Space Grotesk, sans-serif' }}
+              style={{ fontFamily: "Space Grotesk, sans-serif" }}
             >
               AI Job Intelligence Platform
             </h2>
@@ -189,6 +213,21 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               </nav>
             )}
             <div className="ml-auto flex items-center gap-2">
+              {role === "admin" && (
+                <Link
+                  to="/admin/users?filter=pending"
+                  className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-black/20 text-gray-400 transition-colors hover:border-amber-500/30 hover:text-amber-300"
+                  title="Pending Approvals"
+                  aria-label={`${pendingCount} pending approvals`}
+                >
+                  <Bell className="h-4 w-4" />
+                  {pendingCount > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-black">
+                      {pendingCount > 99 ? "99+" : pendingCount}
+                    </span>
+                  )}
+                </Link>
+              )}
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
                 <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 <span className="text-xs text-emerald-400 font-medium">AI Active</span>
@@ -196,7 +235,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          {/* Main Content */}
           <main className="flex-1 overflow-auto p-4 sm:p-6">
             <motion.div
               initial={{ opacity: 0, y: 12 }}

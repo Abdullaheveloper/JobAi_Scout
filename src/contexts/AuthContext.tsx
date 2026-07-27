@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type UserRole = "admin" | "user" | "recruiter";
+export type ApprovalStatus = "pending" | "approved" | "rejected" | "expired";
 
 interface AuthContextType {
   user: User | null;
@@ -12,11 +13,31 @@ interface AuthContextType {
   role: UserRole | null;
   profile: Tables<"profiles"> | null;
   recruiterProfile: Tables<"recruiter_profiles"> | null;
+  approvalStatus: ApprovalStatus | null;
+  isAccountApproved: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<Tables<"profiles"> | null>;
+  clearApprovalNotice: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function resolveApprovalStatus(profile: Tables<"profiles"> | null, role: UserRole | null): ApprovalStatus | null {
+  if (!profile) return null;
+  // Admins are never gated behind approval
+  if (role === "admin") return "approved";
+  const status = (profile as Tables<"profiles"> & { approval_status?: string }).approval_status;
+  if (
+    status === "pending" ||
+    status === "approved" ||
+    status === "rejected" ||
+    status === "expired"
+  ) {
+    return status;
+  }
+  // Pre-migration / missing column: treat as approved
+  return "approved";
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -31,14 +52,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from("profiles").select("*").eq("user_id", userId).single(),
       supabase.from("user_roles").select("role").eq("user_id", userId).single(),
     ]);
+    const nextRole = (roleRes.data?.role as UserRole) || null;
     if (profileRes.data) setProfile(profileRes.data);
-    if (roleRes.data) setRole(roleRes.data.role as UserRole);
+    if (nextRole) setRole(nextRole);
 
-    // If recruiter, fetch recruiter profile
-    if (roleRes.data?.role === "recruiter") {
+    if (nextRole === "recruiter") {
       const { data } = await supabase.from("recruiter_profiles").select("*").eq("user_id", userId).single();
       if (data) setRecruiterProfile(data);
+    } else {
+      setRecruiterProfile(null);
     }
+
+    return { profile: profileRes.data, role: nextRole };
   };
 
   const refreshProfile = async () => {
@@ -48,33 +73,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data ?? null;
   };
 
+  const clearApprovalNotice = async () => {
+    if (!user) return;
+    await supabase.rpc("clear_approval_notice");
+    setProfile((prev) => (prev ? { ...prev, approval_notice: null } : prev));
+  };
+
   useEffect(() => {
+    let cancelled = false;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          // Use setTimeout to avoid potential deadlock in Supabase auth callback
-          setTimeout(() => fetchUserData(session.user.id), 0);
-        } else {
+      (_event, nextSession) => {
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
+        if (!nextSession?.user) {
           setProfile(null);
           setRole(null);
           setRecruiterProfile(null);
+          setLoading(false);
+          return;
         }
-        setLoading(false);
+        // Defer fetch to avoid Supabase auth deadlock; keep loading until data arrives
+        setTimeout(async () => {
+          try {
+            await fetchUserData(nextSession.user.id);
+          } finally {
+            if (!cancelled) setLoading(false);
+          }
+        }, 0);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserData(session.user.id);
+    supabase.auth.getSession().then(async ({ data: { session: existing } }) => {
+      if (cancelled) return;
+      setSession(existing);
+      setUser(existing?.user ?? null);
+      if (existing?.user) {
+        try {
+          await fetchUserData(existing.user.id);
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
@@ -86,8 +134,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRecruiterProfile(null);
   };
 
+  const approvalStatus = resolveApprovalStatus(profile, role);
+  const isAccountApproved = approvalStatus === "approved" || role === "admin";
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, role, profile, recruiterProfile, signOut, refreshProfile }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        loading,
+        role,
+        profile,
+        recruiterProfile,
+        approvalStatus,
+        isAccountApproved,
+        signOut,
+        refreshProfile,
+        clearApprovalNotice,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Briefcase, TrendingUp, Shield, MousePointerClick } from "lucide-react";
+import { Users, Briefcase, TrendingUp, Shield, MousePointerClick, UserCheck } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({ users: 0, jobs: 0, applications: 0, fillClicks: 0, fieldsFilled: 0 });
+  const [stats, setStats] = useState({ users: 0, jobs: 0, applications: 0, fillClicks: 0, fieldsFilled: 0, pending: 0 });
   const [fieldBreakdown, setFieldBreakdown] = useState<{ field: string; count: number }[]>([]);
   const [topUsers, setTopUsers] = useState<{ email: string; clicks: number; fields: number }[]>([]);
 
@@ -15,11 +16,12 @@ export default function AdminDashboard() {
   }, []);
 
   const fetchStats = async () => {
-    const [usersRes, jobsRes, appsRes, usageRes] = await Promise.all([
+    const [usersRes, jobsRes, appsRes, usageRes, pendingRes] = await Promise.all([
       supabase.from("profiles").select("id", { count: "exact", head: true }),
       supabase.from("jobs").select("id", { count: "exact", head: true }),
       supabase.from("job_applications").select("id", { count: "exact", head: true }),
       supabase.from("extension_usage").select("email,fields,field_count").limit(1000),
+      supabase.from("profiles").select("id", { count: "exact", head: true }).eq("approval_status", "pending"),
     ]);
     const usage = usageRes.data || [];
     const totalFields = usage.reduce((s, r: any) => s + (r.field_count || 0), 0);
@@ -38,6 +40,7 @@ export default function AdminDashboard() {
       applications: appsRes.count || 0,
       fillClicks: usage.length,
       fieldsFilled: totalFields,
+      pending: pendingRes.count || 0,
     });
     setFieldBreakdown(
       Object.entries(fieldMap).map(([field, count]) => ({ field, count })).sort((a, b) => b.count - a.count)
@@ -60,7 +63,7 @@ export default function AdminDashboard() {
           <p className="text-muted-foreground mt-1">Platform overview and management</p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
           <Card className="shadow-card hover:shadow-card-hover transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
@@ -70,6 +73,18 @@ export default function AdminDashboard() {
               <div className="text-3xl font-bold font-display">{stats.users}</div>
             </CardContent>
           </Card>
+          <Link to="/admin/users?filter=pending" className="block">
+            <Card className="shadow-card hover:shadow-card-hover transition-shadow border-amber-500/20 h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approvals</CardTitle>
+                <UserCheck className="h-5 w-5 text-amber-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold font-display text-amber-300">{stats.pending}</div>
+                <p className="text-xs text-muted-foreground mt-1">Open Manage Users → Pending</p>
+              </CardContent>
+            </Card>
+          </Link>
           <Card className="shadow-card hover:shadow-card-hover transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Jobs</CardTitle>

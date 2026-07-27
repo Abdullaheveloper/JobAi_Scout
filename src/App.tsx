@@ -32,6 +32,7 @@ const AdminUsers = lazy(() => import("./pages/AdminUsers"));
 const AdminJobs = lazy(() => import("./pages/AdminJobs"));
 const AdminAnalytics = lazy(() => import("./pages/AdminAnalytics"));
 const AdminVoice = lazy(() => import("./pages/AdminVoice"));
+const WaitingApproval = lazy(() => import("./pages/WaitingApproval"));
 const RecruiterJobs = lazy(() => import("./pages/recruiter/RecruiterJobs"));
 const RecruiterCandidates = lazy(() => import("./pages/recruiter/RecruiterCandidates"));
 const RecruiterProfile = lazy(() => import("./pages/recruiter/RecruiterProfile"));
@@ -63,6 +64,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/waiting-approval" element={<WaitingApproval />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/about" element={<About />} />

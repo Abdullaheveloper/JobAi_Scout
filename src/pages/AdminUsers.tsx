@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -10,19 +11,45 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ShieldCheck, ShieldOff, Loader2, Briefcase, CheckCircle2, XCircle, Linkedin, Github, Pencil } from "lucide-react";
+import {
+  ShieldCheck, ShieldOff, Loader2, Briefcase, CheckCircle2, XCircle,
+  Linkedin, Github, Pencil, Check, X, Trash2,
+} from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+
+type ApprovalFilter = "all" | "pending" | "approved" | "rejected" | "expired";
+
+const approvalBadgeClass: Record<string, string> = {
+  pending: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  approved: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  rejected: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+  expired: "bg-gray-500/15 text-gray-400 border-gray-500/30",
+};
+
+const FILTERS: { id: ApprovalFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "pending", label: "Pending" },
+  { id: "approved", label: "Approved" },
+  { id: "rejected", label: "Rejected" },
+  { id: "expired", label: "Expired" },
+];
 
 export default function AdminUsers() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterParam = searchParams.get("filter") as ApprovalFilter | null;
+  const filter: ApprovalFilter =
+    filterParam && FILTERS.some((f) => f.id === filterParam) ? filterParam : "all";
+
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [approving, setApproving] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  // Edit dialog state
   const [editOpen, setEditOpen] = useState(false);
   const [editUser, setEditUser] = useState<any>(null);
   const [editForm, setEditForm] = useState({
@@ -38,9 +65,32 @@ export default function AdminUsers() {
   });
   const [saving, setSaving] = useState(false);
 
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  const pendingCount = useMemo(
+    () => users.filter((u) => u.approval_status === "pending").length,
+    [users]
+  );
+
+  const filteredUsers = useMemo(() => {
+    if (filter === "all") return users;
+    return users.filter((u) => (u.approval_status || "approved") === filter);
+  }, [users, filter]);
+
+  const setFilter = (next: ApprovalFilter) => {
+    if (next === "all") {
+      searchParams.delete("filter");
+      setSearchParams(searchParams, { replace: true });
+    } else {
+      setSearchParams({ filter: next }, { replace: true });
+    }
+  };
 
   const fetchUsers = async () => {
     const [profilesRes, rolesRes, appsRes] = await Promise.all([
@@ -54,11 +104,13 @@ export default function AdminUsers() {
       (appsRes.data || []).forEach((a: any) => {
         appCountMap.set(a.user_id, (appCountMap.get(a.user_id) || 0) + 1);
       });
-      setUsers(profilesRes.data.map((p: any) => ({
-        ...p,
-        _role: roleMap.get(p.user_id) || "user",
-        _appCount: appCountMap.get(p.user_id) || 0,
-      })));
+      setUsers(
+        profilesRes.data.map((p: any) => ({
+          ...p,
+          _role: roleMap.get(p.user_id) || "user",
+          _appCount: appCountMap.get(p.user_id) || 0,
+        }))
+      );
     }
     setLoading(false);
   };
@@ -85,6 +137,27 @@ export default function AdminUsers() {
     }
   };
 
+  const setApproval = async (targetUserId: string, status: "approved" | "rejected") => {
+    if (targetUserId === user?.id) {
+      toast({ title: "Cannot change your own approval", variant: "destructive" });
+      return;
+    }
+    setApproving(targetUserId);
+    try {
+      const { error } = await supabase.rpc("admin_set_account_approval", {
+        p_user_id: targetUserId,
+        p_status: status,
+      });
+      if (error) throw error;
+      toast({ title: status === "approved" ? "User approved" : "User rejected" });
+      await fetchUsers();
+    } catch (err: any) {
+      toast({ title: "Approval action failed", description: err.message, variant: "destructive" });
+    } finally {
+      setApproving(null);
+    }
+  };
+
   const openEdit = (u: any) => {
     setEditUser(u);
     setEditForm({
@@ -99,6 +172,41 @@ export default function AdminUsers() {
       experience_years: u.experience_years?.toString() || "",
     });
     setEditOpen(true);
+  };
+
+  const openDelete = (u: any) => {
+    setDeleteTarget(u);
+    setDeleteConfirm("");
+    setDeleteOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: {
+          targetUserId: deleteTarget.user_id,
+          confirmation: deleteConfirm.trim(),
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const label = deleteTarget.full_name || deleteTarget.email || "User";
+      toast({
+        title: "User deleted",
+        description: data?.message || `User ${label} and all associated data permanently deleted`,
+      });
+      setUsers((prev) => prev.filter((u) => u.user_id !== deleteTarget.user_id));
+      setDeleteOpen(false);
+      setDeleteTarget(null);
+      setDeleteConfirm("");
+    } catch (err: any) {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -133,12 +241,65 @@ export default function AdminUsers() {
     }
   };
 
+  const confirmValid =
+    !!deleteTarget &&
+    (deleteConfirm.trim() === "Yes, delete permanently" ||
+      (!!deleteTarget.email &&
+        deleteConfirm.trim().toLowerCase() === String(deleteTarget.email).toLowerCase()));
+
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="font-display text-3xl font-bold">Manage Users</h1>
-          <p className="text-muted-foreground mt-1">View and manage platform users</p>
+          <p className="text-muted-foreground mt-1">
+            Approve new signups, manage roles, and permanently delete accounts
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {FILTERS.map((f) => {
+            const count =
+              f.id === "all"
+                ? users.length
+                : users.filter((u) => (u.approval_status || "approved") === f.id).length;
+            const active = filter === f.id;
+            return (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFilter(f.id)}
+                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition ${
+                  active
+                    ? f.id === "pending"
+                      ? "border-amber-500/40 bg-amber-500/15 text-amber-200"
+                      : "border-indigo-500/40 bg-indigo-500/15 text-indigo-200"
+                    : "border-white/10 bg-black/20 text-gray-400 hover:text-white"
+                }`}
+              >
+                {f.label}
+                <span
+                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                    f.id === "pending" && count > 0
+                      ? "bg-amber-500 text-black"
+                      : "bg-white/10 text-gray-300"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+          {pendingCount > 0 && filter !== "pending" && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+              onClick={() => setFilter("pending")}
+            >
+              Review {pendingCount} pending
+            </Button>
+          )}
         </div>
 
         <Card className="shadow-card">
@@ -147,6 +308,10 @@ export default function AdminUsers() {
               <div className="flex justify-center py-12">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
               </div>
+            ) : filteredUsers.length === 0 ? (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                No users match this filter.
+              </p>
             ) : (
               <Table>
                 <TableHeader>
@@ -156,6 +321,8 @@ export default function AdminUsers() {
                     <TableHead>Phone</TableHead>
                     <TableHead>Links</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Approval</TableHead>
+                    <TableHead>Signup</TableHead>
                     <TableHead>Experience</TableHead>
                     <TableHead>Skills</TableHead>
                     <TableHead>Desired Roles</TableHead>
@@ -169,9 +336,10 @@ export default function AdminUsers() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((u) => {
+                  {filteredUsers.map((u) => {
                     const isCurrentUser = u.user_id === user?.id;
                     const isAdmin = u._role === "admin";
+                    const approval = u.approval_status || "approved";
                     const getCompleteness = () => {
                       let score = 0;
                       if (u.full_name) score += 15;
@@ -188,7 +356,7 @@ export default function AdminUsers() {
                     };
                     const completeness = getCompleteness();
                     return (
-                      <TableRow key={u.id}>
+                      <TableRow key={u.id} className={approval === "pending" ? "bg-amber-500/5" : undefined}>
                         <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
                         <TableCell className="text-sm">{u.email}</TableCell>
                         <TableCell className="text-sm">{u.phone || <span className="text-muted-foreground">—</span>}</TableCell>
@@ -211,6 +379,14 @@ export default function AdminUsers() {
                           <Badge variant={isAdmin ? "default" : "secondary"} className={isAdmin ? "gradient-primary border-0" : ""}>
                             {u._role || "user"}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`capitalize ${approvalBadgeClass[approval] || ""}`}>
+                            {approval}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                          {new Date(u.signup_requested_at || u.created_at).toLocaleString()}
                         </TableCell>
                         <TableCell className="text-sm">
                           {u.experience_years != null ? `${u.experience_years} yr${u.experience_years !== 1 ? "s" : ""}` : "—"}
@@ -278,30 +454,60 @@ export default function AdminUsers() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center gap-1 justify-end">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => openEdit(u)}
-                            >
+                            {!isCurrentUser && approval === "pending" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  className="bg-emerald-600 hover:bg-emerald-500 text-white h-8"
+                                  disabled={approving === u.user_id}
+                                  onClick={() => setApproval(u.user_id, "approved")}
+                                  title="Approve"
+                                >
+                                  {approving === u.user_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="h-8"
+                                  disabled={approving === u.user_id}
+                                  onClick={() => setApproval(u.user_id, "rejected")}
+                                  title="Reject"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            )}
+                            <Button size="sm" variant="ghost" onClick={() => openEdit(u)} title="Edit">
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
                             {!isCurrentUser && (
-                              <Button
-                                size="sm"
-                                variant={isAdmin ? "destructive" : "default"}
-                                className={!isAdmin ? "gradient-primary border-0" : ""}
-                                disabled={updating === u.user_id}
-                                onClick={() => toggleRole(u.user_id, u._role)}
-                              >
-                                {updating === u.user_id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                                ) : isAdmin ? (
-                                  <ShieldOff className="h-3.5 w-3.5 mr-1" />
-                                ) : (
-                                  <ShieldCheck className="h-3.5 w-3.5 mr-1" />
-                                )}
-                                {isAdmin ? "Demote" : "Promote"}
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant={isAdmin ? "destructive" : "default"}
+                                  className={!isAdmin ? "gradient-primary border-0" : ""}
+                                  disabled={updating === u.user_id}
+                                  onClick={() => toggleRole(u.user_id, u._role)}
+                                >
+                                  {updating === u.user_id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                                  ) : isAdmin ? (
+                                    <ShieldOff className="h-3.5 w-3.5 mr-1" />
+                                  ) : (
+                                    <ShieldCheck className="h-3.5 w-3.5 mr-1" />
+                                  )}
+                                  {isAdmin ? "Demote" : "Promote"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 text-rose-400 hover:bg-rose-500/15 hover:text-rose-300"
+                                  onClick={() => openDelete(u)}
+                                  title="Delete permanently"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
                             )}
                           </div>
                         </TableCell>
@@ -315,7 +521,6 @@ export default function AdminUsers() {
         </Card>
       </div>
 
-      {/* Edit User Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -370,6 +575,56 @@ export default function AdminUsers() {
             <Button className="gradient-primary border-0" onClick={handleSaveEdit} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          setDeleteOpen(open);
+          if (!open) {
+            setDeleteTarget(null);
+            setDeleteConfirm("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl text-rose-300">
+              Delete user permanently
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              This removes {deleteTarget?.full_name || deleteTarget?.email || "this user"} and all
+              associated data (profile, roles, CV/resume files, applications, scrape sessions,
+              automation). This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="delete-confirm">
+              Type <span className="font-mono text-amber-300">{deleteTarget?.email || "the user email"}</span>{" "}
+              or <span className="font-mono text-amber-300">Yes, delete permanently</span>
+            </Label>
+            <Input
+              id="delete-confirm"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder="Confirmation text"
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!confirmValid || deleting}
+              onClick={handleDelete}
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              Delete permanently
             </Button>
           </DialogFooter>
         </DialogContent>

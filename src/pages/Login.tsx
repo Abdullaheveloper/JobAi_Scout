@@ -1,10 +1,18 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowRight, Briefcase, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { JobAILogo } from "@/components/brand/JobAILogo";
+import { useToast } from "@/hooks/use-toast";
+import type { ApprovalStatus } from "@/contexts/AuthContext";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function destinationForRole(role: string | undefined) {
+  if (role === "admin") return "/admin";
+  if (role === "recruiter") return "/recruiter/jobs";
+  return "/dashboard";
+}
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -14,7 +22,15 @@ export default function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
   const confirmationPending = Boolean((location.state as { emailConfirmationPending?: boolean } | null)?.emailConfirmationPending);
+  const waitingApproval = Boolean((location.state as { waitingApproval?: boolean } | null)?.waitingApproval);
+
+  useEffect(() => {
+    if (waitingApproval) {
+      setError("Your account is waiting for admin approval. Please wait.");
+    }
+  }, [waitingApproval]);
 
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
@@ -27,10 +43,57 @@ export default function Login() {
       email: email.trim().toLowerCase(),
       password,
     });
-    setLoading(false);
 
-    if (signInError) return setError("The email or password is incorrect. Please try again.");
-    navigate(data.user.user_metadata?.role === "recruiter" ? "/recruiter/jobs" : "/dashboard", { replace: true });
+    if (signInError || !data.user) {
+      setLoading(false);
+      return setError("The email or password is incorrect. Please try again.");
+    }
+
+    try {
+      const userId = data.user.id;
+      const [profileRes, roleRes] = await Promise.all([
+        supabase.from("profiles").select("approval_status, approval_notice").eq("user_id", userId).single(),
+        supabase.from("user_roles").select("role").eq("user_id", userId).single(),
+      ]);
+
+      const role = roleRes.data?.role as string | undefined;
+      let approvalStatus = (profileRes.data?.approval_status as ApprovalStatus | undefined) || "approved";
+
+      // Expired or rejected → renew as a fresh pending request
+      if (role !== "admin" && (approvalStatus === "expired" || approvalStatus === "rejected")) {
+        const { data: renewed } = await supabase.rpc("renew_approval_request");
+        approvalStatus = (renewed?.approval_status as ApprovalStatus) || "pending";
+        toast({
+          title: "Approval requested",
+          description: "Your account is waiting for admin approval. Please wait.",
+        });
+      }
+
+      if (role !== "admin" && approvalStatus !== "approved") {
+        setLoading(false);
+        if (approvalStatus === "pending") {
+          setError("Your account is waiting for admin approval. Please wait.");
+        } else if (approvalStatus === "rejected") {
+          setError("Your account approval request was rejected.");
+        } else {
+          setError("Your approval request expired. Please try logging in again.");
+        }
+        navigate("/waiting-approval", { replace: true, state: { approvalStatus } });
+        return;
+      }
+
+      const notice = profileRes.data?.approval_notice;
+      if (notice && approvalStatus === "approved") {
+        toast({ title: "Account approved", description: notice });
+        await supabase.rpc("clear_approval_notice");
+      }
+
+      setLoading(false);
+      navigate(destinationForRole(role || data.user.user_metadata?.role), { replace: true });
+    } catch {
+      setLoading(false);
+      navigate(destinationForRole(data.user.user_metadata?.role), { replace: true });
+    }
   };
 
   return (

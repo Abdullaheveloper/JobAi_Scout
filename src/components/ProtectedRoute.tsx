@@ -2,7 +2,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
 
 export function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole?: UserRole }) {
-  const { user, loading, role } = useAuth();
+  const { user, loading, role, isAccountApproved, approvalStatus } = useAuth();
 
   if (loading) {
     return (
@@ -13,7 +13,12 @@ export function ProtectedRoute({ children, requiredRole }: { children: React.Rea
   }
 
   if (!user) return <Navigate to="/login" replace />;
-  
+
+  // Gate non-approved accounts away from the app (admins always pass)
+  if (role !== "admin" && !isAccountApproved) {
+    return <Navigate to="/waiting-approval" replace state={{ approvalStatus }} />;
+  }
+
   if (requiredRole && role !== requiredRole) {
     const fallback = role === "admin" ? "/admin" : role === "recruiter" ? "/recruiter/jobs" : "/dashboard";
     return <Navigate to={fallback} replace />;

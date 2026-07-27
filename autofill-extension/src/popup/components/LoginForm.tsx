@@ -53,14 +53,6 @@ export function LoginForm({ onLogin, error, loading }: LoginFormProps) {
         >
           {loading ? "Signing in..." : "Sign In"}
         </button>
-
-        <button
-          type="button"
-          className="secondary"
-          style={{ marginTop: 10 }}
-        >
-          Continue with Google
-        </button>
       </form>
     </div>
   );
