@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { JobAILogo } from "@/components/brand/JobAILogo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { MixedDir } from "@/components/MixedDir";
 import { useToast } from "@/hooks/use-toast";
 import type { ApprovalStatus } from "@/contexts/AuthContext";
 
@@ -100,43 +101,106 @@ export default function Login() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f6f6f2] text-[#1c1c1c]">
-      <header className="border-b border-black/10 bg-white">
+    <main className="auth-page">
+      <header className="auth-header border-b">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 sm:px-8">
-          <Link to="/" aria-label={t("brand.homeAria")}><JobAILogo markClassName="h-9 w-9" /></Link>
-          <div className="flex items-center gap-3">
+          <Link to="/" aria-label={t("brand.homeAria")} className="auth-logo-link shrink-0">
+            <JobAILogo markClassName="h-9 w-9" />
+          </Link>
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <ThemeToggle />
             <LanguageSwitcher />
-            <p className="hidden text-sm text-[#5c5c5c] sm:block">{t("signin.newHere")} <Link to="/register" className="font-semibold text-[#0c7a35] hover:underline">{t("signin.createAccount")}</Link></p>
+            <Link to="/register" className="auth-link shrink-0 text-sm font-semibold sm:hidden">
+              {t("signin.createAccount")}
+            </Link>
+            <p className="auth-muted hidden text-sm sm:block">
+              <MixedDir>{t("signin.newHere")}</MixedDir>{" "}
+              <Link to="/register" className="auth-link font-semibold hover:underline">{t("signin.createAccount")}</Link>
+            </p>
           </div>
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-6xl gap-12 px-5 py-12 lg:grid-cols-[1fr_440px] lg:items-center lg:px-8 lg:py-20">
-        <div className="hidden max-w-xl lg:block">
-          <span className="inline-flex items-center gap-2 rounded-full bg-[#d9f7e5] px-3 py-1 text-xs font-semibold text-[#087332]"><ShieldCheck className="h-3.5 w-3.5" /> {t("signin.eyebrow")}</span>
-          <h1 className="mt-5 text-5xl font-bold leading-[1.05] tracking-tight">{t("signin.sideTitle")}</h1>
-          <p className="mt-5 max-w-lg text-lg leading-8 text-[#595959]">{t("signin.sideCopy")}</p>
-          <div className="mt-9 border-l-4 border-[#0caa41] pl-4 text-sm leading-6 text-[#4d4d4d]">{t("signin.sideNote")}</div>
+      <section className="mx-auto grid max-w-6xl gap-12 px-5 py-10 lg:grid-cols-[1fr_440px] lg:items-center lg:px-8 lg:py-20">
+        <div className="auth-hero hidden max-w-xl lg:block" dir="auto">
+          <span className="auth-kicker inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold">
+            <ShieldCheck className="h-3.5 w-3.5" /> {t("signin.eyebrow")}
+          </span>
+          <h1 className="mt-5 text-5xl font-bold leading-[1.05] tracking-tight text-foreground">{t("signin.sideTitle")}</h1>
+          <p className="auth-muted mt-5 max-w-lg text-lg leading-8">
+            <MixedDir>{t("signin.sideCopy")}</MixedDir>
+          </p>
+          <div className="auth-muted mt-9 border-s-4 border-primary ps-4 text-sm leading-6">
+            <MixedDir>{t("signin.sideNote")}</MixedDir>
+          </div>
         </div>
 
-        <div className="rounded-xl border border-black/15 bg-white p-6 shadow-[0_3px_12px_rgba(0,0,0,0.1)] sm:p-8">
-          <h2 className="text-2xl font-bold tracking-tight">{t("signin.title")}</h2>
-          <p className="mt-1 text-sm text-[#5c5c5c]">{t("signin.welcomeBack")}</p>
-          {confirmationPending && <div className="mt-5 rounded-md border border-[#8bd5a7] bg-[#edfff3] px-3 py-2.5 text-sm text-[#176c37]">{t("signin.confirmEmail")}</div>}
-          {error && <div className="mt-5 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700" role="alert">{error}</div>}
+        <div data-auth-card className="auth-card p-6 sm:p-8">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground"><MixedDir>{t("signin.title")}</MixedDir></h2>
+          <p className="auth-muted mt-1 text-sm"><MixedDir>{t("signin.welcomeBack")}</MixedDir></p>
+          {confirmationPending && (
+            <div className="auth-success mt-5 px-3 py-2.5 text-sm">{t("signin.confirmEmail")}</div>
+          )}
+          {error && (
+            <div className="auth-alert mt-5 px-3 py-2.5 text-sm" role="alert">{error}</div>
+          )}
 
           <form onSubmit={handleLogin} className="mt-6 space-y-5" noValidate>
-            <label className="block text-sm font-semibold">{t("signin.emailLabel")}
-              <span className="relative mt-2 block"><Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#667085]" /><input className="h-12 w-full rounded-md border border-[#767676] bg-white pl-10 pr-3 text-[#1c1c1c] outline-none transition focus:border-[#0caa41] focus:ring-2 focus:ring-[#0caa41]/25" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("signin.emailPlaceholder")} autoComplete="email" /></span>
+            <label className="block text-sm font-semibold text-foreground">
+              {t("signin.emailLabel")}
+              <span className="relative mt-2 block">
+                <Mail className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  className="auth-light-input"
+                  type="email"
+                  dir="ltr"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={t("signin.emailPlaceholder")}
+                  autoComplete="email"
+                />
+              </span>
             </label>
-            <label className="block text-sm font-semibold">{t("signin.passwordLabel")}
-              <span className="relative mt-2 block"><Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#667085]" /><input className="h-12 w-full rounded-md border border-[#767676] bg-white pl-10 pr-11 text-[#1c1c1c] outline-none transition focus:border-[#0caa41] focus:ring-2 focus:ring-[#0caa41]/25" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("signin.passwordPlaceholder")} autoComplete="current-password" /><button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#667085] hover:text-[#1c1c1c]" aria-label={showPassword ? t("common.hidePassword") : t("common.showPassword")}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span>
+            <label className="block text-sm font-semibold text-foreground">
+              {t("signin.passwordLabel")}
+              <span className="relative mt-2 block">
+                <Lock className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  className="auth-light-input pe-11"
+                  dir="auto"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t("signin.passwordPlaceholder")}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showPassword ? t("common.hidePassword") : t("common.showPassword")}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </span>
             </label>
-            <div className="flex justify-end"><Link to="/forgot-password" className="text-sm font-semibold text-[#087332] hover:underline">{t("signin.forgotPassword")}</Link></div>
-            <button type="submit" disabled={loading} className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#0caa41] text-sm font-bold text-white transition hover:bg-[#087d30] disabled:cursor-not-allowed disabled:opacity-60">{loading ? t("signin.submitting") : <>{t("signin.submit")} <ArrowRight className="h-4 w-4" /></>}</button>
+            <div className="flex justify-end">
+              <Link to="/forgot-password" className="auth-link text-sm font-semibold hover:underline">
+                <MixedDir>{t("signin.forgotPassword")}</MixedDir>
+              </Link>
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="auth-primary flex h-12 w-full items-center justify-center gap-2 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? t("signin.submitting") : <>{t("signin.submit")} <ArrowRight className="h-4 w-4 rtl-flip" /></>}
+            </button>
           </form>
-          <p className="mt-7 border-t border-black/10 pt-5 text-center text-sm text-[#5c5c5c]">{t("signin.noAccount")} <Link to="/register" className="font-semibold text-[#087332] hover:underline">{t("signin.createFree")}</Link></p>
+          <p className="auth-muted mt-7 border-t border-border pt-5 text-center text-sm">
+            <MixedDir>{t("signin.noAccount")}</MixedDir>{" "}
+            <Link to="/register" className="auth-link font-semibold hover:underline">{t("signin.createFree")}</Link>
+          </p>
         </div>
       </section>
     </main>

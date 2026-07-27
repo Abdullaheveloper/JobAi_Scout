@@ -4,6 +4,8 @@ import en from "@/locales/en.json";
 import fr from "@/locales/fr.json";
 import de from "@/locales/de.json";
 import hi from "@/locales/hi.json";
+import ur from "@/locales/ur.json";
+import ar from "@/locales/ar.json";
 import { DEFAULT_LOCALE, LOCALE_STORAGE_KEY, resolveLocale } from "@/i18n/languages";
 
 const missingKeysLogged = new Set<string>();
@@ -24,6 +26,8 @@ void i18n.use(initReactI18next).init({
     fr: { translation: fr },
     de: { translation: de },
     hi: { translation: hi },
+    ur: { translation: ur },
+    ar: { translation: ar },
   },
   lng: initialLocale,
   fallbackLng: DEFAULT_LOCALE,

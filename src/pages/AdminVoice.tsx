@@ -11,6 +11,7 @@ import {
   Sliders, TrendingUp, Info
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
@@ -76,6 +77,7 @@ type ChunkMatch = {
 };
 
 export default function AdminVoice() {
+  const { t } = useTranslation();
   const { toast } = useToast();
 
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
@@ -424,7 +426,7 @@ export default function AdminVoice() {
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left">
+                    <table className="w-full text-xs text-start">
                       <thead className="bg-white/5 text-white/50 border-b border-white/10">
                         <tr>
                           <th className="px-6 py-3 font-semibold">Timestamp</th>
@@ -480,7 +482,7 @@ export default function AdminVoice() {
                 <CardHeader className="p-4"><CardTitle className="text-sm font-semibold">Indexed Sources Registry</CardTitle></CardHeader>
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left">
+                    <table className="w-full text-xs text-start">
                       <thead className="bg-white/5 text-white/50 border-b border-white/10">
                         <tr>
                           <th className="px-6 py-3 font-semibold">Name</th>
@@ -538,11 +540,11 @@ export default function AdminVoice() {
                     <Input
                       value={testQuery}
                       onChange={e => setTestQuery(e.target.value)}
-                      placeholder="Type a mock user question to test RAG scores..."
+                      placeholder={t("admin.ragTestPlaceholder")}
                       className="bg-white/5 border-white/10 text-white placeholder:text-white/30 rounded-xl"
                     />
                     <Button onClick={handleTestSearch} disabled={searchingTest} className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl gap-2 px-5">
-                      {searchingTest ? <Loader2 className="animate-spin" size={14} /> : "Search"}
+                      {searchingTest ? <Loader2 className="animate-spin" size={14} /> : t("common.search")}
                     </Button>
                   </div>
 

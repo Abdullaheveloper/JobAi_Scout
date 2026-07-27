@@ -59,14 +59,14 @@ export function MarkdownRenderer({ content, className, streaming }: MarkdownRend
             return <div className="overflow-x-auto my-3"><table className="w-full border-collapse text-sm">{children}</table></div>;
           },
           th({ children }) {
-            return <th className="px-3 py-2 text-left text-foreground font-medium border-b border-border bg-muted">{children}</th>;
+            return <th className="px-3 py-2 text-start text-foreground font-medium border-b border-border bg-muted">{children}</th>;
           },
           td({ children }) {
             return <td className="px-3 py-2 text-muted-foreground border-b border-border">{children}</td>;
           },
         }}
       >{content}</ReactMarkdown>
-      {streaming && <span className="inline-block w-0.5 h-4 bg-indigo-400 animate-pulse ml-0.5 align-middle" />}
+      {streaming && <span className="inline-block w-0.5 h-4 bg-indigo-400 animate-pulse ms-0.5 align-middle" />}
     </div>
   );
 }

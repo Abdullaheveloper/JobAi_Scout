@@ -20,11 +20,11 @@ body {
 .scroll-progress-bar {
   position: fixed;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
   height: 2px;
   background: linear-gradient(90deg, #10b981, #2dd4bf, #34d399);
   z-index: 9999;
-  transform-origin: left;
+  transform-origin: inline-start;
   transition: transform 0.1s linear;
 }
 
@@ -100,7 +100,7 @@ body {
   content: '';
   position: absolute;
   bottom: -2px;
-  left: 0;
+  inset-inline-start: 0;
   width: 0;
   height: 2px;
   background: var(--gradient-primary);
@@ -646,29 +646,8 @@ body {
   transition: background-color 9999s ease-out 0s;
 }
 
-/* Light, job-platform auth forms. These intentionally do not inherit the old dark auth input treatment. */
-.auth-light-input {
-  height: 3.25rem;
-  width: 100%;
-  border: 1px solid #767676;
-  border-radius: 0.375rem;
-  background: #ffffff;
-  color: #1c1c1c;
-  padding: 0.625rem 0.875rem 0.625rem 3.25rem;
-  font-size: 0.9375rem;
-  outline: none;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
-}
-
-.auth-light-input::placeholder { color: #667085; opacity: 1; }
-.auth-light-input:hover { border-color: #4d4d4d; }
-.auth-light-input:focus { border-color: #0caa41; box-shadow: 0 0 0 3px rgba(12, 170, 65, 0.2); }
-.auth-light-input:-webkit-autofill,
-.auth-light-input:-webkit-autofill:hover,
-.auth-light-input:-webkit-autofill:focus {
-  -webkit-text-fill-color: #1c1c1c;
-  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
-}
+/* Auth inputs: theme-aware base lives in index.css (.auth-input / .auth-light-input).
+   Do not force light-only colors here — that breaks ThemeToggle on auth pages. */
 
 /* Error state */
 .input-premium.input-error {

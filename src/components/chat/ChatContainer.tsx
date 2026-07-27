@@ -94,7 +94,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
                 <button
                   key={i}
                   onClick={() => sendMessage(prompt.text)}
-                  className="flex items-start gap-3 p-3.5 bg-muted hover:bg-muted/80 border border-border hover:border-border rounded-xl text-left transition-all group"
+                  className="flex items-start gap-3 p-3.5 bg-muted hover:bg-muted/80 border border-border hover:border-border rounded-xl text-start transition-all group"
                 >
                   <span className="text-lg">{prompt.icon}</span>
                   <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">{prompt.text}</span>
@@ -122,7 +122,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
 
             {/* Streaming indicator */}
             {store.isStreaming && store.streamingPhase && store.streamingPhase !== 'generating' && (
-              <StreamingIndicator phase={store.streamingPhase} className="ml-11" />
+              <StreamingIndicator phase={store.streamingPhase} className="ms-11" />
             )}
           </div>
         )}

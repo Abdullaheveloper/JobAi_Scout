@@ -99,8 +99,8 @@ html.light .landing-redesign::before {
   max-width: 1180px;
   margin: 0 auto;
   /* Use left/right only so section/hero/footer vertical padding cannot zero gutters */
-  padding-left: var(--lr-pad-x);
-  padding-right: var(--lr-pad-x);
+  padding-inline-start: var(--lr-pad-x);
+  padding-inline-end: var(--lr-pad-x);
   position: relative;
   z-index: 2;
 }
@@ -265,6 +265,35 @@ html.light .landing-redesign::before {
 
 @media (max-width: 860px) {
   .landing-redesign .nav-links {
+    display: none;
+  }
+
+  /* Keep Sign in reachable when center nav links collapse */
+  .landing-redesign .nav-cta {
+    gap: 6px;
+    max-width: calc(100vw - 7rem);
+    flex-wrap: nowrap;
+  }
+
+  .landing-redesign .nav-cta .nav-signin {
+    display: inline-flex;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .landing-redesign .nav-cta .btn-primary.btn-sm {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .landing-redesign .lr-nav .logo .jobai-wordmark {
+    display: none;
+  }
+}
+
+@media (min-width: 861px) {
+  /* Desktop already has Sign in in .nav-links — avoid duplicate */
+  .landing-redesign .nav-cta .nav-signin {
     display: none;
   }
 }
@@ -563,7 +592,7 @@ html.light .landing-redesign::before {
   .landing-redesign .hero {
     grid-template-columns: 1fr;
     padding-top: 130px;
-    text-align: left;
+    text-align: start;
   }
 
   .landing-redesign .stage {

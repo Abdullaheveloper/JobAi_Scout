@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
+import { MixedDir } from "@/components/MixedDir";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Briefcase, TrendingUp, Shield, MousePointerClick, UserCheck } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -62,7 +63,9 @@ export default function AdminDashboard() {
           <h1 className="font-display text-3xl font-bold flex items-center gap-2">
             <Shield className="h-8 w-8 text-primary" /> {t("admin.dashboardTitle")}
           </h1>
-          <p className="text-muted-foreground mt-1">{t("admin.dashboardSubtitle")}</p>
+          <p className="text-muted-foreground mt-1">
+            <MixedDir>{t("admin.dashboardSubtitle")}</MixedDir>
+          </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
@@ -83,7 +86,9 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold font-display text-amber-300">{stats.pending}</div>
-                <p className="text-xs text-muted-foreground mt-1">Open Manage Users → Pending</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  <MixedDir>{t("admin.openManageUsersPending")}</MixedDir>
+                </p>
               </CardContent>
             </Card>
           </Link>
@@ -109,9 +114,11 @@ export default function AdminDashboard() {
 
         <div>
           <h2 className="font-display text-2xl font-bold flex items-center gap-2 mt-4">
-            <MousePointerClick className="h-6 w-6 text-primary" /> Extension Usage
+            <MousePointerClick className="h-6 w-6 text-primary" /> {t("admin.extensionUsage")}
           </h2>
-          <p className="text-muted-foreground text-sm">Auto-fill activity from the JobAI browser extension</p>
+          <p className="text-muted-foreground text-sm">
+            <MixedDir>{t("admin.extensionUsageSubtitle")}</MixedDir>
+          </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -134,13 +141,21 @@ export default function AdminDashboard() {
             <CardHeader><CardTitle className="text-base">{t("admin.fieldsBreakdown")}</CardTitle></CardHeader>
             <CardContent>
               {fieldBreakdown.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No data yet.</p>
+                <p className="text-sm text-muted-foreground"><MixedDir>{t("admin.noDataYet")}</MixedDir></p>
               ) : (
                 <Table>
-                  <TableHeader><TableRow><TableHead>Field</TableHead><TableHead className="text-right">Times Filled</TableHead></TableRow></TableHeader>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("admin.colField")}</TableHead>
+                      <TableHead className="text-end">{t("admin.colTimesFilled")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {fieldBreakdown.map((r) => (
-                      <TableRow key={r.field}><TableCell className="capitalize">{r.field.replace(/_/g, " ")}</TableCell><TableCell className="text-right font-medium">{r.count}</TableCell></TableRow>
+                      <TableRow key={r.field}>
+                        <TableCell className="capitalize">{r.field.replace(/_/g, " ")}</TableCell>
+                        <TableCell className="text-end font-medium">{r.count}</TableCell>
+                      </TableRow>
                     ))}
                   </TableBody>
                 </Table>
@@ -152,13 +167,25 @@ export default function AdminDashboard() {
             <CardHeader><CardTitle className="text-base">{t("admin.topUsers")}</CardTitle></CardHeader>
             <CardContent>
               {topUsers.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No data yet.</p>
+                <p className="text-sm text-muted-foreground"><MixedDir>{t("admin.noDataYet")}</MixedDir></p>
               ) : (
                 <Table>
-                  <TableHeader><TableRow><TableHead>User</TableHead><TableHead className="text-right">Clicks</TableHead><TableHead className="text-right">Fields</TableHead></TableRow></TableHeader>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("admin.colUser")}</TableHead>
+                      <TableHead className="text-end">{t("admin.colClicks")}</TableHead>
+                      <TableHead className="text-end">{t("admin.colFields")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {topUsers.map((u) => (
-                      <TableRow key={u.email}><TableCell className="truncate max-w-[200px]">{u.email}</TableCell><TableCell className="text-right font-medium">{u.clicks}</TableCell><TableCell className="text-right">{u.fields}</TableCell></TableRow>
+                      <TableRow key={u.email}>
+                        <TableCell className="truncate max-w-[200px]">
+                          <MixedDir>{u.email}</MixedDir>
+                        </TableCell>
+                        <TableCell className="text-end font-medium">{u.clicks}</TableCell>
+                        <TableCell className="text-end">{u.fields}</TableCell>
+                      </TableRow>
                     ))}
                   </TableBody>
                 </Table>

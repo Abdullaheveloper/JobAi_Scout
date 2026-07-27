@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useFuzzyTaxonomy } from "./useFuzzyTaxonomy";
@@ -30,7 +31,7 @@ export function FuzzyAutocompleteInput({
   onChange,
   onCommit,
   clearOnCommit = false,
-  placeholder = "Start typing...",
+  placeholder,
   disabled,
   className,
   inputClassName,
@@ -41,6 +42,8 @@ export function FuzzyAutocompleteInput({
   onKeyDown,
   autoFocus,
 }: FuzzyAutocompleteInputProps) {
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t("common.startTyping");
   const [inputValue, setInputValue] = useState(value || "");
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -144,7 +147,7 @@ export function FuzzyAutocompleteInput({
         aria-autocomplete="list"
         aria-expanded={isOpen && results.length > 0}
         aria-controls={isOpen && results.length > 0 ? `${id || "fuzzy"}-listbox` : undefined}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         onChange={(event) => handleInputChange(event.target.value)}
         onKeyDown={handleKeyDown}
         onFocus={() => {

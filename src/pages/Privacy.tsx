@@ -71,10 +71,10 @@ export default function Privacy() {
         <div className="container max-w-3xl">
           <div className="text-center mb-12">
             <Button variant="ghost" size="sm" className="mb-6" asChild>
-              <Link to="/"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Home</Link>
+              <Link to="/"><ArrowLeft className="me-2 h-4 w-4" /> Back to Home</Link>
             </Button>
             <Badge variant="secondary" className="mb-4 px-4 py-1.5 text-sm">
-              <Shield className="mr-1.5 h-3.5 w-3.5" /> Legal
+              <Shield className="me-1.5 h-3.5 w-3.5" /> Legal
             </Badge>
             <h1 className="font-display text-4xl font-extrabold tracking-tight">
               Privacy <span className="text-gradient">Policy</span>

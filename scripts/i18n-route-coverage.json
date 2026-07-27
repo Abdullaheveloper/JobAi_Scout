@@ -1,0 +1,478 @@
+{
+  "generated": "2026-07-27T18:44:02.538Z",
+  "source": "src/App.tsx",
+  "auditReport": "scripts/i18n-untranslated-report.txt",
+  "routeCount": 31,
+  "auditedPages": 29,
+  "routesWithAttrFindings": 9,
+  "routes": [
+    {
+      "path": "/",
+      "kind": "page",
+      "components": [
+        "Index"
+      ],
+      "scannedFiles": [
+        "src/pages/Index.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/login",
+      "kind": "page",
+      "components": [
+        "Login"
+      ],
+      "scannedFiles": [
+        "src/pages/Login.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/register",
+      "kind": "page",
+      "components": [
+        "Register"
+      ],
+      "scannedFiles": [
+        "src/pages/Register.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/waiting-approval",
+      "kind": "page",
+      "components": [
+        "WaitingApproval"
+      ],
+      "scannedFiles": [
+        "src/pages/WaitingApproval.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/forgot-password",
+      "kind": "page",
+      "components": [
+        "ForgotPassword"
+      ],
+      "scannedFiles": [
+        "src/pages/ForgotPassword.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/reset-password",
+      "kind": "page",
+      "components": [
+        "ResetPassword"
+      ],
+      "scannedFiles": [
+        "src/pages/ResetPassword.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/about",
+      "kind": "page",
+      "components": [
+        "About"
+      ],
+      "scannedFiles": [
+        "src/pages/About.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 12,
+      "attrFindingCount": 1,
+      "notes": "1 hardcoded attr(s) still open"
+    },
+    {
+      "path": "/contact",
+      "kind": "page",
+      "components": [
+        "Contact"
+      ],
+      "scannedFiles": [
+        "src/pages/Contact.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 9,
+      "attrFindingCount": 1,
+      "notes": "1 hardcoded attr(s) still open"
+    },
+    {
+      "path": "/privacy",
+      "kind": "page",
+      "components": [
+        "Privacy"
+      ],
+      "scannedFiles": [
+        "src/pages/Privacy.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 12,
+      "attrFindingCount": 1,
+      "notes": "1 hardcoded attr(s) still open"
+    },
+    {
+      "path": "/dashboard",
+      "kind": "page",
+      "components": [
+        "Dashboard"
+      ],
+      "scannedFiles": [
+        "src/pages/Dashboard.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/dashboard/cv",
+      "kind": "page",
+      "components": [
+        "CVUpload"
+      ],
+      "scannedFiles": [
+        "src/pages/CVUpload.tsx",
+        "src/components/profile/CareerProfileWorkspace.tsx",
+        "src/components/profile/ProfileReadinessCard.tsx",
+        "src/components/profile/ResumeQualityAlert.tsx",
+        "src/components/profile/ResumeQualityAlertExample.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 29,
+      "attrFindingCount": 27,
+      "notes": "27 hardcoded attr(s) still open"
+    },
+    {
+      "path": "/dashboard/jobs",
+      "kind": "page",
+      "components": [
+        "JobBoard"
+      ],
+      "scannedFiles": [
+        "src/pages/JobBoard.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/dashboard/automation",
+      "kind": "page",
+      "components": [
+        "Automation"
+      ],
+      "scannedFiles": [
+        "src/pages/Automation.tsx",
+        "src/components/automation/DayChipSelect.tsx",
+        "src/components/automation/RecurrenceFields.tsx",
+        "src/components/automation/ScheduleCard.tsx",
+        "src/components/automation/ScheduleFormDialog.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/dashboard/saved",
+      "kind": "page",
+      "components": [
+        "SavedJobs"
+      ],
+      "scannedFiles": [
+        "src/pages/SavedJobs.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/dashboard/applications",
+      "kind": "page",
+      "components": [
+        "Applications"
+      ],
+      "scannedFiles": [
+        "src/pages/Applications.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/dashboard/auto-fill",
+      "kind": "page",
+      "components": [
+        "AutoFormFill"
+      ],
+      "scannedFiles": [
+        "src/pages/AutoFormFill.tsx",
+        "src/components/VoiceWidget.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 5,
+      "attrFindingCount": 1,
+      "notes": "1 hardcoded attr(s) still open"
+    },
+    {
+      "path": "/dashboard/assistant",
+      "kind": "page",
+      "components": [
+        "VoiceAssistant"
+      ],
+      "scannedFiles": [
+        "src/pages/VoiceAssistant.tsx",
+        "src/components/voice/MicPermissionDialog.tsx",
+        "src/components/voice/VoiceMode.tsx",
+        "src/components/voice/VoiceStatusBadge.tsx",
+        "src/components/voice/WaveformVisualizer.tsx",
+        "src/components/VoiceWidget.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 5,
+      "attrFindingCount": 1,
+      "notes": "1 hardcoded attr(s) still open"
+    },
+    {
+      "path": "/dashboard/voice-agent",
+      "kind": "page",
+      "components": [
+        "VoiceAgent"
+      ],
+      "scannedFiles": [
+        "src/pages/VoiceAgent.tsx",
+        "src/components/voice/MicPermissionDialog.tsx",
+        "src/components/voice/VoiceMode.tsx",
+        "src/components/voice/VoiceStatusBadge.tsx",
+        "src/components/voice/WaveformVisualizer.tsx",
+        "src/components/VoiceWidget.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 11,
+      "attrFindingCount": 1,
+      "notes": "1 hardcoded attr(s) still open"
+    },
+    {
+      "path": "/dashboard/settings",
+      "kind": "page",
+      "components": [
+        "ProfileSettings"
+      ],
+      "scannedFiles": [
+        "src/pages/ProfileSettings.tsx",
+        "src/components/profile/CareerProfileWorkspace.tsx",
+        "src/components/profile/ProfileReadinessCard.tsx",
+        "src/components/profile/ResumeQualityAlert.tsx",
+        "src/components/profile/ResumeQualityAlertExample.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 30,
+      "attrFindingCount": 28,
+      "notes": "28 hardcoded attr(s) still open"
+    },
+    {
+      "path": "/dashboard/extension",
+      "kind": "redirect",
+      "redirectTo": "/dashboard/auto-fill",
+      "audited": "n/a",
+      "components": [],
+      "scannedFiles": [],
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "Redirect → /dashboard/auto-fill"
+    },
+    {
+      "path": "/recruiter",
+      "kind": "redirect",
+      "redirectTo": "/recruiter/jobs",
+      "audited": "n/a",
+      "components": [],
+      "scannedFiles": [],
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "Redirect → /recruiter/jobs"
+    },
+    {
+      "path": "/recruiter/profile",
+      "kind": "page",
+      "components": [
+        "RecruiterProfile"
+      ],
+      "scannedFiles": [
+        "src/pages/recruiter/RecruiterProfile.tsx",
+        "src/pages/recruiter/RecruiterApplicationStatus.tsx",
+        "src/pages/recruiter/RecruiterCandidates.tsx",
+        "src/pages/recruiter/RecruiterJobs.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 1,
+      "attrFindingCount": 0,
+      "notes": "1 other literal(s) flagged"
+    },
+    {
+      "path": "/recruiter/jobs",
+      "kind": "page",
+      "components": [
+        "RecruiterJobs"
+      ],
+      "scannedFiles": [
+        "src/pages/recruiter/RecruiterJobs.tsx",
+        "src/pages/recruiter/RecruiterApplicationStatus.tsx",
+        "src/pages/recruiter/RecruiterCandidates.tsx",
+        "src/pages/recruiter/RecruiterProfile.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 1,
+      "attrFindingCount": 0,
+      "notes": "1 other literal(s) flagged"
+    },
+    {
+      "path": "/recruiter/candidates",
+      "kind": "page",
+      "components": [
+        "RecruiterCandidates"
+      ],
+      "scannedFiles": [
+        "src/pages/recruiter/RecruiterCandidates.tsx",
+        "src/pages/recruiter/RecruiterApplicationStatus.tsx",
+        "src/pages/recruiter/RecruiterJobs.tsx",
+        "src/pages/recruiter/RecruiterProfile.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 1,
+      "attrFindingCount": 0,
+      "notes": "1 other literal(s) flagged"
+    },
+    {
+      "path": "/recruiter/application-status",
+      "kind": "page",
+      "components": [
+        "RecruiterApplicationStatus"
+      ],
+      "scannedFiles": [
+        "src/pages/recruiter/RecruiterApplicationStatus.tsx",
+        "src/pages/recruiter/RecruiterCandidates.tsx",
+        "src/pages/recruiter/RecruiterJobs.tsx",
+        "src/pages/recruiter/RecruiterProfile.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 1,
+      "attrFindingCount": 0,
+      "notes": "1 other literal(s) flagged"
+    },
+    {
+      "path": "/admin",
+      "kind": "page",
+      "components": [
+        "AdminDashboard"
+      ],
+      "scannedFiles": [
+        "src/pages/AdminDashboard.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/admin/users",
+      "kind": "page",
+      "components": [
+        "AdminUsers"
+      ],
+      "scannedFiles": [
+        "src/pages/AdminUsers.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/admin/jobs",
+      "kind": "page",
+      "components": [
+        "AdminJobs"
+      ],
+      "scannedFiles": [
+        "src/pages/AdminJobs.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/admin/analytics",
+      "kind": "page",
+      "components": [
+        "AdminAnalytics"
+      ],
+      "scannedFiles": [
+        "src/pages/AdminAnalytics.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/admin/voice",
+      "kind": "page",
+      "components": [
+        "AdminVoice"
+      ],
+      "scannedFiles": [
+        "src/pages/AdminVoice.tsx",
+        "src/components/voice/MicPermissionDialog.tsx",
+        "src/components/voice/VoiceMode.tsx",
+        "src/components/voice/VoiceStatusBadge.tsx",
+        "src/components/voice/WaveformVisualizer.tsx",
+        "src/components/VoiceWidget.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 15,
+      "attrFindingCount": 1,
+      "notes": "1 hardcoded attr(s) still open"
+    },
+    {
+      "path": "*",
+      "kind": "fallback",
+      "components": [
+        "NotFound"
+      ],
+      "scannedFiles": [
+        "src/pages/NotFound.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    }
+  ]
+}

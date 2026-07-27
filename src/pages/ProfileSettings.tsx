@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { hasValue } from "@/lib/constants";
 import {
   Loader2, Save, User, Phone, Linkedin, Github, Mail, Briefcase, Sparkles,
   MapPin, Globe, Building2, GraduationCap, Award,
@@ -27,6 +26,8 @@ import {
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ProfileReadinessCard } from "@/components/profile/ProfileReadinessCard";
+import { buildProfileReadinessItems, profileReadinessPercent } from "@/lib/profile-readiness";
 import {
   EXPERIENCE_INVALID_MESSAGE,
   SALARY_INVALID_MESSAGE,
@@ -286,11 +287,11 @@ export default function ProfileSettings() {
     if (!file || !user) return;
     const extension = file.name.toLowerCase().match(/\.(jpe?g|png|webp)$/)?.[1];
     if (!extension || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      toast({ title: "Unsupported image", description: "Choose a JPG, PNG, or WEBP profile image.", variant: "destructive" });
+      toast({ title: t("settings.toastImageUnsupportedTitle"), description: t("settings.toastImageUnsupportedBody"), variant: "destructive" });
       return;
     }
     if (file.size <= 0 || file.size > 5 * 1024 * 1024) {
-      toast({ title: "Image is too large", description: "Your profile image must be smaller than 5 MB.", variant: "destructive" });
+      toast({ title: t("settings.toastImageTooLargeTitle"), description: t("settings.toastImageTooLargeBody"), variant: "destructive" });
       return;
     }
     setProfileImageUploading(true);
@@ -301,17 +302,17 @@ export default function ProfileSettings() {
       upsert: false,
     });
     if (uploadError) {
-      toast({ title: "Image upload failed", description: uploadError.message, variant: "destructive" });
+      toast({ title: t("settings.toastImageUploadFailed"), description: uploadError.message, variant: "destructive" });
       setProfileImageUploading(false);
       return;
     }
     const { error: profileError } = await supabase.from("profiles").update({ avatar_url: filePath }).eq("user_id", user.id);
     if (profileError) {
       await supabase.storage.from("profile-assets").remove([filePath]);
-      toast({ title: "Image could not be saved", description: profileError.message, variant: "destructive" });
+      toast({ title: t("settings.toastImageSaveFailed"), description: profileError.message, variant: "destructive" });
     } else {
       await refreshProfile();
-      toast({ title: "Profile image updated", description: "It is ready for supported job-application photo fields." });
+      toast({ title: t("settings.toastImageUpdatedTitle"), description: t("settings.toastImageUpdatedBody") });
     }
     setProfileImageUploading(false);
   };
@@ -328,13 +329,13 @@ export default function ProfileSettings() {
       if (error) throw error;
       const result = (data as { _ats?: unknown } | null)?._ats;
       const failure = result && typeof result === "object" ? (result as { error?: string }).error : undefined;
-      if (!acceptAtsResult(result)) throw new Error(failure || "ATS suggestions could not be generated.");
+      if (!acceptAtsResult(result)) throw new Error(failure || t("settings.toastAtsFailed"));
     } catch (error: unknown) {
-      setAtsError(error instanceof Error ? error.message : "ATS suggestions could not be generated. Your profile and resume are unchanged.");
+      setAtsError(error instanceof Error ? error.message : t("settings.toastAtsFailed"));
     } finally {
       setRetryingAts(false);
     }
-  }, [acceptAtsResult, profile?.resume_url, retryingAts, setAtsError]);
+  }, [acceptAtsResult, profile?.resume_url, retryingAts, setAtsError, t]);
 
   // Existing resumes uploaded before ATS suggestions were introduced receive
   // one background analysis after the initial lookup confirms no result exists.
@@ -378,7 +379,7 @@ export default function ProfileSettings() {
   const handleSave = async () => {
     if (!user) return;
     if (!validate()) {
-      toast({ title: "Validation error", description: "Please fix the highlighted fields.", variant: "destructive" });
+      toast({ title: t("settings.toastValidation"), description: t("settings.toastValidationBody"), variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -448,14 +449,14 @@ export default function ProfileSettings() {
       error = coreError;
       if (!coreError) {
         toast({
-          title: "Partially saved",
-          description: "Core info saved. Some fields need a database migration to be saved.",
+          title: t("settings.toastPartialTitle"),
+          description: t("settings.toastPartialBody"),
         });
       }
     }
 
     if (error) {
-      toast({ title: "Save failed", description: error.message, variant: "destructive" });
+      toast({ title: t("settings.toastSaveFailed"), description: error.message, variant: "destructive" });
     } else {
       const changedKeys = [...Array.from(changedFields).filter(k => k !== "email"), "career_profile", "autofill_preferences"];
       if (changedKeys.length > 0) {
@@ -470,37 +471,21 @@ export default function ProfileSettings() {
       await refreshProfile();
       setChangedFields(new Set());
       if (!fullError) {
-        toast({ title: "Profile updated!", description: "Your changes have been saved." });
+        toast({ title: t("settings.toastUpdatedTitle"), description: t("settings.toastUpdatedBody") });
       }
     }
     setSaving(false);
   };
 
-  const completenessItems = useMemo(() => {
-    const p = profile;
-    if (!p) return [];
-    return [
-      { label: "Name", key: "full_name", done: hasValue(p.full_name) },
-      { label: "Email", key: "email", done: hasValue(p.email) },
-      { label: "Phone", key: "phone", done: hasValue(p.phone) },
-      { label: "Location", key: "location", done: hasValue(p.location) },
-      { label: "Bio", key: "bio", done: hasValue(p.bio) },
-      { label: "Skills", key: "skills", done: hasValue(p.skills) },
-      { label: "Roles", key: "desired_roles", done: hasValue(p.desired_roles) },
-      { label: "Experience", key: "experience_years", done: hasValue(p.experience_years) },
-      { label: "Resume", key: "resume_url", done: hasValue(p.resume_url) },
-      { label: "LinkedIn", key: "linkedin_url", done: hasValue(p.linkedin_url) },
-      { label: "GitHub", key: "github_url", done: hasValue(p.github_url) },
-      { label: "Portfolio", key: "portfolio_url", done: hasValue((p as any).portfolio_url) },
-      { label: "Company", key: "current_company", done: hasValue((p as any).current_company) },
-      { label: "Education", key: "education", done: hasValue((p as any).education) },
-    ];
-  }, [profile]);
+  const completenessItems = useMemo(
+    () => buildProfileReadinessItems(profile, t),
+    [profile, t],
+  );
 
-  const completeness = useMemo(() => {
-    if (!completenessItems.length) return 0;
-    return Math.round((completenessItems.filter(i => i.done).length / completenessItems.length) * 100);
-  }, [completenessItems]);
+  const completeness = useMemo(
+    () => profileReadinessPercent(completenessItems),
+    [completenessItems],
+  );
 
   const editableSkills = form.skills
     ? form.skills.split(",").map((s) => s.trim()).filter(Boolean)
@@ -524,7 +509,6 @@ export default function ProfileSettings() {
             <p className="mt-1 text-muted-foreground">{t("settings.subtitle")}</p>
           </div>
           <div className="flex flex-col items-start gap-3 sm:items-end">
-            <Badge variant="outline" className="w-fit border-primary/25 bg-primary/10 px-3 py-1 text-primary">{completeness}% complete</Badge>
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">{t("settings.languagePreference")}</p>
@@ -549,77 +533,49 @@ export default function ProfileSettings() {
         />
 
         {/* ── Profile Completeness ────────────────────────── */}
-        <Card className="border-border bg-card shadow-card">
-          <CardContent className="py-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-display font-semibold text-sm">Profile readiness</span>
-              <span className="text-xs text-muted-foreground">{completenessItems.filter(item => !item.done).length ? `${completenessItems.filter(item => !item.done).length} details left` : "Ready to apply"}</span>
-            </div>
-            <div className="w-full h-2.5 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-700 ease-out"
-                style={{
-                  width: `${completeness}%`,
-                  background: completeness === 100
-                    ? "linear-gradient(90deg, #10b981, #34d399, #6ee7b7)"
-                    : "linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa)",
-                }}
-              />
-            </div>
-            <div className="flex flex-wrap gap-2 mt-3">
-              {completenessItems.map(item => (
-                <Badge
-                  key={item.key}
-                  variant="outline"
-                  className={`text-xs transition-all duration-300 ${item.done
-                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
-                    : "border-rose-500/25 bg-rose-500/10 text-rose-300"
-                  }`}
-                >
-                  {item.done ? "✓" : "✗"} {item.label}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <ProfileReadinessCard
+          items={completenessItems}
+          percent={completeness}
+          showHeaderCompleteBadge
+        />
 
         {/* ── Extracted CV Data ───────────────────────────── */}
         {/* ── Personal Information (Cyan) ─────────────────── */}
         <Card className="border-border bg-card shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-display">
-              <User className="h-5 w-5 text-primary" /> Contact & background
+              <User className="h-5 w-5 text-primary" /> {t("settings.contactBackground")}
             </CardTitle>
-            <CardDescription>Your essential contact and career information.</CardDescription>
+            <CardDescription>{t("settings.personalDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-4 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 sm:flex-row sm:items-center">
               <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-cyan-300/25 bg-slate-950/40 text-xl font-bold text-cyan-200">
-                {profileImagePreview ? <img src={profileImagePreview} alt="Your profile" className="h-full w-full object-cover" /> : <ImagePlus className="h-7 w-7" aria-hidden="true" />}
+                {profileImagePreview ? <img src={profileImagePreview} alt={t("settings.profileImage")} className="h-full w-full object-cover" /> : <ImagePlus className="h-7 w-7" aria-hidden="true" />}
               </div>
               <div className="min-w-0 flex-1">
-                <Label htmlFor="profile-image" className={`font-semibold ${P.titleColor}`}>Application profile image</Label>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">Private JPG, PNG, or WEBP up to 5 MB. The extension uses it only for clearly labelled photo or headshot fields.</p>
+                <Label htmlFor="profile-image" className={`font-semibold ${P.titleColor}`}>{t("settings.profileImage")}</Label>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">{t("settings.profileImageHint")}</p>
                 <input id="profile-image" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" className="sr-only" onChange={handleProfileImageUpload} />
                 <Button type="button" variant="outline" size="sm" className="mt-3 gap-2" disabled={profileImageUploading} asChild={!profileImageUploading}>
-                  {profileImageUploading ? <span><Loader2 className="h-4 w-4 animate-spin" />Uploading…</span> : <label htmlFor="profile-image" className="cursor-pointer"><Upload className="h-4 w-4" />{profileImagePreview ? "Replace image" : "Upload image"}</label>}
+                  {profileImageUploading ? <span><Loader2 className="h-4 w-4 animate-spin" />{t("settings.uploading")}</span> : <label htmlFor="profile-image" className="cursor-pointer"><Upload className="h-4 w-4" />{profileImagePreview ? t("settings.replaceImage") : t("settings.uploadImage")}</label>}
                 </Button>
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="full_name" className={`flex items-center gap-1.5 ${P.titleColor}`}>
-                  <User className="h-3.5 w-3.5" /> Full Name
+                  <User className="h-3.5 w-3.5" /> {t("settings.fullName")}
                   <DataSourceBadge source={dataSources.full_name} />
                 </Label>
-                <ColorInput id="full_name" value={form.full_name} onChange={e => updateField("full_name", e.target.value)} placeholder="John Doe" inputFocus={P.inputFocus} />
+                <ColorInput id="full_name" value={form.full_name} onChange={e => updateField("full_name", e.target.value)} placeholder={t("settings.placeholderName")} inputFocus={P.inputFocus} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-1.5 text-muted-foreground">
-                  <Mail className="h-3.5 w-3.5" /> Email
+                  <Mail className="h-3.5 w-3.5" /> {t("settings.email")}
                 </Label>
-                <Input id="email" value={form.email} disabled className="border-border bg-muted/50 text-muted-foreground" />
-                <p className="text-xs text-muted-foreground">Email cannot be changed here</p>
+                <Input id="email" type="email" value={form.email} disabled className="border-border bg-muted/50 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">{t("settings.emailLocked")}</p>
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -630,6 +586,7 @@ export default function ProfileSettings() {
                 </Label>
                 <ColorInput
                   id="phone"
+                  type="tel"
                   inputMode="tel"
                   value={form.phone}
                   onChange={e => {
@@ -640,7 +597,7 @@ export default function ProfileSettings() {
                       updateField("phone", val.replace(/[a-zA-Z]/g, ""));
                     }
                   }}
-                  placeholder="+1 234 567 8900"
+                  placeholder={t("settings.placeholderPhone")}
                   inputFocus={P.inputFocus}
                   className={errors.phone ? "border-rose-400/50" : ""}
                 />
@@ -648,7 +605,7 @@ export default function ProfileSettings() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="location" className={`flex items-center gap-1.5 ${P.titleColor}`}>
-                  <MapPin className="h-3.5 w-3.5" /> Location
+                  <MapPin className="h-3.5 w-3.5" /> {t("settings.location")}
                   <DataSourceBadge source={dataSources.location} />
                 </Label>
                 <FuzzyAutocompleteInput
@@ -657,8 +614,8 @@ export default function ProfileSettings() {
                   value={form.location}
                   onChange={(value) => updateField("location", value)}
                   onCommit={(canonical) => updateField("location", canonical)}
-                  placeholder="City, country, or remote"
-                  aria-label="Location"
+                  placeholder={t("settings.placeholderLocation")}
+                  aria-label={t("settings.location")}
                   inputClassName={`transition-all duration-300 bg-background border-border focus:shadow-lg ${P.inputFocus}`}
                 />
                 <p className="text-xs text-muted-foreground">Used for location-based job matching</p>
@@ -695,7 +652,7 @@ export default function ProfileSettings() {
                   <Building2 className="h-3.5 w-3.5" /> Current Company
                   <DataSourceBadge source={dataSources.current_company} />
                 </Label>
-                <ColorInput id="company" value={form.current_company} onChange={e => updateField("current_company", e.target.value)} placeholder="Acme Inc." inputFocus={P.inputFocus} />
+                <ColorInput id="company" value={form.current_company} onChange={e => updateField("current_company", e.target.value)} placeholder={t("settings.placeholderCompany")} inputFocus={P.inputFocus} />
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -708,7 +665,7 @@ export default function ProfileSettings() {
                   id="salary"
                   value={form.expected_salary}
                   onChange={e => updateField("expected_salary", e.target.value)}
-                  placeholder="$80,000"
+                  placeholder={t("settings.placeholderSalary")}
                   inputFocus={P.inputFocus}
                   className={errors.expected_salary ? "border-rose-400/50" : ""}
                 />
@@ -728,7 +685,7 @@ export default function ProfileSettings() {
                   id="education"
                   value={form.education}
                   onChange={e => updateField("education", e.target.value)}
-                  placeholder="BSc Computer Science, MIT 2022"
+                  placeholder={t("settings.placeholderEducation")}
                   inputFocus={P.inputFocus}
                 />
                 <p className="text-xs text-muted-foreground">
@@ -739,7 +696,7 @@ export default function ProfileSettings() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="bio" className={P.titleColor}>Bio / About Me</Label>
-              <ColorTextarea id="bio" value={form.bio} onChange={e => updateField("bio", e.target.value)} placeholder="Tell us about yourself..." rows={3} inputFocus={P.inputFocus} />
+              <ColorTextarea id="bio" value={form.bio} onChange={e => updateField("bio", e.target.value)} placeholder={t("settings.placeholderBio")} rows={3} inputFocus={P.inputFocus} />
             </div>
           </CardContent>
         </Card>
@@ -750,7 +707,7 @@ export default function ProfileSettings() {
             <CardTitle className="flex items-center gap-2 font-display">
               <Globe className="h-5 w-5 text-primary" /> Professional links
             </CardTitle>
-            <CardDescription>Used by the browser extension for application autofill.</CardDescription>
+            <CardDescription>{t("settings.extensionAutofillHint")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -760,9 +717,10 @@ export default function ProfileSettings() {
               </Label>
               <ColorInput
                 id="linkedin"
+                type="url"
                 value={form.linkedin_url}
                 onChange={e => updateField("linkedin_url", e.target.value)}
-                placeholder="https://linkedin.com/in/yourprofile"
+                placeholder={t("settings.placeholderLinkedin")}
                 inputFocus={S.inputFocus}
                 className={errors.linkedin_url ? "border-rose-400/50" : ""}
               />
@@ -775,9 +733,10 @@ export default function ProfileSettings() {
               </Label>
               <ColorInput
                 id="github"
+                type="url"
                 value={form.github_url}
                 onChange={e => updateField("github_url", e.target.value)}
-                placeholder="https://github.com/yourusername"
+                placeholder={t("settings.placeholderGithub")}
                 inputFocus={S.inputFocus}
                 className={errors.github_url ? "border-rose-400/50" : ""}
               />
@@ -790,9 +749,10 @@ export default function ProfileSettings() {
               </Label>
               <ColorInput
                 id="portfolio"
+                type="url"
                 value={form.portfolio_url}
                 onChange={e => updateField("portfolio_url", e.target.value)}
-                placeholder="https://yourportfolio.com"
+                placeholder={t("settings.placeholderPortfolio")}
                 inputFocus={S.inputFocus}
                 className={errors.portfolio_url ? "border-rose-400/50" : ""}
               />
@@ -807,7 +767,7 @@ export default function ProfileSettings() {
             <CardTitle className="flex items-center gap-2 font-display">
               <Sparkles className="h-5 w-5 text-primary" /> Matching essentials
             </CardTitle>
-            <CardDescription>Skills and target roles have the strongest effect on job matching.</CardDescription>
+            <CardDescription>{t("settings.skillsHint")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -820,7 +780,7 @@ export default function ProfileSettings() {
                 value={skillDraft}
                 onChange={setSkillDraft}
                 clearOnCommit
-                placeholder="Type a skill and press Enter…"
+                placeholder={t("settings.placeholderSkills")}
                 inputClassName={K.inputFocus}
                 onCommit={(canonical) => {
                   const existing = form.skills
@@ -866,7 +826,7 @@ export default function ProfileSettings() {
               <Label htmlFor="roles" className={`flex items-center gap-1.5 ${K.titleColor}`}>
                 Desired Roles <DataSourceBadge source={dataSources.desired_roles} />
               </Label>
-              <ColorTextarea id="roles" value={form.desired_roles} onChange={e => updateField("desired_roles", e.target.value)} placeholder="Frontend Developer, Full Stack Engineer..." rows={2} inputFocus={K.inputFocus} />
+              <ColorTextarea id="roles" value={form.desired_roles} onChange={e => updateField("desired_roles", e.target.value)} placeholder={t("settings.placeholderRoles")} rows={2} inputFocus={K.inputFocus} />
               {roles.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {roles.map((r: string) => (
@@ -892,7 +852,7 @@ export default function ProfileSettings() {
             <CardTitle className="flex items-center gap-2 font-display">
               <Award className="h-5 w-5 text-primary" /> Credentials
             </CardTitle>
-            <CardDescription>Optional details that make your profile more complete.</CardDescription>
+            <CardDescription>{t("settings.additionalDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -900,7 +860,7 @@ export default function ProfileSettings() {
                 <Award className="h-3.5 w-3.5" /> Certifications
                 <DataSourceBadge source={dataSources.certifications} />
               </Label>
-              <ColorTextarea id="certifications" value={form.certifications} onChange={e => updateField("certifications", e.target.value)} placeholder="AWS Certified, PMP, Google Analytics..." rows={2} inputFocus={A.inputFocus} />
+              <ColorTextarea id="certifications" value={form.certifications} onChange={e => updateField("certifications", e.target.value)} placeholder={t("settings.placeholderCerts")} rows={2} inputFocus={A.inputFocus} />
               <p className="text-xs text-muted-foreground">Comma-separated list of certifications</p>
             </div>
             <div className="space-y-2">
@@ -908,7 +868,7 @@ export default function ProfileSettings() {
                 <Languages className="h-3.5 w-3.5" /> Languages
                 <DataSourceBadge source={dataSources.languages} />
               </Label>
-              <ColorInput id="languages" value={form.languages} onChange={e => updateField("languages", e.target.value)} placeholder="English, Spanish, French" inputFocus={A.inputFocus} />
+              <ColorInput id="languages" value={form.languages} onChange={e => updateField("languages", e.target.value)} placeholder={t("settings.placeholderLanguages")} inputFocus={A.inputFocus} />
               <p className="text-xs text-muted-foreground">Comma-separated list of languages you speak</p>
             </div>
           </CardContent>
@@ -917,15 +877,15 @@ export default function ProfileSettings() {
         <Card className="border-border bg-card shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-display"><ShieldCheck className="h-5 w-5 text-primary" /> Application autofill</CardTitle>
-            <CardDescription>Control how the extension uses facts you have personally confirmed. It never invents an answer or accepts legal terms for you.</CardDescription>
+            <CardDescription>{t("settings.autofillHint")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2"><Label htmlFor="work_authorization" className="text-foreground">Work authorization</Label><select id="work_authorization" value={form.work_authorization} onChange={e => updateField("work_authorization", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose an answer</option><option value="yes">Authorized to work</option><option value="no">Not authorized to work</option></select></div>
-              <div className="space-y-2"><Label htmlFor="willing_to_relocate" className="text-foreground">Willing to relocate</Label><select id="willing_to_relocate" value={form.willing_to_relocate} onChange={e => updateField("willing_to_relocate", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+              <div className="space-y-2"><Label htmlFor="work_authorization" className="text-foreground">{t("settings.workAuthorization")}</Label><select id="work_authorization" value={form.work_authorization} onChange={e => updateField("work_authorization", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">{t("settings.chooseAnswer")}</option><option value="yes">{t("settings.authorized")}</option><option value="no">{t("settings.notAuthorized")}</option></select></div>
+              <div className="space-y-2"><Label htmlFor="willing_to_relocate" className="text-foreground">{t("settings.willingToRelocate")}</Label><select id="willing_to_relocate" value={form.willing_to_relocate} onChange={e => updateField("willing_to_relocate", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">{t("settings.chooseAnswer")}</option><option value="yes">{t("common.yes")}</option><option value="no">{t("common.no")}</option></select></div>
               <div className="space-y-2"><Label htmlFor="work_type" className="text-foreground">Work preference</Label><select id="work_type" value={form.work_type} onChange={e => updateField("work_type", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose a preference</option><option value="onsite">On-site</option><option value="hybrid">Hybrid</option><option value="remote">Remote</option></select></div>
-              <div className="space-y-2"><Label htmlFor="commute_to_office" className="text-foreground">Comfortable commuting to an office</Label><select id="commute_to_office" value={form.commute_to_office} onChange={e => updateField("commute_to_office", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option><option value="depends">Depends on location</option></select><p className="text-xs text-muted-foreground">Used only for explicit commute questions; location-dependent answers remain for review.</p></div>
-              <div className="space-y-2"><Label htmlFor="availability" className="text-foreground">Availability to start</Label><ColorInput id="availability" value={form.availability} onChange={e => updateField("availability", e.target.value)} placeholder="Immediately, 2 weeks, 4 weeks..." inputFocus="focus-visible:ring-indigo-400/60" /></div>
+              <div className="space-y-2"><Label htmlFor="commute_to_office" className="text-foreground">{t("settings.commute")}</Label><select id="commute_to_office" value={form.commute_to_office} onChange={e => updateField("commute_to_office", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">{t("settings.chooseAnswer")}</option><option value="yes">{t("common.yes")}</option><option value="no">{t("common.no")}</option><option value="depends">{t("settings.dependsLocation")}</option></select></div>
+              <div className="space-y-2"><Label htmlFor="availability" className="text-foreground">{t("settings.availability")}</Label><ColorInput id="availability" value={form.availability} onChange={e => updateField("availability", e.target.value)} placeholder={t("settings.placeholderAvailability")} inputFocus="focus-visible:ring-indigo-400/60" /></div>
             </div>
             <div className="grid gap-4 rounded-xl border border-primary/20 bg-primary/[0.04] p-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
               <div className="space-y-2"><Label htmlFor="text-confidence" className="text-foreground">Text-field confidence</Label><Input id="text-confidence" type="number" min="0.75" max="1" step="0.01" value={autofillPreferences.textAutofillConfidence} onChange={event => setAutofillPreferences(current => ({ ...current, textAutofillConfidence: Math.min(1, Math.max(0.75, Number(event.target.value) || 0.75)) }))} className="border-border bg-background" /><p className="text-xs text-muted-foreground">Safe text fields are filled at or above this evidence score.</p></div>
@@ -946,9 +906,9 @@ export default function ProfileSettings() {
             size="lg"
           >
             {saving ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+              <><Loader2 className="me-2 h-4 w-4 animate-spin" /> {t("settings.saving")}</>
             ) : (
-              <><Save className="mr-2 h-4 w-4" /> Save All Changes</>
+              <><Save className="me-2 h-4 w-4" /> {t("settings.saveChanges")}</>
             )}
           </Button>
         </div>

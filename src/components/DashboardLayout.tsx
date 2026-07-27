@@ -16,14 +16,19 @@ import { motion } from "framer-motion";
 import { JobAILogo } from "@/components/brand/JobAILogo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { MixedDir } from "@/components/MixedDir";
 import { supabase } from "@/integrations/supabase/client";
+import { isRtlLocale, resolveLocale } from "@/i18n/languages";
 
 function AppSidebar() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { role, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const sidebarSide = isRtlLocale(resolveLocale(i18n.resolvedLanguage || i18n.language))
+    ? "right"
+    : "left";
 
   const userNav = [
     { title: t("nav.dashboard"), url: "/dashboard", icon: LayoutDashboard },
@@ -74,7 +79,8 @@ function AppSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      className="portal-sidebar border-r"
+      side={sidebarSide}
+      className="portal-sidebar border-e"
     >
       <SidebarContent className="flex flex-col">
         <div className={`flex items-center gap-3 p-4 border-b border-indigo-500/10 ${collapsed ? "justify-center" : ""}`}>
@@ -99,7 +105,7 @@ function AppSidebar() {
                       to={item.url}
                       end={item.url === "/dashboard" || item.url === "/admin"}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground transition-all duration-200 hover:bg-indigo-500/10 ${collapsed ? "justify-center" : ""}`}
-                      activeClassName="bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border-r-2 border-indigo-500 font-medium"
+                      activeClassName="bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border-e-2 border-indigo-500 font-medium"
                     >
                       <item.icon className="h-4.5 w-4.5 h-4 w-4 flex-shrink-0" />
                       {!collapsed && <span>{item.title}</span>}
@@ -124,9 +130,11 @@ function AppSidebar() {
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
-                  {profile?.full_name || t("common.user")}
+                  <MixedDir>{profile?.full_name || t("common.user")}</MixedDir>
                 </p>
-                <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  <MixedDir>{profile?.email}</MixedDir>
+                </p>
               </div>
             )}
             {!collapsed && (
@@ -212,7 +220,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 ))}
               </nav>
             )}
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ms-auto flex items-center gap-2">
               <ThemeToggle />
               <LanguageSwitcher />
               {role === "admin" && (
@@ -224,7 +232,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 >
                   <Bell className="h-4 w-4" />
                   {pendingCount > 0 && (
-                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-black">
+                    <span className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-black">
                       {pendingCount > 99 ? "99+" : pendingCount}
                     </span>
                   )}

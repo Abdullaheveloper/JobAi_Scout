@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "dir": "rtl",
+    "lang": "ur",
+    "font": "\"Noto Nastaliq Urdu\", \"Noto Sans Arabic\", Inter, system-ui, sans-serif"
+  },
+  "options": [
+    "English",
+    "Français",
+    "Deutsch",
+    "हिन्दी",
+    "اردو",
+    "العربية"
+  ]
+}

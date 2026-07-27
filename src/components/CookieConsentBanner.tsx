@@ -31,7 +31,7 @@ export function CookieConsentBanner() {
       role="region"
       aria-labelledby="cookie-consent-title"
       aria-describedby="cookie-consent-desc"
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-[100] flex justify-end p-4 sm:p-5"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-[100] flex justify-center p-3 sm:justify-end sm:p-5"
     >
       <div
         className={cn(

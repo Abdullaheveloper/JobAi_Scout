@@ -6,6 +6,7 @@ import { useAuth, ApprovalStatus } from "@/contexts/AuthContext";
 import { JobAILogo } from "@/components/brand/JobAILogo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { MixedDir } from "@/components/MixedDir";
 import { Button } from "@/components/ui/button";
 
 export default function WaitingApproval() {
@@ -21,8 +22,8 @@ export default function WaitingApproval() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f6f6f2]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#0caa41] border-t-transparent" />
+      <div className="auth-page flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
   }
@@ -45,34 +46,38 @@ export default function WaitingApproval() {
   const notice = profile?.approval_notice;
 
   return (
-    <main className="min-h-screen bg-[#f6f6f2] text-[#1c1c1c]">
-      <header className="border-b border-black/10 bg-white">
+    <main className="auth-page">
+      <header className="auth-header border-b">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 sm:px-8">
-          <Link to="/" aria-label={t("brand.homeAria")}>
+          <Link to="/" aria-label={t("brand.homeAria")} className="auth-logo-link shrink-0">
             <JobAILogo markClassName="h-9 w-9" />
           </Link>
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <LanguageSwitcher />
-            <Button variant="ghost" className="gap-2 text-[#5c5c5c]" onClick={() => signOut()}>
+            <Button variant="ghost" className="gap-2 text-muted-foreground" onClick={() => signOut()}>
               <LogOut className="h-4 w-4" />
-              {t("waitingApproval.signOut")}
+              <span className="hidden sm:inline">{t("waitingApproval.signOut")}</span>
             </Button>
           </div>
         </div>
       </header>
 
-      <section className="mx-auto flex max-w-lg flex-col items-center px-5 py-20 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+      <section className="mx-auto flex max-w-lg flex-col items-center px-5 py-16 text-center sm:py-20">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300">
           <Icon className="h-8 w-8" />
         </div>
-        <h1 className="mt-6 text-3xl font-bold tracking-tight">{msg.title}</h1>
-        <p className="mt-4 text-base leading-7 text-[#595959]">{notice || msg.body}</p>
+        <h1 className="mt-6 text-3xl font-bold tracking-tight text-foreground">{msg.title}</h1>
+        <p className="mt-4 text-base leading-7 text-muted-foreground">
+          <MixedDir>{notice || msg.body}</MixedDir>
+        </p>
         {profile?.email && (
-          <p className="mt-3 text-sm text-[#7a7a7a]">{profile.email}</p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            <MixedDir>{profile.email}</MixedDir>
+          </p>
         )}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Button className="bg-[#0caa41] hover:bg-[#087d30]" onClick={() => signOut()}>
+          <Button className="auth-primary text-white" onClick={() => signOut()}>
             {t("forgotPassword.backToSignIn")}
           </Button>
           <Button variant="outline" asChild>

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MessageSquare, Plus, Trash2, Edit2, Check, X, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useChatStore, type Conversation } from '@/stores/chat-store';
@@ -87,6 +88,7 @@ function ConversationItem({
 }
 
 export function ConversationList({ onSelect, className }: ConversationListProps) {
+  const { t } = useTranslation();
   const store = useChatStore();
   const [search, setSearch] = useState('');
 
@@ -129,12 +131,12 @@ export function ConversationList({ onSelect, className }: ConversationListProps)
 
         {/* Search */}
         <div className="relative">
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Search size={12} className="absolute start-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search conversations..."
-            className="pl-7 h-7 text-xs bg-muted border-border text-foreground placeholder:text-muted-foreground focus:border-indigo-500"
+            placeholder={t("voice.searchConversations")}
+            className="ps-7 h-7 text-xs bg-muted border-border text-foreground placeholder:text-muted-foreground focus:border-indigo-500"
           />
         </div>
       </div>

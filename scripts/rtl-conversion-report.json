@@ -1,0 +1,31 @@
+{
+  "filesTouched": 49,
+  "replacements": 183,
+  "byRule": {
+    "text-left": 16,
+    "ml-": 23,
+    "pl-": 25,
+    "left-": 28,
+    "rounded-tl": 2,
+    "rounded-tr": 1,
+    "rounded-l": 2,
+    "rounded-r": 3,
+    "right-": 16,
+    "-ml-": 1,
+    "mr-": 24,
+    "pr-": 17,
+    "border-l": 8,
+    "border-r": 3,
+    "text-right": 9,
+    "-right-": 2,
+    "css:padding-left": 1,
+    "css:padding-right": 1,
+    "css:text-align:left": 1
+  },
+  "skippedPhysical": [
+    "components/ui/carousel.tsx",
+    "components/ui/resizable.tsx",
+    "components/ui/sheet.tsx",
+    "components/ui/sidebar.tsx"
+  ]
+}

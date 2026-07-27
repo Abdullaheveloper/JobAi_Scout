@@ -43,8 +43,8 @@ export function MessageBubble({ message, onRegenerate, onDelete, onEdit }: Messa
         <div className={cn(
           'relative px-4 py-3 rounded-2xl shadow-sm',
           isUser
-            ? 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white rounded-tr-sm'
-            : 'bg-muted backdrop-blur-sm border border-border text-foreground rounded-tl-sm'
+            ? 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white rounded-se-sm'
+            : 'bg-muted backdrop-blur-sm border border-border text-foreground rounded-ss-sm'
         )}>
           {isUser ? (
             <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>

@@ -1,0 +1,32 @@
+Theme hardcode audit — 2026-07-27T12:18:42.043Z
+Files scanned: 122
+High: 0  Advisory: 23
+
+=== HIGH (bg-[#…], text-[#…], bg-black/, border-white/) ===
+
+=== ADVISORY (text-white — OK on gradient CTAs) ===
+src/components/chat/ChatContainer.tsx:86 [text-white] <Sparkles size={28} className="text-white" />
+src/components/chat/MessageActions.tsx:29 [text-white] <button onClick={handleEditSubmit} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-lg transition-colors">Submit</button>
+src/components/chat/MessageBubble.tsx:33 [text-white] 'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white shadow-lg',
+src/components/chat/MessageBubble.tsx:46 [text-white] ? 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white rounded-tr-sm'
+src/components/profile/ResumeQualityAlert.tsx:39 [text-white] <h3 className="text-lg font-semibold text-white">
+src/components/profile/ResumeQualityAlert.tsx:63 [text-white] <span className="text-2xl font-bold text-white">{currentScore}</span>
+src/components/profile/ResumeQualityAlert.tsx:83 [text-white] <span className="flex-1 text-sm text-red-100 group-hover:text-white transition">
+src/components/profile/ResumeQualityAlert.tsx:97 [text-white] className="flex-1 px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded-lg font-medium transition"
+src/components/profile/ResumeQualityAlert.tsx:106 [text-white] className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition"
+src/components/voice/MicPermissionDialog.tsx:57 [text-white] className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-6 py-2 font-semibold text-white shadow-[0_12px_28px_rgba(99,102,241,.26)] hover:b
+src/components/voice/VoiceMode.tsx:252 [text-white] <div className="flex flex-wrap justify-center gap-2"><Button onClick={startAssistant} disabled={recording || busy || status === "speaking"} className="h-11 gap-
+src/pages/AdminUsers.tsx:463 [text-white] className="bg-emerald-600 hover:bg-emerald-500 text-white h-8"
+src/pages/AutoFormFill.tsx:84 [text-white] className="gradient-primary h-12 rounded-xl px-5 font-semibold text-white shadow-[0_12px_30px_rgba(99,102,241,0.32)] hover:brightness-110"
+src/pages/Contact.tsx:127 [text-white] <item.icon className="h-5 w-5 text-white" />
+src/pages/Contact.tsx:186 [text-white] <Send className="h-5 w-5 text-white" />
+src/pages/Dashboard.tsx:61 [text-white] <Icon className="h-5 w-5 text-white" />
+src/pages/Dashboard.tsx:93 [text-white] <Icon className="h-5 w-5 text-white" />
+src/pages/Dashboard.tsx:157 [text-white] className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-semibold text-sm shadow-lg shad
+src/pages/Dashboard.tsx:212 [text-white] <Sparkles className="h-4 w-4 text-white" />
+src/pages/Dashboard.tsx:238 [text-white] <Target className="h-4 w-4 text-white" />
+src/pages/Dashboard.tsx:291 [text-white] <FileUp className="h-8 w-8 text-white" />
+src/pages/Dashboard.tsx:304 [text-white] className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-semibold text-sm shadow-lg shadow
+src/pages/JobBoard.tsx:801 [text-white] {isNew && <Badge className="bg-blue-500 text-white animate-pulse text-[10px]">NEW</Badge>}
+
+Allowlisted: ui/*, brand/*, LandingRedesign.css, AdminVoice.tsx, index.css, auth brand pages, About.tsx (dark CTA band)

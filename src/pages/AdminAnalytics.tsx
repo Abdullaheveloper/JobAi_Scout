@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
+import { MixedDir } from "@/components/MixedDir";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line,
+  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line,
   Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
@@ -84,11 +85,19 @@ function fillSeries(raw: DayCount[] | undefined, seriesDays: number): { name: st
     d.setUTCDate(d.getUTCDate() - i);
     const key = d.toISOString().slice(0, 10);
     out.push({
-      name: d.toLocaleDateString("en", { month: "short", day: "numeric" }),
+      name: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
       value: map.get(key) || 0,
     });
   }
   return out;
+}
+
+function translateRole(name: string, t: (key: string) => string) {
+  const key = name.toLowerCase();
+  if (key === "user") return t("admin.roleUser");
+  if (key === "recruiter") return t("admin.roleRecruiter");
+  if (key === "admin") return t("admin.roleAdmin");
+  return name;
 }
 
 function Kpi({
@@ -109,7 +118,11 @@ function Kpi({
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</p>
             <p className="mt-1 text-2xl font-bold tabular-nums truncate">{value}</p>
-            {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+            {hint ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                <MixedDir>{hint}</MixedDir>
+              </p>
+            ) : null}
           </div>
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
             <Icon className="h-4 w-4" />
@@ -140,18 +153,24 @@ function ChartCard({
           {Icon ? <Icon className="h-4 w-4 text-indigo-600 dark:text-indigo-300" /> : null}
           {title}
         </CardTitle>
-        {description ? <CardDescription className="text-xs text-muted-foreground">{description}</CardDescription> : null}
+        {description ? (
+          <CardDescription className="text-xs text-muted-foreground">
+            <MixedDir>{description}</MixedDir>
+          </CardDescription>
+        ) : null}
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
   );
 }
 
-function EmptyChart({ msg = "No data in this range" }: { msg?: string }) {
+function EmptyChart({ msg }: { msg: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-14 text-muted-foreground">
       <Activity className="h-8 w-8 mb-2 opacity-50" />
-      <p className="text-sm">{msg}</p>
+      <p className="text-sm">
+        <MixedDir>{msg}</MixedDir>
+      </p>
     </div>
   );
 }
@@ -179,13 +198,13 @@ export default function AdminAnalytics() {
       setData(null);
       toast({
         variant: "destructive",
-        title: "Could not load platform analytics",
+        title: t("admin.loadAnalyticsFailed"),
         description: (e as Error).message,
       });
     } finally {
       setLoading(false);
     }
-  }, [range, toast]);
+  }, [range, toast, t]);
 
   useEffect(() => {
     void load();
@@ -209,6 +228,15 @@ export default function AdminAnalytics() {
     [signups, applications, jobs],
   );
 
+  const rolesPie = useMemo(
+    () =>
+      (data?.users_by_role || []).map((r) => ({
+        ...r,
+        label: translateRole(r.name, t),
+      })),
+    [data, t],
+  );
+
   const totals = data?.totals;
   const period = data?.period;
 
@@ -223,17 +251,17 @@ export default function AdminAnalytics() {
             <div>
               <h1 className="font-display text-3xl font-bold text-foreground">{t("admin.analytics")}</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                Live metrics from users, jobs, applications, CVs, extension, and voice usage.
+                <MixedDir>{t("admin.analyticsLiveSubtitle")}</MixedDir>
               </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Tabs value={range} onValueChange={(v) => setRange(v as Range)}>
               <TabsList className="bg-muted border border-border">
-                <TabsTrigger value="7">7d</TabsTrigger>
-                <TabsTrigger value="30">30d</TabsTrigger>
-                <TabsTrigger value="90">90d</TabsTrigger>
-                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="7">{t("admin.range7d")}</TabsTrigger>
+                <TabsTrigger value="30">{t("admin.range30d")}</TabsTrigger>
+                <TabsTrigger value="90">{t("admin.range90d")}</TabsTrigger>
+                <TabsTrigger value="all">{t("admin.rangeAll")}</TabsTrigger>
               </TabsList>
             </Tabs>
             <Button
@@ -244,7 +272,7 @@ export default function AdminAnalytics() {
               disabled={loading}
             >
               {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-              Refresh
+              {t("admin.refresh")}
             </Button>
           </div>
         </div>
@@ -258,7 +286,7 @@ export default function AdminAnalytics() {
         ) : !data || !totals ? (
           <Card className="bg-card border-border rounded-2xl">
             <CardContent className="py-16">
-              <EmptyChart msg="Analytics unavailable. Try refreshing, or ensure the analytics RPC is deployed." />
+              <EmptyChart msg={t("admin.emptyAnalyticsUnavailable")} />
             </CardContent>
           </Card>
         ) : (
@@ -266,53 +294,67 @@ export default function AdminAnalytics() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Kpi
                 icon={Users}
-                label="Total Users"
+                label={t("admin.totalUsers")}
                 value={totals.users}
-                hint={`${period?.new_users ?? 0} in selected range`}
+                hint={t("admin.hintInSelectedRange", { count: period?.new_users ?? 0 })}
               />
               <Kpi
                 icon={Briefcase}
-                label="Jobs"
+                label={t("admin.kpiJobs")}
                 value={totals.jobs}
-                hint={`${totals.active_jobs} active · ${totals.posted_jobs} posted · ${totals.collected_jobs} collected`}
+                hint={t("admin.hintJobsBreakdown", {
+                  active: totals.active_jobs,
+                  posted: totals.posted_jobs,
+                  collected: totals.collected_jobs,
+                })}
               />
               <Kpi
                 icon={FileText}
-                label="Applications"
+                label={t("admin.applications")}
                 value={totals.applications}
-                hint={`${period?.new_applications ?? 0} in range · ${totals.external_applications} external`}
+                hint={t("admin.hintAppsInRange", {
+                  count: period?.new_applications ?? 0,
+                  external: totals.external_applications,
+                })}
               />
               <Kpi
                 icon={FileText}
-                label="CVs Uploaded"
+                label={t("admin.kpiCvsUploaded")}
                 value={totals.cvs_uploaded}
-                hint="Profiles with a resume on file"
+                hint={t("admin.hintCvsUploaded")}
               />
-              <Kpi icon={Bookmark} label="Saved Jobs" value={totals.saved_jobs} />
+              <Kpi icon={Bookmark} label={t("admin.kpiSavedJobs")} value={totals.saved_jobs} />
               <Kpi
                 icon={MousePointerClick}
-                label="Extension Fills"
+                label={t("admin.kpiExtensionFills")}
                 value={totals.extension_fills}
-                hint={`${totals.extension_fields} fields filled`}
+                hint={t("admin.hintFieldsFilled", { count: totals.extension_fields })}
               />
               <Kpi
                 icon={Mic}
-                label="Voice Sessions"
+                label={t("admin.kpiVoiceSessions")}
                 value={totals.voice_conversations}
-                hint={`${totals.voice_messages} messages`}
+                hint={t("admin.hintVoiceMessages", { count: totals.voice_messages })}
               />
               <Kpi
                 icon={Globe2}
-                label="Period Activity"
+                label={t("admin.kpiPeriodActivity")}
                 value={period?.new_jobs ?? 0}
-                hint={`${period?.new_users ?? 0} signups · ${period?.new_extension_fills ?? 0} fills`}
+                hint={t("admin.hintPeriodActivity", {
+                  signups: period?.new_users ?? 0,
+                  fills: period?.new_extension_fills ?? 0,
+                })}
               />
             </div>
 
             <div className="grid gap-4 lg:grid-cols-3">
               <ChartCard
-                title="Platform Activity"
-                description={range === "all" ? "Last 90 days (series cap)" : `Last ${seriesDays} days`}
+                title={t("admin.chartPlatformActivity")}
+                description={
+                  range === "all"
+                    ? t("admin.chartLast90Cap")
+                    : t("admin.chartLastDays", { days: seriesDays })
+                }
                 icon={Activity}
                 className="lg:col-span-2"
               >
@@ -329,46 +371,73 @@ export default function AdminAnalytics() {
                       <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
                       <YAxis stroke="#64748b" fontSize={11} allowDecimals={false} />
                       <Tooltip contentStyle={tooltipStyle} />
-                      <Area type="monotone" dataKey="signups" name="Signups" stroke="#818cf8" fill="url(#platSignups)" strokeWidth={2} />
-                      <Line type="monotone" dataKey="applications" name="Applications" stroke="#22d3ee" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="jobs" name="Jobs" stroke="#fbbf24" strokeWidth={2} dot={false} />
+                      <Area type="monotone" dataKey="signups" name={t("admin.seriesSignups")} stroke="#818cf8" fill="url(#platSignups)" strokeWidth={2} />
+                      <Line type="monotone" dataKey="applications" name={t("admin.seriesApplications")} stroke="#22d3ee" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="jobs" name={t("admin.seriesJobs")} stroke="#fbbf24" strokeWidth={2} dot={false} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
-                  <EmptyChart />
+                  <EmptyChart msg={t("admin.emptyNoDataRange")} />
                 )}
               </ChartCard>
 
-              <ChartCard title="Users by Role" icon={Users}>
-                {(data.users_by_role || []).length ? (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <PieChart>
+              <ChartCard title={t("admin.chartUsersByRole")} icon={Users}>
+                {rolesPie.length ? (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <PieChart margin={{ top: 4, right: 12, bottom: 4, left: 12 }}>
                       <Pie
-                        data={data.users_by_role}
+                        data={rolesPie}
                         dataKey="value"
-                        nameKey="name"
+                        nameKey="label"
                         cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={90}
+                        cy="40%"
+                        innerRadius={44}
+                        outerRadius={72}
                         paddingAngle={3}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        label={false}
                       >
-                        {data.users_by_role.map((_, i) => (
+                        {rolesPie.map((_, i) => (
                           <Cell key={i} fill={CHART[i % CHART.length]} />
                         ))}
                       </Pie>
-                      <Tooltip contentStyle={tooltipStyle} />
+                      <Tooltip
+                        contentStyle={tooltipStyle}
+                        formatter={(value: number, _name, item) => [
+                          value,
+                          (item?.payload as { label?: string })?.label || "",
+                        ]}
+                      />
+                      <Legend
+                        verticalAlign="bottom"
+                        align="center"
+                        layout="horizontal"
+                        height={64}
+                        wrapperStyle={{
+                          fontSize: 11,
+                          lineHeight: 1.35,
+                          paddingTop: 8,
+                          width: "100%",
+                        }}
+                        formatter={(value) => (
+                          <span
+                            className="text-muted-foreground inline-block max-w-[9rem] truncate align-middle"
+                            dir="auto"
+                            title={String(value)}
+                          >
+                            {value}
+                          </span>
+                        )}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <EmptyChart msg="No role data yet" />
+                  <EmptyChart msg={t("admin.emptyNoRoleData")} />
                 )}
               </ChartCard>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
-              <ChartCard title="Signups Over Time" icon={Users}>
+              <ChartCard title={t("admin.chartSignupsOverTime")} icon={Users}>
                 {hasSeriesData(signups) ? (
                   <ResponsiveContainer width="100%" height={260}>
                     <AreaChart data={signups}>
@@ -376,15 +445,15 @@ export default function AdminAnalytics() {
                       <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
                       <YAxis stroke="#64748b" fontSize={11} allowDecimals={false} />
                       <Tooltip contentStyle={tooltipStyle} />
-                      <Area type="monotone" dataKey="value" name="Signups" stroke="#818cf8" fill="#818cf833" strokeWidth={2} />
+                      <Area type="monotone" dataKey="value" name={t("admin.seriesSignups")} stroke="#818cf8" fill="#818cf833" strokeWidth={2} />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <EmptyChart />
+                  <EmptyChart msg={t("admin.emptyNoDataRange")} />
                 )}
               </ChartCard>
 
-              <ChartCard title="Jobs by Source" icon={Briefcase}>
+              <ChartCard title={t("admin.chartJobsBySource")} icon={Briefcase}>
                 {(data.jobs_by_source || []).length ? (
                   <ResponsiveContainer width="100%" height={280}>
                     <BarChart data={data.jobs_by_source}>
@@ -396,38 +465,44 @@ export default function AdminAnalytics() {
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <EmptyChart msg="No jobs yet" />
+                  <EmptyChart msg={t("admin.emptyNoJobs")} />
                 )}
               </ChartCard>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
-              <ChartCard title="Top Job Locations" icon={MapPin}>
+              <ChartCard title={t("admin.chartTopLocations")} icon={MapPin}>
                 {(data.top_locations || []).length ? (
                   <ResponsiveContainer width="100%" height={280}>
-                    <PieChart>
+                    <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
                       <Pie
                         data={data.top_locations}
                         dataKey="value"
                         nameKey="name"
                         cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        cy="42%"
+                        outerRadius={78}
+                        labelLine={{ stroke: "#94a3b8", strokeWidth: 1 }}
+                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                       >
                         {data.top_locations.map((_, i) => (
                           <Cell key={i} fill={CHART[i % CHART.length]} />
                         ))}
                       </Pie>
                       <Tooltip contentStyle={tooltipStyle} />
+                      <Legend verticalAlign="bottom" height={48} wrapperStyle={{ fontSize: 11 }} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <EmptyChart msg="No location data yet" />
+                  <EmptyChart msg={t("admin.emptyNoLocation")} />
                 )}
               </ChartCard>
 
-              <ChartCard title="Extension Usage" description="Auto-fill clicks over time" icon={MousePointerClick}>
+              <ChartCard
+                title={t("admin.extensionUsage")}
+                description={t("admin.chartExtensionDesc")}
+                icon={MousePointerClick}
+              >
                 {hasSeriesData(extension) ? (
                   <ResponsiveContainer width="100%" height={280}>
                     <AreaChart data={extension}>
@@ -435,11 +510,11 @@ export default function AdminAnalytics() {
                       <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
                       <YAxis stroke="#64748b" fontSize={11} allowDecimals={false} />
                       <Tooltip contentStyle={tooltipStyle} />
-                      <Area type="monotone" dataKey="value" name="Fills" stroke="#34d399" fill="#34d39933" strokeWidth={2} />
+                      <Area type="monotone" dataKey="value" name={t("admin.seriesFills")} stroke="#34d399" fill="#34d39933" strokeWidth={2} />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <EmptyChart msg="No extension usage yet" />
+                  <EmptyChart msg={t("admin.emptyNoExtension")} />
                 )}
               </ChartCard>
             </div>

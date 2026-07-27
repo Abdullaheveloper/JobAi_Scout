@@ -1,0 +1,10 @@
+{
+  "locale": "fr",
+  "mode": "locale-render-proof",
+  "note": "Rendered from fr.json keys used by VoiceMode/AutoFormFill/Dashboard. Live portal screenshots need I18N_EMAIL/I18N_PASSWORD (see i18n-coverage-screenshots.mjs).",
+  "shots": [
+    "fr-voice-desktop.png",
+    "fr-formfill-desktop.png",
+    "fr-dashboard-desktop.png"
+  ]
+}

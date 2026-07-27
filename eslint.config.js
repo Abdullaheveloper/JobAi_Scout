@@ -23,13 +23,26 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
-      // Catch new hardcoded JSX text; warn so existing pages can migrate gradually.
+      // Catch JSX text + user-facing attrs (placeholder/alt/title/aria-label).
+      // jsx-text-only misses placeholders — that is why they kept slipping through.
       "i18next/no-literal-string": [
         "warn",
         {
-          mode: "jsx-text-only",
+          mode: "jsx-only",
           "jsx-components": {
             exclude: ["Trans", "Icon", "Route"],
+          },
+          "jsx-attributes": {
+            // Only flag user-facing copy attrs; skip className/type/variant/etc.
+            include: [
+              "placeholder",
+              "alt",
+              "title",
+              "aria-label",
+              "aria-placeholder",
+              "aria-roledescription",
+              "aria-valuetext",
+            ],
           },
           words: {
             exclude: [
@@ -39,13 +52,14 @@ export default tseslint.config(
               "^✗$",
               "^—$",
               "^·$",
+              "^https?:\\/\\/.*$",
             ],
           },
         },
       ],
     },
   },
-  // Critical pages: treat literal JSX strings as errors so regressions fail CI.
+  // Critical pages: treat literal JSX strings/attrs as errors so regressions fail CI.
   {
     files: [
       "src/pages/Automation.tsx",
@@ -59,7 +73,18 @@ export default tseslint.config(
       "i18next/no-literal-string": [
         "error",
         {
-          mode: "jsx-text-only",
+          mode: "jsx-only",
+          "jsx-attributes": {
+            include: [
+              "placeholder",
+              "alt",
+              "title",
+              "aria-label",
+              "aria-placeholder",
+              "aria-roledescription",
+              "aria-valuetext",
+            ],
+          },
           words: {
             exclude: [
               "^[\\s\\d\\p{P}\\p{S}]*$",
@@ -68,6 +93,7 @@ export default tseslint.config(
               "^✗$",
               "^—$",
               "^·$",
+              "^https?:\\/\\/.*$",
             ],
           },
         },

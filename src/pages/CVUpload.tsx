@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { hasValue } from "@/lib/constants";
 import {
   type ExtractedData,
   profileToExtractedData,
@@ -21,6 +20,9 @@ import {
 import { Link } from "react-router-dom";
 import { useResumeATSAnalysis } from "@/hooks/useResumeATSAnalysis";
 import { useTranslation } from "react-i18next";
+import { MixedDir } from "@/components/MixedDir";
+import { ProfileReadinessCard } from "@/components/profile/ProfileReadinessCard";
+import { buildProfileReadinessItems, profileReadinessPercent } from "@/lib/profile-readiness";
 
 const MAX_RESUME_BYTES = 10 * 1024 * 1024;
 function validateResume(candidate: File, t: (key: string) => string): string | null {
@@ -78,28 +80,18 @@ export default function CVUpload() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Profile completeness calculation
+  const completionItems = useMemo(
+    () => buildProfileReadinessItems(profile, t),
+    [profile, t],
+  );
   const completionInfo = useMemo(() => {
-    if (!profile) return { percent: 0, fields: [], missing: [] };
-    const checks = [
-      { key: "full_name", label: t("cv.fieldName"), done: hasValue(profile.full_name) },
-      { key: "email", label: t("cv.fieldEmail"), done: hasValue(profile.email) },
-      { key: "phone", label: t("cv.fieldPhone"), done: hasValue(profile.phone) },
-      { key: "location", label: t("cv.fieldLocation"), done: hasValue(profile.location) },
-      { key: "bio", label: t("cv.fieldBio"), done: hasValue(profile.bio) },
-      { key: "skills", label: t("cv.fieldSkills"), done: hasValue(profile.skills) },
-      { key: "desired_roles", label: t("cv.fieldRoles"), done: hasValue(profile.desired_roles) },
-      { key: "experience_years", label: t("cv.fieldExperience"), done: hasValue(profile.experience_years) },
-      { key: "resume_url", label: t("cv.fieldResume"), done: hasValue(profile.resume_url) },
-      { key: "linkedin_url", label: t("cv.fieldLinkedIn"), done: hasValue(profile.linkedin_url) },
-      { key: "github_url", label: t("cv.fieldGitHub"), done: hasValue(profile.github_url) },
-      { key: "portfolio_url", label: t("cv.fieldPortfolio"), done: hasValue((profile as { portfolio_url?: string | null }).portfolio_url) },
-      { key: "current_company", label: t("cv.fieldCompany"), done: hasValue((profile as { current_company?: string | null }).current_company) },
-      { key: "education", label: t("cv.fieldEducation"), done: hasValue((profile as { education?: string | null }).education) },
-    ];
-    const done = checks.filter(c => c.done);
-    const missing = checks.filter(c => !c.done);
-    return { percent: Math.round((done.length / checks.length) * 100), fields: checks, missing };
-  }, [profile, t]);
+    const missing = completionItems.filter((c) => !c.done);
+    return {
+      percent: profileReadinessPercent(completionItems),
+      fields: completionItems,
+      missing,
+    };
+  }, [completionItems]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -225,9 +217,15 @@ export default function CVUpload() {
     <DashboardLayout>
       <div className="mx-auto max-w-4xl space-y-6 animate-fade-in">
         <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card px-6 py-7 sm:px-8">
-          <Badge variant="outline" className="mb-3 border-primary/25 bg-primary/10 text-primary">{t("cv.stepBadge", { step: 1, total: 2 })}</Badge>
-          <h1 className="font-display text-3xl font-bold tracking-tight">{t("cv.title")}</h1>
-          <p className="mt-2 max-w-2xl text-muted-foreground">{t("cv.subtitle")}</p>
+          <Badge variant="outline" className="mb-3 border-primary/25 bg-primary/10 text-primary">
+            <MixedDir>{t("cv.stepBadge", { step: 1, total: 2 })}</MixedDir>
+          </Badge>
+          <MixedDir as="h1" className="font-display text-3xl font-bold tracking-tight">
+            {t("cv.title")}
+          </MixedDir>
+          <MixedDir as="p" className="mt-2 max-w-2xl text-muted-foreground">
+            {t("cv.subtitle")}
+          </MixedDir>
         </section>
 
         <ResumeSuggestionNotification
@@ -241,36 +239,11 @@ export default function CVUpload() {
         />
 
         {/* Profile Completion Bar */}
-        <Card className="border-border bg-card shadow-card">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-display font-semibold text-sm">{t("cv.profileReadiness")}</span>
-              <Badge variant="outline" className="border-primary/25 bg-primary/10 text-primary">
-                {t("cv.percent", { percent: completionInfo.percent })}
-              </Badge>
-            </div>
-            <div className="w-full h-2.5 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-700 ease-out"
-                style={{
-                  width: `${completionInfo.percent}%`,
-                  background: completionInfo.percent === 100
-                    ? "linear-gradient(90deg, #10b981, #34d399, #6ee7b7)"
-                    : "linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa)",
-                }}
-              />
-            </div>
-            {completionInfo.missing.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {completionInfo.fields.map(item => (
-                  <Badge key={item.key} variant="outline" className={`text-xs ${item.done ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/25" : "bg-rose-500/10 text-rose-300 border-rose-500/25"}`}>
-                    {item.done ? "✓" : "✗"} {item.label}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <ProfileReadinessCard
+          items={completionInfo.fields}
+          percent={completionInfo.percent}
+          hideBadgesWhenComplete
+        />
 
         {/* Upload Section */}
         <Card className="overflow-hidden border-border bg-card shadow-card">
@@ -320,11 +293,11 @@ export default function CVUpload() {
             {file && !extractedData && (
               <Button onClick={handleUploadAndAnalyze} disabled={uploading || analyzing} className="mt-4 w-full sm:w-auto">
                 {uploading ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("cv.uploading")}</>
+                  <><Loader2 className="me-2 h-4 w-4 animate-spin" /> {t("cv.uploading")}</>
                 ) : analyzing ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("cv.analyzing")}</>
+                  <><Loader2 className="me-2 h-4 w-4 animate-spin" /> {t("cv.analyzing")}</>
                 ) : (
-                  <><Sparkles className="mr-2 h-4 w-4" /> {t("cv.analyze")}</>
+                  <><Sparkles className="me-2 h-4 w-4" /> {t("cv.analyze")}</>
                 )}
               </Button>
             )}
@@ -395,7 +368,7 @@ export default function CVUpload() {
                   </div>
                   <Button asChild variant="outline" className="w-full border-violet-400/30 hover:border-violet-400/60">
                     <Link to="/dashboard/settings">
-                      <ExternalLink className="mr-2 h-4 w-4" /> {t("cv.completeInSettings")}
+                      <ExternalLink className="me-2 h-4 w-4" /> {t("cv.completeInSettings")}
                     </Link>
                   </Button>
                 </CardContent>

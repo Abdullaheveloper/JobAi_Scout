@@ -8,6 +8,7 @@ import {
   LOCALE_STORAGE_KEY,
   resolveLocale,
 } from "@/i18n/languages";
+import { useDirection } from "@/hooks/useDirection";
 
 function writeLocalLocale(locale: AppLocale) {
   try {
@@ -34,6 +35,9 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const { i18n } = useTranslation();
   const { user, profile } = useAuth();
   const appliedProfileRef = useRef<string | null>(null);
+
+  // Sync html[dir] for RTL locales (ur/ar) on load and every language change.
+  useDirection();
 
   useEffect(() => {
     document.documentElement.lang = resolveLocale(i18n.resolvedLanguage || i18n.language);

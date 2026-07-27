@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useTranslation } from "react-i18next";
+import { MixedDir } from "@/components/MixedDir";
+import { isRtlLocale, resolveLocale } from "@/i18n/languages";
 
 type ApprovalFilter = "all" | "pending" | "approved" | "rejected" | "expired";
 
@@ -29,22 +31,24 @@ const approvalBadgeClass: Record<string, string> = {
   expired: "bg-gray-500/15 text-gray-400 border-gray-500/30",
 };
 
-const FILTERS: { id: ApprovalFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "pending", label: "Pending" },
-  { id: "approved", label: "Approved" },
-  { id: "rejected", label: "Rejected" },
-  { id: "expired", label: "Expired" },
-];
+const FILTER_IDS: ApprovalFilter[] = ["all", "pending", "approved", "rejected", "expired"];
 
 export default function AdminUsers() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const tableDir = isRtlLocale(resolveLocale(i18n.resolvedLanguage || i18n.language)) ? "rtl" : "ltr";
+  const filterLabels: Record<ApprovalFilter, string> = {
+    all: t("admin.filterAll"),
+    pending: t("admin.filterPending"),
+    approved: t("admin.filterApproved"),
+    rejected: t("admin.filterRejected"),
+    expired: t("admin.filterExpired"),
+  };
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const filterParam = searchParams.get("filter") as ApprovalFilter | null;
   const filter: ApprovalFilter =
-    filterParam && FILTERS.some((f) => f.id === filterParam) ? filterParam : "all";
+    filterParam && FILTER_IDS.includes(filterParam) ? filterParam : "all";
 
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,7 +123,7 @@ export default function AdminUsers() {
 
   const toggleRole = async (targetUserId: string, currentRole: string) => {
     if (targetUserId === user?.id) {
-      toast({ title: "Cannot change your own role", variant: "destructive" });
+      toast({ title: t("admin.cannotChangeOwnRole"), variant: "destructive" });
       return;
     }
     const newRole = currentRole === "admin" ? "user" : "admin";
@@ -130,10 +134,14 @@ export default function AdminUsers() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      toast({ title: `Role updated to ${newRole}` });
+      toast({
+        title: t("admin.roleUpdated", {
+          role: newRole === "admin" ? t("admin.roleAdmin") : t("admin.roleUser"),
+        }),
+      });
       await fetchUsers();
     } catch (err: any) {
-      toast({ title: "Failed to update role", description: err.message, variant: "destructive" });
+      toast({ title: t("admin.failedUpdateRole"), description: err.message, variant: "destructive" });
     } finally {
       setUpdating(null);
     }
@@ -141,7 +149,7 @@ export default function AdminUsers() {
 
   const setApproval = async (targetUserId: string, status: "approved" | "rejected") => {
     if (targetUserId === user?.id) {
-      toast({ title: "Cannot change your own approval", variant: "destructive" });
+      toast({ title: t("admin.cannotChangeOwnApproval"), variant: "destructive" });
       return;
     }
     setApproving(targetUserId);
@@ -151,10 +159,10 @@ export default function AdminUsers() {
         p_status: status,
       });
       if (error) throw error;
-      toast({ title: status === "approved" ? "User approved" : "User rejected" });
+      toast({ title: status === "approved" ? t("admin.userApproved") : t("admin.userRejected") });
       await fetchUsers();
     } catch (err: any) {
-      toast({ title: "Approval action failed", description: err.message, variant: "destructive" });
+      toast({ title: t("admin.approvalFailed"), description: err.message, variant: "destructive" });
     } finally {
       setApproving(null);
     }
@@ -195,17 +203,16 @@ export default function AdminUsers() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      const label = deleteTarget.full_name || deleteTarget.email || "User";
       toast({
-        title: "User deleted",
-        description: data?.message || `User ${label} and all associated data permanently deleted`,
+        title: t("admin.userDeleted"),
+        description: data?.message || undefined,
       });
       setUsers((prev) => prev.filter((u) => u.user_id !== deleteTarget.user_id));
       setDeleteOpen(false);
       setDeleteTarget(null);
       setDeleteConfirm("");
     } catch (err: any) {
-      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+      toast({ title: t("admin.deleteFailed"), description: err.message, variant: "destructive" });
     } finally {
       setDeleting(false);
     }
@@ -233,11 +240,11 @@ export default function AdminUsers() {
         .eq("user_id", editUser.user_id);
 
       if (error) throw error;
-      toast({ title: "Profile updated!" });
+      toast({ title: t("admin.profileUpdated") });
       setEditOpen(false);
       await fetchUsers();
     } catch (err: any) {
-      toast({ title: "Failed to save", description: err.message, variant: "destructive" });
+      toast({ title: t("admin.failedSave"), description: err.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -255,40 +262,42 @@ export default function AdminUsers() {
         <div>
           <h1 className="font-display text-3xl font-bold">{t("admin.manageUsers")}</h1>
           <p className="text-muted-foreground mt-1">
-            Approve new signups, manage roles, and permanently delete accounts
+            <MixedDir>{t("admin.manageUsersSubtitle")}</MixedDir>
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {FILTERS.map((f) => {
+          {FILTER_IDS.map((id) => {
             const count =
-              f.id === "all"
+              id === "all"
                 ? users.length
-                : users.filter((u) => (u.approval_status || "approved") === f.id).length;
-            const active = filter === f.id;
+                : users.filter((u) => (u.approval_status || "approved") === id).length;
+            const active = filter === id;
             return (
               <button
-                key={f.id}
+                key={id}
                 type="button"
-                onClick={() => setFilter(f.id)}
+                onClick={() => setFilter(id)}
                 className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition ${
                   active
-                    ? f.id === "pending"
+                    ? id === "pending"
                       ? "border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-200"
                       : "border-indigo-500/40 bg-indigo-500/15 text-indigo-700 dark:text-indigo-200"
                     : "border-border bg-muted text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {f.label}
-                <span
-                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
-                    f.id === "pending" && count > 0
-                      ? "bg-amber-500 text-black"
-                      : "bg-white/10 text-gray-300"
-                  }`}
-                >
-                  {count}
-                </span>
+                <bdi className="inline-flex items-center gap-2">
+                  {filterLabels[id]}
+                  <span
+                    className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                      id === "pending" && count > 0
+                        ? "bg-amber-500 text-black"
+                        : "bg-white/10 text-gray-300"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </bdi>
               </button>
             );
           })}
@@ -299,7 +308,7 @@ export default function AdminUsers() {
               className="border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
               onClick={() => setFilter("pending")}
             >
-              Review {pendingCount} pending
+              {t("admin.reviewPending", { count: pendingCount })}
             </Button>
           )}
         </div>
@@ -312,29 +321,29 @@ export default function AdminUsers() {
               </div>
             ) : filteredUsers.length === 0 ? (
               <p className="py-12 text-center text-sm text-muted-foreground">
-                No users match this filter.
+                {t("admin.noUsersMatch")}
               </p>
             ) : (
-              <Table>
+              <Table dir={tableDir}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Links</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Approval</TableHead>
-                    <TableHead>Signup</TableHead>
-                    <TableHead>Experience</TableHead>
-                    <TableHead>Skills</TableHead>
-                    <TableHead>Desired Roles</TableHead>
-                    <TableHead>Resume</TableHead>
-                    <TableHead>Bio</TableHead>
-                    <TableHead>Readiness</TableHead>
-                    <TableHead>Applications</TableHead>
-                    <TableHead>Last Updated</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t("admin.colName")}</TableHead>
+                    <TableHead>{t("admin.colEmail")}</TableHead>
+                    <TableHead>{t("admin.colPhone")}</TableHead>
+                    <TableHead>{t("admin.colLinks")}</TableHead>
+                    <TableHead>{t("admin.colRole")}</TableHead>
+                    <TableHead>{t("admin.colApproval")}</TableHead>
+                    <TableHead>{t("admin.colSignup")}</TableHead>
+                    <TableHead>{t("admin.colExperience")}</TableHead>
+                    <TableHead>{t("admin.colSkills")}</TableHead>
+                    <TableHead>{t("admin.colDesiredRoles")}</TableHead>
+                    <TableHead>{t("admin.colResume")}</TableHead>
+                    <TableHead>{t("admin.colBio")}</TableHead>
+                    <TableHead>{t("admin.colReadiness")}</TableHead>
+                    <TableHead>{t("admin.colApplications")}</TableHead>
+                    <TableHead>{t("admin.colLastUpdated")}</TableHead>
+                    <TableHead>{t("admin.colJoined")}</TableHead>
+                    <TableHead className="text-end">{t("admin.colActions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -359,9 +368,9 @@ export default function AdminUsers() {
                     const completeness = getCompleteness();
                     return (
                       <TableRow key={u.id} className={approval === "pending" ? "bg-amber-500/5" : undefined}>
-                        <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
-                        <TableCell className="text-sm">{u.email}</TableCell>
-                        <TableCell className="text-sm">{u.phone || <span className="text-muted-foreground">—</span>}</TableCell>
+                        <TableCell className="font-medium"><MixedDir>{u.full_name || "—"}</MixedDir></TableCell>
+                        <TableCell className="text-sm"><MixedDir>{u.email}</MixedDir></TableCell>
+                        <TableCell className="text-sm" dir="ltr">{u.phone || <span className="text-muted-foreground">—</span>}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
                             {u.linkedin_url && (
@@ -379,7 +388,11 @@ export default function AdminUsers() {
                         </TableCell>
                         <TableCell>
                           <Badge variant={isAdmin ? "default" : "secondary"} className={isAdmin ? "gradient-primary border-0" : ""}>
-                            {u._role || "user"}
+                            {u._role === "admin"
+                              ? t("admin.roleAdmin")
+                              : u._role === "recruiter"
+                                ? t("admin.roleRecruiter")
+                                : t("admin.roleUser")}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -444,7 +457,7 @@ export default function AdminUsers() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
-                            <Briefcase className="h-3 w-3 mr-1" />
+                            <Briefcase className="h-3 w-3 me-1" />
                             {u._appCount}
                           </Badge>
                         </TableCell>
@@ -454,7 +467,7 @@ export default function AdminUsers() {
                         <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                           {new Date(u.created_at).toLocaleDateString()}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-end">
                           <div className="flex items-center gap-1 justify-end">
                             {!isCurrentUser && approval === "pending" && (
                               <>
@@ -492,20 +505,20 @@ export default function AdminUsers() {
                                   onClick={() => toggleRole(u.user_id, u._role)}
                                 >
                                   {updating === u.user_id ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin me-1" />
                                   ) : isAdmin ? (
-                                    <ShieldOff className="h-3.5 w-3.5 mr-1" />
+                                    <ShieldOff className="h-3.5 w-3.5 me-1" />
                                   ) : (
-                                    <ShieldCheck className="h-3.5 w-3.5 mr-1" />
+                                    <ShieldCheck className="h-3.5 w-3.5 me-1" />
                                   )}
-                                  {isAdmin ? "Demote" : "Promote"}
+                                  {isAdmin ? t("admin.demote") : t("admin.promote")}
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="ghost"
                                   className="h-8 text-rose-400 hover:bg-rose-500/15 hover:text-rose-300"
                                   onClick={() => openDelete(u)}
-                                  title="Delete permanently"
+                                  title={t("admin.deletePermanently")}
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
@@ -527,56 +540,56 @@ export default function AdminUsers() {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-xl">
-              Edit {editUser?.full_name || "User"}
+              {t("admin.editUser", { name: editUser?.full_name || t("admin.userFallback") })}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Full Name</Label>
+                <Label>{t("admin.fullName")}</Label>
                 <Input value={editForm.full_name} onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Email</Label>
-                <Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+                <Label>{t("admin.colEmail")}</Label>
+                <Input type="email" dir="ltr" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Phone</Label>
-                <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} placeholder="+1 234 567 890" />
+                <Label>{t("admin.colPhone")}</Label>
+                <Input dir="ltr" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} placeholder={t("admin.phonePlaceholder")} />
               </div>
               <div className="space-y-2">
-                <Label>Experience (years)</Label>
+                <Label>{t("admin.experienceYears")}</Label>
                 <Input type="number" min="0" value={editForm.experience_years} onChange={(e) => setEditForm({ ...editForm, experience_years: e.target.value })} />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>LinkedIn URL</Label>
-              <Input value={editForm.linkedin_url} onChange={(e) => setEditForm({ ...editForm, linkedin_url: e.target.value })} placeholder="https://linkedin.com/in/..." />
+              <Label>{t("admin.linkedinUrl")}</Label>
+              <Input dir="ltr" value={editForm.linkedin_url} onChange={(e) => setEditForm({ ...editForm, linkedin_url: e.target.value })} placeholder={t("admin.linkedinPlaceholder")} />
             </div>
             <div className="space-y-2">
-              <Label>GitHub URL</Label>
-              <Input value={editForm.github_url} onChange={(e) => setEditForm({ ...editForm, github_url: e.target.value })} placeholder="https://github.com/..." />
+              <Label>{t("admin.githubUrl")}</Label>
+              <Input dir="ltr" value={editForm.github_url} onChange={(e) => setEditForm({ ...editForm, github_url: e.target.value })} placeholder={t("admin.githubPlaceholder")} />
             </div>
             <div className="space-y-2">
-              <Label>Skills (comma-separated)</Label>
-              <Input value={editForm.skills} onChange={(e) => setEditForm({ ...editForm, skills: e.target.value })} placeholder="React, Node.js, TypeScript" />
+              <Label>{t("admin.skillsComma")}</Label>
+              <Input value={editForm.skills} onChange={(e) => setEditForm({ ...editForm, skills: e.target.value })} dir="ltr" />
             </div>
             <div className="space-y-2">
-              <Label>Desired Roles (comma-separated)</Label>
-              <Input value={editForm.desired_roles} onChange={(e) => setEditForm({ ...editForm, desired_roles: e.target.value })} placeholder="Full Stack Engineer, Frontend Developer" />
+              <Label>{t("admin.desiredRolesComma")}</Label>
+              <Input value={editForm.desired_roles} onChange={(e) => setEditForm({ ...editForm, desired_roles: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>Bio</Label>
-              <Textarea value={editForm.bio} onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })} rows={3} placeholder="Brief professional summary..." />
+              <Label>{t("admin.bio")}</Label>
+              <Textarea value={editForm.bio} onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })} rows={3} placeholder={t("admin.bioPlaceholder")} />
             </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>{t("admin.cancel")}</Button>
             <Button className="gradient-primary border-0" onClick={handleSaveEdit} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              Save Changes
+              {saving ? <Loader2 className="h-4 w-4 animate-spin me-1" /> : null}
+              {t("admin.saveChanges")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -595,38 +608,45 @@ export default function AdminUsers() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display text-xl text-rose-300">
-              Delete user permanently
+              {t("admin.deleteUserTitle")}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              This removes {deleteTarget?.full_name || deleteTarget?.email || "this user"} and all
-              associated data (profile, roles, CV/resume files, applications, scrape sessions,
-              automation). This cannot be undone.
+              <MixedDir>
+                {t("admin.deleteUserDesc", {
+                  name: deleteTarget?.full_name || deleteTarget?.email || t("admin.thisUser"),
+                })}
+              </MixedDir>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <Label htmlFor="delete-confirm">
-              Type <span className="font-mono text-amber-300">{deleteTarget?.email || "the user email"}</span>{" "}
-              or <span className="font-mono text-amber-300">Yes, delete permanently</span>
+              <MixedDir>
+                {t("admin.deleteConfirmHint", {
+                  email: deleteTarget?.email || t("admin.theUserEmail"),
+                  phrase: t("admin.deleteConfirmPhrase"),
+                })}
+              </MixedDir>
             </Label>
             <Input
               id="delete-confirm"
               value={deleteConfirm}
               onChange={(e) => setDeleteConfirm(e.target.value)}
-              placeholder="Confirmation text"
+              placeholder={t("admin.confirmationPlaceholder")}
               autoComplete="off"
+              dir="ltr"
             />
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>
-              Cancel
+              {t("admin.cancel")}
             </Button>
             <Button
               variant="destructive"
               disabled={!confirmValid || deleting}
               onClick={handleDelete}
             >
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
-              Delete permanently
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin me-1" /> : <Trash2 className="h-4 w-4 me-1" />}
+              {t("admin.deletePermanently")}
             </Button>
           </DialogFooter>
         </DialogContent>

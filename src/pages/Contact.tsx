@@ -17,6 +17,7 @@ const contactInfo = [
 ];
 
 export default function Contact() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -63,7 +64,7 @@ export default function Contact() {
             <ThemeToggle />
             <LanguageSwitcher />
             <Link to="/about" className="nav-link-premium">About</Link>
-            <Link to="/register" className="btn-premium text-sm">Get Started <ArrowRight className="inline h-4 w-4 ml-1" /></Link>
+            <Link to="/register" className="btn-premium text-sm">Get Started <ArrowRight className="inline h-4 w-4 ms-1" /></Link>
           </div>
         </div>
       </nav>
@@ -71,7 +72,7 @@ export default function Contact() {
       {/* Hero */}
       <section className="relative py-24 lg:py-28 overflow-hidden">
         <div className="absolute inset-0 dot-bg opacity-20 pointer-events-none" />
-        <div className="absolute top-0 right-1/3 w-80 h-80 bg-indigo-600/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 end-1/3 w-80 h-80 bg-indigo-600/8 rounded-full blur-3xl pointer-events-none" />
 
         <div className="container mx-auto px-6 relative z-10 text-center max-w-3xl">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
@@ -217,24 +218,26 @@ export default function Contact() {
                     >
                       <div className="grid gap-5 sm:grid-cols-2">
                         <div>
-                          <label className="block text-sm font-medium text-gray-400 mb-1.5">Full Name</label>
+                          <label className="block text-sm font-medium text-gray-400 mb-1.5">{t("contact.fullName")}</label>
                           <input
                             name="name"
+                            dir="auto"
                             value={formData.name}
                             onChange={handleChange}
-                            placeholder="Your name"
+                            placeholder={t("contact.namePlaceholder")}
                             required
                             className="input-premium w-full px-4 py-3 text-sm"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-400 mb-1.5">Email</label>
+                          <label className="block text-sm font-medium text-gray-400 mb-1.5">{t("contact.email")}</label>
                           <input
                             name="email"
                             type="email"
+                            dir="ltr"
                             value={formData.email}
                             onChange={handleChange}
-                            placeholder="you@example.com"
+                            placeholder={t("contact.emailPlaceholder")}
                             required
                             className="input-premium w-full px-4 py-3 text-sm"
                           />
@@ -242,24 +245,26 @@ export default function Contact() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1.5">Subject</label>
+                        <label className="block text-sm font-medium text-gray-400 mb-1.5">{t("contact.subject")}</label>
                         <input
                           name="subject"
+                          dir="auto"
                           value={formData.subject}
                           onChange={handleChange}
-                          placeholder="How can we help?"
+                          placeholder={t("contact.subjectPlaceholder")}
                           required
                           className="input-premium w-full px-4 py-3 text-sm"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1.5">Message</label>
+                        <label className="block text-sm font-medium text-gray-400 mb-1.5">{t("contact.message")}</label>
                         <textarea
                           name="message"
+                          dir="auto"
                           value={formData.message}
                           onChange={handleChange}
-                          placeholder="Tell us more about your needs..."
+                          placeholder={t("contact.messagePlaceholder")}
                           rows={5}
                           required
                           className="input-premium w-full px-4 py-3 text-sm resize-none"

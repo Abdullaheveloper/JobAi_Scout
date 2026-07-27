@@ -89,7 +89,7 @@ export default function SavedJobs() {
     await supabase.from("saved_jobs").delete().eq("id", savedJobId);
     setSavedRecJobs(prev => prev.filter(j => j.saved_job_id !== savedJobId));
     setSavedRegJobs(prev => prev.filter(j => j.saved_job_id !== savedJobId));
-    toast({ title: "Job removed from saved" });
+    toast({ title: t("saved.removed") });
   };
 
   const totalCount = savedRecJobs.length + savedRegJobs.length;
@@ -100,12 +100,12 @@ export default function SavedJobs() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-3xl font-bold">{t("saved.title")}</h1>
-            <p className="text-muted-foreground mt-1">Jobs you've bookmarked — never auto-deleted</p>
+            <p className="text-muted-foreground mt-1">{t("saved.subtitlePersistent")}</p>
           </div>
           {totalCount > 0 && (
             <Badge variant="secondary" className="text-sm px-3 py-1">
-              <Bookmark className="h-3.5 w-3.5 mr-1" />
-              {totalCount} saved
+              <Bookmark className="h-3.5 w-3.5 me-1" />
+              {t("saved.countBadge", { count: totalCount })}
             </Badge>
           )}
         </div>
@@ -118,8 +118,8 @@ export default function SavedJobs() {
           <Card className="shadow-card">
             <CardContent className="py-12 text-center">
               <Bookmark className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="font-display text-xl font-semibold">No saved jobs yet</h3>
-              <p className="text-muted-foreground mt-1">Browse recommended jobs and save the ones you're interested in</p>
+              <h3 className="font-display text-xl font-semibold">{t("saved.emptyTitle")}</h3>
+              <p className="text-muted-foreground mt-1">{t("saved.emptyBodyAlt")}</p>
             </CardContent>
           </Card>
         ) : (
@@ -129,7 +129,7 @@ export default function SavedJobs() {
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Sparkles className="h-4 w-4 text-primary" />
-                  <h2 className="font-display text-lg font-semibold">From Extension Scans</h2>
+                  <h2 className="font-display text-lg font-semibold">{t("saved.fromExtension")}</h2>
                   <Badge variant="outline">{savedRecJobs.length}</Badge>
                 </div>
                 <div className="space-y-3">
@@ -178,7 +178,7 @@ export default function SavedJobs() {
                             <div className="flex gap-2 shrink-0">
                               {job.source_url && (
                                 <Button variant="outline" size="sm" asChild>
-                                  <a href={job.source_url} target="_blank" rel="noopener noreferrer">Apply <ExternalLink className="ml-1 h-3 w-3" /></a>
+                                  <a href={job.source_url} target="_blank" rel="noopener noreferrer">{t("jobs.apply")} <ExternalLink className="ms-1 h-3 w-3" /></a>
                                 </Button>
                               )}
                               <Button variant="ghost" size="icon" onClick={() => unsave(saved_job_id)} className="text-destructive">
@@ -199,7 +199,7 @@ export default function SavedJobs() {
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Briefcase className="h-4 w-4 text-accent" />
-                  <h2 className="font-display text-lg font-semibold">From Job Board</h2>
+                  <h2 className="font-display text-lg font-semibold">{t("saved.fromJobBoard")}</h2>
                   <Badge variant="outline">{savedRegJobs.length}</Badge>
                 </div>
                 <div className="space-y-3">
@@ -221,7 +221,7 @@ export default function SavedJobs() {
                         <div className="flex gap-2 shrink-0">
                           {job.job_url && (
                             <Button variant="outline" size="sm" asChild>
-                              <a href={job.job_url} target="_blank" rel="noopener noreferrer">Apply <ExternalLink className="ml-1 h-3 w-3" /></a>
+                              <a href={job.job_url} target="_blank" rel="noopener noreferrer">{t("jobs.apply")} <ExternalLink className="ms-1 h-3 w-3" /></a>
                             </Button>
                           )}
                           <Button variant="ghost" size="icon" onClick={() => unsave(saved_job_id)} className="text-destructive">

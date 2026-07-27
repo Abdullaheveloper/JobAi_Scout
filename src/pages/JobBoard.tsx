@@ -16,6 +16,7 @@ import { PORTAL_COLORS } from "@/lib/constants";
 import { JOB_ADAPTER_STEPS, isScrapeSessionActive, isVisibleJobMatch, parseAdapterStatuses, runningAdapterPosition, scrapeCompletionMessage, type JobScrapeSession } from "@/lib/job-scrape";
 import { FuzzyAutocompleteInput, jobTaxonomy, locationTaxonomy } from "@/lib/fuzzy-taxonomy";
 import { useTranslation } from "react-i18next";
+import { MixedDir } from "@/components/MixedDir";
 
 type RecommendedJob = Tables<"recommended_jobs">;
 type Job = Tables<"jobs">;
@@ -152,7 +153,7 @@ export default function JobBoard() {
     }
 
     if (error) {
-      if (!silent) toast({ title: "Could not load jobs", description: error.message || "Your matching jobs could not be loaded. Please try again.", variant: "destructive" });
+      if (!silent) toast({ title: t("jobs.toastLoadFailed"), description: error.message || t("jobs.toastLoadFailedBody"), variant: "destructive" });
     } else {
       const visibleJobs = (data || []).filter((job) => isVisibleJobMatch(job.match_score) && Boolean(job.recruiter_id || job.source_url));
       setCollectedJobs(visibleJobs);
@@ -320,7 +321,7 @@ export default function JobBoard() {
       scrapeLockRef.current = active;
       if (session && !active) {
         announcedSessionRef.current = `${session.id}:${session.session_status}`;
-        toast({ title: session.session_status === "completed" ? "Job scraping complete" : "Job scraping finished", description: scrapeCompletionMessage(session), variant: session.session_status === "failed" ? "destructive" : "default" });
+        toast({ title: session.session_status === "completed" ? t("jobs.toastScrapeComplete") : t("jobs.toastScrapeFinished"), description: scrapeCompletionMessage(session), variant: session.session_status === "failed" ? "destructive" : "default" });
       }
     } catch (error: unknown) {
       // The browser request may be interrupted while the server-side session is
@@ -328,19 +329,19 @@ export default function JobBoard() {
       const latest = await fetchLatestSession(false);
       if (isScrapeSessionActive(latest)) {
         startingSessionRef.current = false;
-        toast({ title: "Scraping is still running", description: "The connection was interrupted, but JobAI Scout is continuing the active session." });
+        toast({ title: t("jobs.toastScrapeStillRunningTitle"), description: t("jobs.toastScrapeStillRunningBody") });
         return;
       }
       scrapeLockRef.current = false;
       startingSessionRef.current = false;
       setScraping(false);
-      toast({ title: "Could not start scraping", description: error instanceof Error ? error.message : "Please check your connection and try again.", variant: "destructive" });
+      toast({ title: t("jobs.toastScrapeStartFailedTitle"), description: error instanceof Error ? error.message : t("jobs.toastScrapeStartFailedBody"), variant: "destructive" });
     }
   };
 
   const handleStopScraping = async () => {
     if (!user || !scrapeSession?.id) {
-      toast({ title: "Still preparing the scrape", description: "The stop control will be available as soon as the session is registered." });
+      toast({ title: t("jobs.toastScrapePreparingTitle"), description: t("jobs.toastScrapePreparingBody") });
       return;
     }
     const stoppedStatuses = parseAdapterStatuses(scrapeSession.adapter_statuses);
@@ -368,11 +369,11 @@ export default function JobBoard() {
       adapter_statuses: stoppedStatuses,
     }).eq("id", scrapeSession.id).eq("user_id", user.id).in("session_status", ["pending", "running"]);
     if (error) {
-      toast({ title: "Could not stop scraping", description: error.message, variant: "destructive" });
+      toast({ title: t("jobs.toastScrapeStopFailed"), description: error.message, variant: "destructive" });
       await fetchLatestSession(false);
       return;
     }
-    toast({ title: "Scraping stopped", description: "Jobs already collected were kept and remain available below." });
+    toast({ title: t("jobs.toastScrapeStoppedTitle"), description: t("jobs.toastScrapeStoppedBody") });
     await fetchCollectedJobs(1, scrapeSession.id, true);
   };
 
@@ -391,9 +392,9 @@ export default function JobBoard() {
     if (!user) return;
     if (job.recruiter_id) {
       const { error } = await supabase.from("job_applications").insert({ user_id: user.id, job_id: job.id });
-      if (error && !error.message.toLowerCase().includes("duplicate")) return toast({ title: "Application failed", description: error.message, variant: "destructive" });
+      if (error && !error.message.toLowerCase().includes("duplicate")) return toast({ title: t("jobs.toastApplyFailed"), description: error.message, variant: "destructive" });
       markJobVisited(job.id);
-      toast({ title: "Application submitted" });
+      toast({ title: t("jobs.toastApplySubmitted") });
       return;
     }
     if (job.source_url) {
@@ -401,7 +402,7 @@ export default function JobBoard() {
       window.open(job.source_url, "_blank", "noopener,noreferrer");
       return;
     }
-    toast({ title: "Application link unavailable", description: "This source did not supply a direct application link for this role.", variant: "destructive" });
+    toast({ title: t("jobs.toastApplyLinkUnavailableTitle"), description: t("jobs.toastApplyLinkUnavailableBody"), variant: "destructive" });
   };
 
   const tailorCoverLetter = async (job: CoverLetterJob) => {
@@ -427,8 +428,8 @@ export default function JobBoard() {
       setCoverLetter(data.coverLetter);
     } catch (err: unknown) {
       setCoverLetterJob(null);
-      const description = err instanceof Error ? err.message : "Please check your profile and try again.";
-      toast({ title: "Could not tailor the letter", description, variant: "destructive" });
+      const description = err instanceof Error ? err.message : t("jobs.toastCoverFailedBody");
+      toast({ title: t("jobs.toastCoverFailedTitle"), description, variant: "destructive" });
     } finally {
       setGeneratingCoverLetterFor(null);
     }
@@ -441,7 +442,7 @@ export default function JobBoard() {
       setCopiedCoverLetter(true);
       window.setTimeout(() => setCopiedCoverLetter(false), 1800);
     } catch {
-      toast({ title: "Copy was blocked", description: "Select the letter and copy it manually.", variant: "destructive" });
+      toast({ title: t("jobs.toastCopyBlockedTitle"), description: t("jobs.toastCopyBlockedBody"), variant: "destructive" });
     }
   };
 
@@ -453,11 +454,11 @@ export default function JobBoard() {
     if (savedRecIds.has(recJobId)) {
       await supabase.from("saved_jobs").delete().eq("user_id", user.id).eq("recommended_job_id", recJobId);
       setSavedRecIds(prev => { const next = new Set(prev); next.delete(recJobId); return next; });
-      toast({ title: "Job unsaved" });
+      toast({ title: t("jobs.toastJobUnsaved") });
     } else {
       await supabase.from("saved_jobs").insert({ user_id: user.id, recommended_job_id: recJobId });
       setSavedRecIds(prev => new Set(prev).add(recJobId));
-      toast({ title: "Job saved!" });
+      toast({ title: t("jobs.toastJobSaved") });
     }
   };
 
@@ -515,15 +516,35 @@ export default function JobBoard() {
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in pb-8">
         <section className="relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/15 via-card to-card px-6 py-7 shadow-card md:px-8 md:py-9">
-          <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
+          <div className="absolute -end-16 -top-20 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
-              <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary"><Sparkles className="h-3.5 w-3.5" /> Job discovery</div>
+              <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary"><Sparkles className="h-3.5 w-3.5" /> {t("jobs.discoveryEyebrow")}</div>
               <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">{t("jobs.title")}</h1>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground md:text-base">Search a clean, deduplicated stream of roles from job boards, employer career pages, recruiter listings, and feeds.</p>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground md:text-base">{t("jobs.subtitleLive")}</p>
               <div className="mt-5 flex flex-wrap gap-2">
                 {JOB_ADAPTER_STEPS.map((adapter) => {
                   const status = adapterStatuses[adapter.key];
+                  const adapterLabel =
+                    adapter.key === "linkedin"
+                      ? t("jobs.adapterLinkedin")
+                      : adapter.key === "indeed"
+                        ? t("jobs.adapterIndeed")
+                        : adapter.key === "rss"
+                          ? t("jobs.adapterRss")
+                          : t("jobs.adapterCompanyCareer");
+                  const statusLabel =
+                    status === "running"
+                      ? t("jobs.statusRunning")
+                      : status === "completed"
+                        ? t("jobs.statusCompleted")
+                        : status === "timed_out"
+                          ? t("jobs.statusTimedOut")
+                          : status === "failed"
+                            ? t("jobs.statusFailed")
+                            : status === "stopped"
+                              ? t("jobs.statusStopped")
+                              : t("jobs.statusIdle");
                   const stateClasses = status === "running"
                     ? "border-blue-700 bg-blue-950 text-blue-50"
                     : status === "completed"
@@ -550,12 +571,12 @@ export default function JobBoard() {
                       type="button"
                       size="sm"
                       disabled
-                      aria-label={`${adapter.label}: ${status}`}
-                      title={`${adapter.label}: ${status}`}
+                      aria-label={t("jobs.adapterStatus", { label: adapterLabel, status: statusLabel })}
+                      title={t("jobs.adapterStatus", { label: adapterLabel, status: statusLabel })}
                       className={`h-8 gap-1.5 px-3 text-xs capitalize disabled:pointer-events-none disabled:opacity-100 ${stateClasses}`}
                     >
                       <StatusIcon className={`h-3.5 w-3.5 ${status === "running" ? "animate-spin" : ""}`} />
-                      {adapter.label}: {status.replace("_", " ")}
+                      {t("jobs.adapterStatus", { label: adapterLabel, status: statusLabel })}
                     </Button>
                   );
                 })}
@@ -566,8 +587,8 @@ export default function JobBoard() {
                 {scraping ? <Square className="h-4 w-4 fill-current" /> : <RefreshCw className="h-4 w-4" />}
                 {scraping ? t("jobs.stopScraping") : t("jobs.scrapeButton")}
               </Button>
-              <p className="max-w-56 text-right text-xs text-muted-foreground">One click checks all four sources in order. Location is optional.</p>
-              <p className="text-xs text-muted-foreground">{collectedTotal} matching roles in this session</p>
+              <p className="max-w-56 text-end text-xs text-muted-foreground">{t("jobs.scrapeHint")}</p>
+              <p className="text-xs text-muted-foreground">{t("jobs.matchingRolesCount", { count: collectedTotal })}</p>
             </div>
           </div>
         </section>
@@ -576,7 +597,7 @@ export default function JobBoard() {
           <CardContent className="p-4 md:p-5">
             <div className="flex flex-col gap-3 lg:flex-row">
               <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="absolute start-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <FuzzyAutocompleteInput
                   taxonomy={jobTaxonomy}
                   value={search}
@@ -588,38 +609,38 @@ export default function JobBoard() {
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && search.trim() && !scraping) void handleScrapeJobs();
                   }}
-                  inputClassName="h-11 border-border/80 bg-background/60 pl-11"
+                  inputClassName="h-11 border-border/80 bg-background/60 ps-11"
                 />
               </div>
               <div className="relative lg:w-64">
-                <MapPin className="absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <MapPin className="absolute start-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <FuzzyAutocompleteInput
                   taxonomy={locationTaxonomy}
                   value={locationFilter}
                   disabled={scraping}
-                  aria-label="Preferred job location"
+                  aria-label={t("jobs.locationAria")}
                   placeholder={t("jobs.locationPlaceholder")}
                   onChange={setLocationFilter}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && search.trim() && !scraping) void handleScrapeJobs();
                   }}
-                  inputClassName="h-11 border-border/80 bg-background/60 pl-11"
+                  inputClassName="h-11 border-border/80 bg-background/60 ps-11"
                 />
               </div>
               <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="h-11 gap-2 border-border/80 bg-background/40">
-                <Filter className="h-4 w-4" /> {showFilters ? "Hide filters" : "Filters"}
+                <Filter className="h-4 w-4" /> {showFilters ? t("jobs.hideFilters") : t("jobs.filters")}
                 {hasActiveFilters && <span className="h-2 w-2 rounded-full bg-primary" />}
               </Button>
             </div>
             {showFilters && (
               <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border/70 pt-4">
-                <Select value={jobTypeFilter} onValueChange={setJobTypeFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder="Job type" /></SelectTrigger><SelectContent><SelectItem value="all">Any job type</SelectItem><SelectItem value="full-time">Full-time</SelectItem><SelectItem value="part-time">Part-time</SelectItem><SelectItem value="contract">Contract</SelectItem><SelectItem value="internship">Internship</SelectItem></SelectContent></Select>
-                <Select value={remoteFilter} onValueChange={setRemoteFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder="Work mode" /></SelectTrigger><SelectContent><SelectItem value="all">Any work mode</SelectItem><SelectItem value="remote">Remote</SelectItem><SelectItem value="hybrid">Hybrid</SelectItem></SelectContent></Select>
+                <Select value={jobTypeFilter} onValueChange={setJobTypeFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder={t("jobs.jobTypePlaceholder")} /></SelectTrigger><SelectContent><SelectItem value="all">{t("jobs.anyJobType")}</SelectItem><SelectItem value="full-time">{t("jobs.fullTime")}</SelectItem><SelectItem value="part-time">{t("jobs.partTime")}</SelectItem><SelectItem value="contract">{t("jobs.contract")}</SelectItem><SelectItem value="internship">{t("jobs.internship")}</SelectItem></SelectContent></Select>
+                <Select value={remoteFilter} onValueChange={setRemoteFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder={t("jobs.workModePlaceholder")} /></SelectTrigger><SelectContent><SelectItem value="all">{t("jobs.anyWorkMode")}</SelectItem><SelectItem value="remote">{t("jobs.remote")}</SelectItem><SelectItem value="hybrid">{t("jobs.hybrid")}</SelectItem></SelectContent></Select>
                 <label className="flex h-10 items-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 text-sm text-muted-foreground">
                   <Checkbox checked={includeRemoteLocations} onCheckedChange={(checked) => setIncludeRemoteLocations(checked === true)} />
-                  Include remote / Pakistan-wide
+                  {t("jobs.includeRemote")}
                 </label>
-                {hasActiveFilters && <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={clearFilters}><X className="h-3.5 w-3.5" /> Clear filters</Button>}
+                {hasActiveFilters && <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={clearFilters}><X className="h-3.5 w-3.5" /> {t("jobs.clearFilters")}</Button>}
               </div>
             )}
             {scrapeSession && (
@@ -628,7 +649,7 @@ export default function JobBoard() {
                   <div>
                     <p className="text-sm font-semibold text-foreground">
                       {isScrapeSessionActive(scrapeSession) && activeAdapterPosition
-                        ? `Running adapter ${activeAdapterPosition} of ${JOB_ADAPTER_STEPS.length}`
+                        ? t("jobs.runningAdapter", { position: activeAdapterPosition, total: JOB_ADAPTER_STEPS.length })
                         : scrapeCompletionMessage(scrapeSession)}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -636,9 +657,9 @@ export default function JobBoard() {
                     </p>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[300px]">
-                    <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold">{scrapeSession.total_jobs_scraped}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Scraped</p></div>
-                    <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold">{scrapeSession.total_jobs_saved}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Saved</p></div>
-                    <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold text-emerald-400">{scrapeSession.total_jobs_displayed}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Shown</p></div>
+                    <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold">{scrapeSession.total_jobs_scraped}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t("jobs.counterScraped")}</p></div>
+                    <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold">{scrapeSession.total_jobs_saved}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t("jobs.counterSaved")}</p></div>
+                    <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold text-emerald-400">{scrapeSession.total_jobs_displayed}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t("jobs.counterShown")}</p></div>
                   </div>
                 </div>
                 {(() => {
@@ -668,7 +689,7 @@ export default function JobBoard() {
                 <h2 className="font-display text-xl font-semibold">{t("jobs.openRoles")}</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">{collectedTotal} matching role{collectedTotal !== 1 ? "s" : ""} · Page {collectedPage} of {collectedTotalPages}</p>
               </div>
-              <Badge variant="secondary" className="w-fit border border-border/70 bg-muted/50 font-normal">Updated from live sources</Badge>
+              <Badge variant="secondary" className="w-fit border border-border/70 bg-muted/50 font-normal">{t("jobs.updatedFromSources")}</Badge>
             </div>
             {collectedJobs.map((job) => (
               <Card key={`modern-${job.id}`} className="group overflow-hidden border-border/80 bg-card shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-card-hover">
@@ -681,18 +702,18 @@ export default function JobBoard() {
                         <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-500">Match {Math.round(Number(job.match_score || 0))}%</Badge>
                         {isNewJob(job.posted_at || job.created_at) && <Badge className="bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 hover:bg-emerald-500/15">New</Badge>}
                       </div>
-                      <h3 className="mt-2 font-display text-lg font-semibold leading-snug text-foreground transition-colors group-hover:text-primary md:text-xl">{job.title}</h3>
+                      <h3 className="mt-2 font-display text-lg font-semibold leading-snug text-foreground transition-colors group-hover:text-primary md:text-xl"><MixedDir>{job.title}</MixedDir></h3>
                       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1.5 font-medium text-foreground/85"><Building2 className="h-3.5 w-3.5 text-primary/70" />{job.company || "Company not listed"}</span>
-                        {job.location && <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />{job.location}</span>}
+                        <span className="flex items-center gap-1.5 font-medium text-foreground/85"><Building2 className="h-3.5 w-3.5 text-primary/70" /><MixedDir>{job.company || "Company not listed"}</MixedDir></span>
+                        {job.location && <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /><MixedDir>{job.location}</MixedDir></span>}
                         {job.job_type && <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{job.job_type}</span>}
                         {(job.salary_min || job.salary_max) && <span className="flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" />{job.salary_currency ? `${job.salary_currency} ` : ""}{job.salary_min ? Number(job.salary_min).toLocaleString() : ""}{job.salary_min && job.salary_max ? " - " : ""}{job.salary_max ? Number(job.salary_max).toLocaleString() : ""}</span>}
                       </div>
-                      {job.description && <p className="mt-3 max-w-4xl text-sm leading-6 text-muted-foreground line-clamp-2">{job.description}</p>}
+                      {job.description && <p className="mt-3 max-w-4xl text-sm leading-6 text-muted-foreground line-clamp-2"><MixedDir>{job.description}</MixedDir></p>}
                       <MatchExplanation explanation={job.match_explanation as MatchExplanationData | null} />
                       <div className="mt-4 flex flex-wrap items-center gap-2">
-                        {(job.skills || []).slice(0, 4).map((skill: string) => <Badge key={skill} variant="secondary" className="bg-muted/65 px-2 py-0.5 text-xs font-normal">{skill}</Badge>)}
-                        <span className="ml-auto text-xs text-muted-foreground">{relativeDate(job.posted_at || job.created_at)}</span>
+                        {(job.skills || []).slice(0, 4).map((skill: string) => <Badge key={skill} variant="secondary" className="bg-muted/65 px-2 py-0.5 text-xs font-normal"><MixedDir>{skill}</MixedDir></Badge>)}
+                        <span className="ms-auto text-xs text-muted-foreground">{relativeDate(job.posted_at || job.created_at)}</span>
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
@@ -740,7 +761,7 @@ export default function JobBoard() {
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10"><Filter className="h-5 w-5 text-primary" /></div>
               <h3 className="font-display text-xl font-semibold">No roles match this search</h3>
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">Only roles with a 50% or higher match and a suitable career level are shown. Try a broader keyword, remove a filter, or run a new scrape.</p>
-              <Button className="mt-5 gap-1.5" variant="outline" onClick={clearFilters}><X className="h-3.5 w-3.5" /> Clear filters</Button>
+              <Button className="mt-5 gap-1.5" variant="outline" onClick={clearFilters}><X className="h-3.5 w-3.5" /> {t("jobs.clearFilters")}</Button>
             </CardContent>
           </Card>
         )}
@@ -757,8 +778,8 @@ export default function JobBoard() {
               </h3>
               <p className="text-muted-foreground mt-1">
                 {recJobs.length === 0
-                  ? "Enter a skill or keyword, then use Scrape Jobs to check all connected sources."
-                  : "Try adjusting your filters or search terms."}
+                  ? t("jobs.emptySearchHint")
+                  : t("jobs.noJobsHint")}
               </p>
             </CardContent>
           </Card>
@@ -792,18 +813,18 @@ export default function JobBoard() {
                           <div className="flex items-center gap-2 flex-wrap">
                             {job.source_url ? (
                               <a href={job.source_url} target="_blank" rel="noopener noreferrer" className="font-display text-lg font-semibold text-foreground group-hover:text-primary transition-colors hover:underline flex items-center gap-1.5">
-                                {job.title}
+                                <MixedDir>{job.title}</MixedDir>
                                 <ExternalLink className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                               </a>
                             ) : (
-                              <h3 className="font-display text-lg font-semibold text-foreground">{job.title}</h3>
+                              <h3 className="font-display text-lg font-semibold text-foreground"><MixedDir>{job.title}</MixedDir></h3>
                             )}
                             {isNew && <Badge className="bg-blue-500 text-white animate-pulse text-[10px]">NEW</Badge>}
                             {score >= 80 && <Badge className="bg-green-100 text-green-800 border-green-200">Top Match</Badge>}
                           </div>
                           <div className="flex items-center gap-4 mt-1.5 text-sm text-muted-foreground flex-wrap">
-                            <span className="flex items-center gap-1"><Building2 className="h-3.5 w-3.5" />{job.company}</span>
-                            {job.location && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{job.location}</span>}
+                            <span className="flex items-center gap-1"><Building2 className="h-3.5 w-3.5" /><MixedDir>{job.company}</MixedDir></span>
+                            {job.location && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /><MixedDir>{job.location}</MixedDir></span>}
                             {job.salary && <span className="flex items-center gap-1"><DollarSign className="h-3.5 w-3.5" />{job.salary}</span>}
                             {job.employment_type && <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{job.employment_type}</span>}
                           </div>
@@ -812,11 +833,11 @@ export default function JobBoard() {
                               {job.source_portal}
                             </span>
                             {(job.skills_required || []).slice(0, 5).map(skill => (
-                              <Badge key={skill} variant="outline" className="text-xs font-normal">{skill}</Badge>
+                              <Badge key={skill} variant="outline" className="text-xs font-normal"><MixedDir>{skill}</MixedDir></Badge>
                             ))}
                           </div>
                           {job.description && (
-                            <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{job.description}</p>
+                            <p className="text-sm text-muted-foreground mt-2 line-clamp-2"><MixedDir>{job.description}</MixedDir></p>
                           )}
                           <MatchExplanation explanation={job.match_explanation as MatchExplanationData | null} />
                         </div>
@@ -851,7 +872,7 @@ export default function JobBoard() {
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-primary/20 bg-card p-5 sm:p-6">
           <DialogHeader>
             <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><Sparkles className="h-5 w-5" /></div>
-            <DialogTitle className="font-display text-xl">Tailored cover letter</DialogTitle>
+            <DialogTitle className="font-display text-xl">{t("jobs.tailoredCoverLetter")}</DialogTitle>
             <DialogDescription>
               {coverLetterJob ? `Written from your profile for ${coverLetterJob.title} at ${coverLetterJob.company || "this company"}. Review and edit it before applying.` : ""}
             </DialogDescription>
@@ -862,7 +883,7 @@ export default function JobBoard() {
               <div><p className="font-medium">Reading the role and your profile</p><p className="mt-1 text-sm text-muted-foreground">Creating a specific, truthful letter…</p></div>
             </div>
           ) : (
-            <Textarea aria-label="Tailored cover letter" value={coverLetter} onChange={(event) => setCoverLetter(event.target.value)} rows={13} className="resize-y border-border bg-background text-foreground leading-7 placeholder:text-muted-foreground focus-visible:ring-primary" />
+            <Textarea aria-label={t("jobs.tailoredCoverLetter")} value={coverLetter} onChange={(event) => setCoverLetter(event.target.value)} rows={13} className="resize-y border-border bg-background text-foreground leading-7 placeholder:text-muted-foreground focus-visible:ring-primary" />
           )}
           <DialogFooter className="gap-2 sm:gap-2">
             <Button type="button" variant="outline" onClick={() => setCoverLetterJob(null)} disabled={Boolean(generatingCoverLetterFor)}>Close</Button>

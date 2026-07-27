@@ -77,12 +77,14 @@ export default function RecruiterProfile() {
               <div className="space-y-2">
                 <Label>{t("recruiter.website")}</Label>
                 <div className="relative">
-                  <Globe className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Globe className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    className="pl-9"
+                    className="ps-9"
+                    type="url"
+                    dir="ltr"
                     value={form.website}
                     onChange={(event) => setForm((current) => ({ ...current, website: event.target.value }))}
-                    placeholder="https://company.com"
+                    placeholder={t("recruiter.websitePlaceholder")}
                   />
                 </div>
               </div>
@@ -91,7 +93,7 @@ export default function RecruiterProfile() {
                 <Input
                   value={form.industry}
                   onChange={(event) => setForm((current) => ({ ...current, industry: event.target.value }))}
-                  placeholder="Technology, Finance…"
+                  placeholder={t("recruiter.industryPlaceholder")}
                 />
               </div>
             </div>
@@ -100,12 +102,12 @@ export default function RecruiterProfile() {
               <Textarea
                 value={form.description}
                 onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-                placeholder="A short description candidates will see with your postings."
+                placeholder={t("recruiter.profileDescriptionPlaceholder")}
                 rows={5}
               />
             </div>
             <Button onClick={() => void save()} disabled={saving}>
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {saving ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <Save className="me-2 h-4 w-4" />}
               {saving ? t("common.loading") : t("recruiter.saveProfile")}
             </Button>
           </CardContent>

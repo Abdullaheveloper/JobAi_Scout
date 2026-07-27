@@ -25,7 +25,7 @@ function collectPlaceholders(str) {
 
 const en = JSON.parse(readFileSync(join(localesDir, "en.json"), "utf8"));
 const enKeys = new Set(collectKeys(en));
-const targets = ["fr", "de", "hi"];
+const targets = ["fr", "de", "hi", "ur", "ar"];
 
 let failed = false;
 
@@ -75,5 +75,5 @@ if (failed) {
   process.exitCode = 1;
   console.error("\nLocale parity check FAILED");
 } else {
-  console.log("\nLocale parity check PASSED for fr, de, hi");
+  console.log("\nLocale parity check PASSED for fr, de, hi, ur, ar");
 }

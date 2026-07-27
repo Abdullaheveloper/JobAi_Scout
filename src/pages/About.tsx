@@ -114,7 +114,7 @@ export default function About() {
             <ThemeToggle />
             <LanguageSwitcher />
             <Link to="/contact" className="nav-link-premium">Contact</Link>
-            <Link to="/register" className="btn-premium text-sm">Get Started <ArrowRight className="inline h-4 w-4 ml-1" /></Link>
+            <Link to="/register" className="btn-premium text-sm">Get Started <ArrowRight className="inline h-4 w-4 ms-1" /></Link>
           </div>
         </div>
       </nav>
@@ -122,8 +122,8 @@ export default function About() {
       {/* Hero */}
       <section className="relative py-24 lg:py-32 overflow-hidden">
         <div className="absolute inset-0 dot-bg opacity-20 pointer-events-none" />
-        <div className="absolute top-0 left-1/4 w-80 h-80 bg-emerald-600/8 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-teal-600/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 start-1/4 w-80 h-80 bg-emerald-600/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 end-1/4 w-80 h-80 bg-teal-600/8 rounded-full blur-3xl pointer-events-none" />
 
         <div className="container mx-auto px-6 relative z-10 text-center max-w-3xl">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
@@ -237,7 +237,7 @@ export default function About() {
 
           <div className="relative max-w-3xl mx-auto">
             {/* Vertical line */}
-            <div className="absolute left-8 md:left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-emerald-500/30 to-transparent" />
+            <div className="absolute start-8 md:start-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-emerald-500/30 to-transparent" />
 
             {timeline.map((item, i) => {
               const isRight = i % 2 === 0;
@@ -251,12 +251,12 @@ export default function About() {
                   transition={{ delay: i * 0.15 }}
                 >
                   {/* Dot */}
-                  <div className="absolute left-8 md:left-1/2 -translate-x-1/2 flex h-8 w-8 items-center justify-center rounded-full gradient-primary shadow-lg shadow-emerald-500/30 z-10 flex-shrink-0">
+                  <div className="absolute start-8 md:start-1/2 -translate-x-1/2 flex h-8 w-8 items-center justify-center rounded-full gradient-primary shadow-lg shadow-emerald-500/30 z-10 flex-shrink-0">
                     <item.icon className="h-4 w-4 text-white" />
                   </div>
 
                   {/* Card */}
-                  <div className={`ml-20 md:ml-0 ${isRight ? "md:mr-8 md:text-right md:w-5/12" : "md:ml-8 md:text-left md:w-5/12 md:ml-auto"} w-full`}>
+                  <div className={`ms-20 md:ms-0 ${isRight ? "md:me-8 md:text-end md:w-5/12" : "md:ms-8 md:text-start md:w-5/12 md:ms-auto"} w-full`}>
                     <div className="glass-card p-5">
                       <span className="text-xs text-emerald-400 font-bold tracking-wider uppercase">{item.year}</span>
                       <h3 className="font-bold text-foreground mt-1 mb-2" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{item.title}</h3>
@@ -334,8 +334,8 @@ export default function About() {
             <div className="absolute inset-0 gradient-hero opacity-85" />
             <div className="absolute inset-0 bg-black/30" />
             <div className="absolute inset-0 dot-bg opacity-15" />
-            <div className="absolute top-0 left-1/4 w-64 h-64 bg-white/8 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-white/8 rounded-full blur-3xl" />
+            <div className="absolute top-0 start-1/4 w-64 h-64 bg-white/8 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 end-1/4 w-64 h-64 bg-white/8 rounded-full blur-3xl" />
 
             <div className="relative z-10">
               <h2 className="display-md text-white mb-5">Ready to Transform Your Hiring?</h2>

@@ -1,0 +1,541 @@
+{
+  "base": "https://localhost:5181",
+  "startedAt": "2026-07-27T18:44:44.152Z",
+  "auth": {
+    "seeker": false,
+    "recruiter": false,
+    "admin": false,
+    "blocker": " No RTL_EMAIL/RTL_PASSWORD — skipped live portal screenshots; fixture + public pages verified."
+  },
+  "shots": [
+    "ar-cv-header-desktop.png",
+    "ar-recruiter-placeholders-desktop.png",
+    "ar-cv-header-mobile.png",
+    "ar-recruiter-placeholders-mobile.png",
+    "ur-cv-header-desktop.png",
+    "ur-recruiter-placeholders-desktop.png",
+    "ur-cv-header-mobile.png",
+    "ur-recruiter-placeholders-mobile.png",
+    "ar-login-desktop.png",
+    "ar-register-desktop.png",
+    "ar-login-mobile.png",
+    "ar-register-mobile.png",
+    "ur-login-desktop.png",
+    "ur-register-desktop.png",
+    "ur-login-mobile.png",
+    "ur-register-mobile.png"
+  ],
+  "checks": [
+    {
+      "page": "fixture",
+      "locale": "ar",
+      "viewport": "desktop",
+      "ok": true,
+      "translated": true,
+      "punctOk": true,
+      "urlOk": true,
+      "check": {
+        "headerText": "أحيِ سيرتك الذاتية.",
+        "headerDir": "auto",
+        "headerLeadingPunct": false,
+        "areas": [
+          {
+            "ph": "Job description...",
+            "dir": "auto",
+            "computedDir": "ltr",
+            "leadingPunct": false
+          },
+          {
+            "ph": "A short description candidates will see with your postings.",
+            "dir": "auto",
+            "computedDir": "ltr",
+            "leadingPunct": false
+          }
+        ],
+        "urls": [
+          {
+            "type": "url",
+            "dir": "ltr",
+            "computedDir": "ltr"
+          },
+          {
+            "type": "url",
+            "dir": null,
+            "computedDir": "ltr"
+          },
+          {
+            "type": "email",
+            "dir": null,
+            "computedDir": "ltr"
+          }
+        ]
+      }
+    },
+    {
+      "page": "fixture",
+      "locale": "ar",
+      "viewport": "mobile",
+      "ok": true,
+      "translated": true,
+      "punctOk": true,
+      "urlOk": true,
+      "check": {
+        "headerText": "أحيِ سيرتك الذاتية.",
+        "headerDir": "auto",
+        "headerLeadingPunct": false,
+        "areas": [
+          {
+            "ph": "Job description...",
+            "dir": "auto",
+            "computedDir": "ltr",
+            "leadingPunct": false
+          },
+          {
+            "ph": "A short description candidates will see with your postings.",
+            "dir": "auto",
+            "computedDir": "ltr",
+            "leadingPunct": false
+          }
+        ],
+        "urls": [
+          {
+            "type": "url",
+            "dir": "ltr",
+            "computedDir": "ltr"
+          },
+          {
+            "type": "url",
+            "dir": null,
+            "computedDir": "ltr"
+          },
+          {
+            "type": "email",
+            "dir": null,
+            "computedDir": "ltr"
+          }
+        ]
+      }
+    },
+    {
+      "page": "fixture",
+      "locale": "ur",
+      "viewport": "desktop",
+      "ok": true,
+      "translated": true,
+      "punctOk": true,
+      "urlOk": true,
+      "check": {
+        "headerText": "اپنے سی وی کو زندگی دیں۔",
+        "headerDir": "auto",
+        "headerLeadingPunct": false,
+        "areas": [
+          {
+            "ph": "Job description...",
+            "dir": "auto",
+            "computedDir": "ltr",
+            "leadingPunct": false
+          },
+          {
+            "ph": "A short description candidates will see with your postings.",
+            "dir": "auto",
+            "computedDir": "ltr",
+            "leadingPunct": false
+          }
+        ],
+        "urls": [
+          {
+            "type": "url",
+            "dir": "ltr",
+            "computedDir": "ltr"
+          },
+          {
+            "type": "url",
+            "dir": null,
+            "computedDir": "ltr"
+          },
+          {
+            "type": "email",
+            "dir": null,
+            "computedDir": "ltr"
+          }
+        ]
+      }
+    },
+    {
+      "page": "fixture",
+      "locale": "ur",
+      "viewport": "mobile",
+      "ok": true,
+      "translated": true,
+      "punctOk": true,
+      "urlOk": true,
+      "check": {
+        "headerText": "اپنے سی وی کو زندگی دیں۔",
+        "headerDir": "auto",
+        "headerLeadingPunct": false,
+        "areas": [
+          {
+            "ph": "Job description...",
+            "dir": "auto",
+            "computedDir": "ltr",
+            "leadingPunct": false
+          },
+          {
+            "ph": "A short description candidates will see with your postings.",
+            "dir": "auto",
+            "computedDir": "ltr",
+            "leadingPunct": false
+          }
+        ],
+        "urls": [
+          {
+            "type": "url",
+            "dir": "ltr",
+            "computedDir": "ltr"
+          },
+          {
+            "type": "url",
+            "dir": null,
+            "computedDir": "ltr"
+          },
+          {
+            "type": "email",
+            "dir": null,
+            "computedDir": "ltr"
+          }
+        ]
+      }
+    },
+    {
+      "page": "login",
+      "locale": "ar",
+      "viewport": "desktop",
+      "live": true,
+      "pageDir": null,
+      "lang": "en",
+      "sampleCount": 0,
+      "autoCount": 0,
+      "ltrCount": 0,
+      "missingDirCount": 0,
+      "badPlaceholderPunct": [],
+      "urlEmailOk": true,
+      "header": {
+        "text": "",
+        "dir": null,
+        "leadingPunct": false
+      },
+      "samples": []
+    },
+    {
+      "page": "register",
+      "locale": "ar",
+      "viewport": "desktop",
+      "live": true,
+      "pageDir": "rtl",
+      "lang": "ar",
+      "sampleCount": 3,
+      "autoCount": 2,
+      "ltrCount": 1,
+      "missingDirCount": 0,
+      "badPlaceholderPunct": [],
+      "urlEmailOk": true,
+      "header": {
+        "text": "Build a clearer path to your next opportunity.",
+        "dir": null,
+        "leadingPunct": false
+      },
+      "samples": [
+        {
+          "tag": "input",
+          "type": "text",
+          "dir": "auto",
+          "computedDir": "ltr",
+          "unicodeBidi": "plaintext",
+          "placeholder": "اسمك الكامل",
+          "leadingPunct": false
+        },
+        {
+          "tag": "input",
+          "type": "email",
+          "dir": "ltr",
+          "computedDir": "ltr",
+          "unicodeBidi": "isolate",
+          "placeholder": "name@example.com",
+          "leadingPunct": false
+        },
+        {
+          "tag": "input",
+          "type": "password",
+          "dir": "auto",
+          "computedDir": "ltr",
+          "unicodeBidi": "plaintext",
+          "placeholder": "8 أحرف على الأقل",
+          "leadingPunct": false
+        }
+      ]
+    },
+    {
+      "page": "login",
+      "locale": "ar",
+      "viewport": "mobile",
+      "live": true,
+      "pageDir": "rtl",
+      "lang": "ar",
+      "sampleCount": 2,
+      "autoCount": 1,
+      "ltrCount": 1,
+      "missingDirCount": 0,
+      "badPlaceholderPunct": [],
+      "urlEmailOk": true,
+      "header": {
+        "text": "Find work that fits your life.",
+        "dir": null,
+        "leadingPunct": false
+      },
+      "samples": [
+        {
+          "tag": "input",
+          "type": "email",
+          "dir": "ltr",
+          "computedDir": "ltr",
+          "unicodeBidi": "isolate",
+          "placeholder": "name@example.com",
+          "leadingPunct": false
+        },
+        {
+          "tag": "input",
+          "type": "password",
+          "dir": "auto",
+          "computedDir": "ltr",
+          "unicodeBidi": "plaintext",
+          "placeholder": "أدخل كلمة المرور",
+          "leadingPunct": false
+        }
+      ]
+    },
+    {
+      "page": "register",
+      "locale": "ar",
+      "viewport": "mobile",
+      "live": true,
+      "pageDir": "rtl",
+      "lang": "ar",
+      "sampleCount": 3,
+      "autoCount": 2,
+      "ltrCount": 1,
+      "missingDirCount": 0,
+      "badPlaceholderPunct": [],
+      "urlEmailOk": true,
+      "header": {
+        "text": "Build a clearer path to your next opportunity.",
+        "dir": null,
+        "leadingPunct": false
+      },
+      "samples": [
+        {
+          "tag": "input",
+          "type": "text",
+          "dir": "auto",
+          "computedDir": "ltr",
+          "unicodeBidi": "plaintext",
+          "placeholder": "اسمك الكامل",
+          "leadingPunct": false
+        },
+        {
+          "tag": "input",
+          "type": "email",
+          "dir": "ltr",
+          "computedDir": "ltr",
+          "unicodeBidi": "isolate",
+          "placeholder": "name@example.com",
+          "leadingPunct": false
+        },
+        {
+          "tag": "input",
+          "type": "password",
+          "dir": "auto",
+          "computedDir": "ltr",
+          "unicodeBidi": "plaintext",
+          "placeholder": "8 أحرف على الأقل",
+          "leadingPunct": false
+        }
+      ]
+    },
+    {
+      "page": "login",
+      "locale": "ur",
+      "viewport": "desktop",
+      "live": true,
+      "pageDir": "rtl",
+      "lang": "ur",
+      "sampleCount": 2,
+      "autoCount": 1,
+      "ltrCount": 1,
+      "missingDirCount": 0,
+      "badPlaceholderPunct": [],
+      "urlEmailOk": true,
+      "header": {
+        "text": "Find work that fits your life.",
+        "dir": null,
+        "leadingPunct": false
+      },
+      "samples": [
+        {
+          "tag": "input",
+          "type": "email",
+          "dir": "ltr",
+          "computedDir": "ltr",
+          "unicodeBidi": "isolate",
+          "placeholder": "name@example.com",
+          "leadingPunct": false
+        },
+        {
+          "tag": "input",
+          "type": "password",
+          "dir": "auto",
+          "computedDir": "ltr",
+          "unicodeBidi": "plaintext",
+          "placeholder": "اپنا پاس ورڈ درج کریں",
+          "leadingPunct": false
+        }
+      ]
+    },
+    {
+      "page": "register",
+      "locale": "ur",
+      "viewport": "desktop",
+      "live": true,
+      "pageDir": "rtl",
+      "lang": "ur",
+      "sampleCount": 3,
+      "autoCount": 2,
+      "ltrCount": 1,
+      "missingDirCount": 0,
+      "badPlaceholderPunct": [],
+      "urlEmailOk": true,
+      "header": {
+        "text": "Build a clearer path to your next opportunity.",
+        "dir": null,
+        "leadingPunct": false
+      },
+      "samples": [
+        {
+          "tag": "input",
+          "type": "text",
+          "dir": "auto",
+          "computedDir": "ltr",
+          "unicodeBidi": "plaintext",
+          "placeholder": "آپ کا پورا نام",
+          "leadingPunct": false
+        },
+        {
+          "tag": "input",
+          "type": "email",
+          "dir": "ltr",
+          "computedDir": "ltr",
+          "unicodeBidi": "isolate",
+          "placeholder": "name@example.com",
+          "leadingPunct": false
+        },
+        {
+          "tag": "input",
+          "type": "password",
+          "dir": "auto",
+          "computedDir": "ltr",
+          "unicodeBidi": "plaintext",
+          "placeholder": "کم از کم 8 حروف",
+          "leadingPunct": false
+        }
+      ]
+    },
+    {
+      "page": "login",
+      "locale": "ur",
+      "viewport": "mobile",
+      "live": true,
+      "pageDir": "rtl",
+      "lang": "ur",
+      "sampleCount": 2,
+      "autoCount": 1,
+      "ltrCount": 1,
+      "missingDirCount": 0,
+      "badPlaceholderPunct": [],
+      "urlEmailOk": true,
+      "header": {
+        "text": "Find work that fits your life.",
+        "dir": null,
+        "leadingPunct": false
+      },
+      "samples": [
+        {
+          "tag": "input",
+          "type": "email",
+          "dir": "ltr",
+          "computedDir": "ltr",
+          "unicodeBidi": "isolate",
+          "placeholder": "name@example.com",
+          "leadingPunct": false
+        },
+        {
+          "tag": "input",
+          "type": "password",
+          "dir": "auto",
+          "computedDir": "ltr",
+          "unicodeBidi": "plaintext",
+          "placeholder": "اپنا پاس ورڈ درج کریں",
+          "leadingPunct": false
+        }
+      ]
+    },
+    {
+      "page": "register",
+      "locale": "ur",
+      "viewport": "mobile",
+      "live": true,
+      "pageDir": "rtl",
+      "lang": "ur",
+      "sampleCount": 3,
+      "autoCount": 2,
+      "ltrCount": 1,
+      "missingDirCount": 0,
+      "badPlaceholderPunct": [],
+      "urlEmailOk": true,
+      "header": {
+        "text": "Build a clearer path to your next opportunity.",
+        "dir": null,
+        "leadingPunct": false
+      },
+      "samples": [
+        {
+          "tag": "input",
+          "type": "text",
+          "dir": "auto",
+          "computedDir": "ltr",
+          "unicodeBidi": "plaintext",
+          "placeholder": "آپ کا پورا نام",
+          "leadingPunct": false
+        },
+        {
+          "tag": "input",
+          "type": "email",
+          "dir": "ltr",
+          "computedDir": "ltr",
+          "unicodeBidi": "isolate",
+          "placeholder": "name@example.com",
+          "leadingPunct": false
+        },
+        {
+          "tag": "input",
+          "type": "password",
+          "dir": "auto",
+          "computedDir": "ltr",
+          "unicodeBidi": "plaintext",
+          "placeholder": "کم از کم 8 حروف",
+          "leadingPunct": false
+        }
+      ]
+    }
+  ],
+  "pass": true,
+  "finishedAt": "2026-07-27T18:45:30.428Z"
+}

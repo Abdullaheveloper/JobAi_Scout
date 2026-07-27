@@ -5,6 +5,8 @@ import {
   Zap, Mic, Brain, CheckCircle2, Clock, Star
 } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { BidiCount } from "@/components/BidiText";
+import { MixedDir } from "@/components/MixedDir";
 import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -68,8 +70,12 @@ function MetricCard({
       <div className="text-3xl font-bold text-foreground mb-1" style={{ fontFamily: 'Syne, sans-serif' }}>
         <AnimatedCount value={value} suffix={suffix} />
       </div>
-      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{title}</p>
-      <p className="text-xs text-muted-foreground/80 mt-1">{sub}</p>
+      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+        <MixedDir>{title}</MixedDir>
+      </p>
+      <p className="text-xs text-muted-foreground/80 mt-1">
+        <MixedDir>{sub}</MixedDir>
+      </p>
     </motion.div>
   );
 
@@ -94,7 +100,9 @@ function QuickAction({ icon: Icon, title, desc, to, gradient, delay }: any) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-foreground text-sm" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{title}</p>
-            <p className="text-xs text-muted-foreground truncate">{desc}</p>
+            <p className="text-xs text-muted-foreground truncate" dir="auto">
+              <MixedDir className="block truncate">{desc}</MixedDir>
+            </p>
           </div>
           <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-indigo-500 dark:group-hover:text-indigo-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
         </motion.div>
@@ -132,8 +140,8 @@ export default function Dashboard() {
           transition={{ duration: 0.6 }}
         >
           {/* Background decoration */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/8 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-1/3 w-48 h-48 bg-violet-500/6 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-0 end-0 w-64 h-64 bg-indigo-500/8 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 start-1/3 w-48 h-48 bg-violet-500/6 rounded-full blur-3xl pointer-events-none" />
 
           <div className="relative z-10 flex items-start justify-between gap-4 flex-wrap">
             <div>
@@ -143,10 +151,12 @@ export default function Dashboard() {
               <h1 className="text-3xl font-bold text-foreground" style={{ fontFamily: 'Syne, sans-serif' }}>
                 {profile?.full_name || t("dashboard.welcomeBack")}
               </h1>
-              <p className="text-muted-foreground mt-2 text-sm">
-                {hasProfile
-                  ? t("dashboard.subtitleReady", { skills: skills.length, roles: desiredRoles.length })
-                  : t("dashboard.subtitleUpload")}
+              <p className="text-muted-foreground mt-2 text-sm bidi-plain">
+                <MixedDir>
+                  {hasProfile
+                    ? t("dashboard.subtitleReady", { skills: skills.length, roles: desiredRoles.length })
+                    : t("dashboard.subtitleUpload")}
+                </MixedDir>
               </p>
             </div>
 
@@ -170,10 +180,14 @@ export default function Dashboard() {
               <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">{t("dashboard.profileActive")}</span>
               <span className="text-xs text-muted-foreground">·</span>
               <Star className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
-              <span className="text-xs text-muted-foreground">{t("dashboard.skillsExtracted", { count: skills.length })}</span>
+              <BidiCount className="text-xs text-muted-foreground">
+                {t("dashboard.skillsExtracted", { count: skills.length })}
+              </BidiCount>
               <span className="text-xs text-muted-foreground">·</span>
               <Target className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-              <span className="text-xs text-muted-foreground">{t("dashboard.rolesSuggested", { count: desiredRoles.length })}</span>
+              <BidiCount className="text-xs text-muted-foreground">
+                {t("dashboard.rolesSuggested", { count: desiredRoles.length })}
+              </BidiCount>
             </div>
           )}
         </motion.div>
@@ -221,7 +235,7 @@ export default function Dashboard() {
                 ))}
                 {skills.length > 12 && (
                   <span className="px-2.5 py-1 text-xs rounded-lg bg-muted text-muted-foreground border border-border">
-                    +{skills.length - 12} more
+                    {t("dashboard.moreSkills", { count: skills.length - 12 })}
                   </span>
                 )}
               </div>
@@ -237,7 +251,7 @@ export default function Dashboard() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600">
                   <Target className="h-4 w-4 text-white" />
                 </div>
-                <h3 className="font-semibold text-foreground text-sm" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Suggested Roles</h3>
+                <h3 className="font-semibold text-foreground text-sm" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{t("dashboard.yourRoles")}</h3>
               </div>
               <div className="flex flex-wrap gap-2 mb-4">
                 {desiredRoles.map((role: string) => (
@@ -251,7 +265,7 @@ export default function Dashboard() {
                 className="flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors font-medium"
               >
                 <Briefcase className="h-3.5 w-3.5" />
-                Browse Matching Jobs
+                {t("dashboard.browseMatchingJobs")}
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </motion.div>
@@ -268,7 +282,7 @@ export default function Dashboard() {
           >
             <Clock className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              Quick Actions
+              {t("dashboard.quickActions")}
             </h2>
           </motion.div>
 
@@ -291,11 +305,10 @@ export default function Dashboard() {
               <FileUp className="h-8 w-8 text-white" />
             </div>
             <h3 className="text-2xl font-bold text-foreground mb-3" style={{ fontFamily: 'Syne, sans-serif' }}>
-              Upload Your CV to Get Started
+              {t("dashboard.uploadCtaTitle")}
             </h3>
             <p className="text-muted-foreground text-sm max-w-md mx-auto mb-6 leading-relaxed">
-              Our AI will instantly parse your resume, extract skills, suggest ideal job roles,
-              and find matching opportunities — all in under 30 seconds.
+              {t("dashboard.uploadCtaBody")}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>

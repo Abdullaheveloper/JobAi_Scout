@@ -310,7 +310,7 @@ export function VoiceWidget() {
       {/* Floating button */}
       <button aria-label="Open voice assistant" onClick={() => setOpen((v) => !v)}
         className={cn(
-          "fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-2xl",
+          "fixed bottom-6 end-6 z-50 h-14 w-14 rounded-full shadow-2xl",
           "bg-primary/90 backdrop-blur-xl border border-primary-foreground/20",
           "flex items-center justify-center text-primary-foreground",
           "hover:scale-110 transition-all",
@@ -323,7 +323,7 @@ export function VoiceWidget() {
       {/* Panel */}
       {open && !minimized && (
         <div className={cn(
-          "fixed bottom-24 right-6 z-50 w-[min(400px,calc(100vw-3rem))] h-[560px]",
+          "fixed bottom-24 end-6 z-50 w-[min(400px,calc(100vw-3rem))] h-[560px]",
           "rounded-2xl border border-border/40 shadow-2xl",
           "bg-card/80 backdrop-blur-2xl",
           "flex flex-col overflow-hidden animate-in slide-in-from-bottom-4",
@@ -428,7 +428,7 @@ export function VoiceWidget() {
       {/* Minimized bar */}
       {open && minimized && (
         <button onClick={() => setMinimized(false)}
-          className="fixed bottom-24 right-6 z-50 px-4 py-2 rounded-xl bg-card/80 backdrop-blur-xl border border-border/40 shadow-lg flex items-center gap-2 text-sm animate-in slide-in-from-bottom-2">
+          className="fixed bottom-24 end-6 z-50 px-4 py-2 rounded-xl bg-card/80 backdrop-blur-xl border border-border/40 shadow-lg flex items-center gap-2 text-sm animate-in slide-in-from-bottom-2">
           <div className="h-6 w-6 rounded-full gradient-primary flex items-center justify-center">
             <Mic className="h-3 w-3 text-primary-foreground" />
           </div>

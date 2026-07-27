@@ -142,7 +142,7 @@ function DatePickerField({ label, value, onChange }: { label: string; value: Dat
           <Button
             type="button"
             variant="outline"
-            className={cn("w-56 justify-start gap-2 border-border bg-background text-left font-normal", !value && "text-muted-foreground")}
+            className={cn("w-56 justify-start gap-2 border-border bg-background text-start font-normal", !value && "text-muted-foreground")}
           >
             <CalendarIcon className="h-4 w-4" />
             {value ? format(value, "PPP") : t("automation.pickDate")}

@@ -1,0 +1,200 @@
+i18n untranslated string audit
+Generated: 2026-07-27T18:04:35.583Z
+Files scanned: 75
+Files with findings: 19
+Critical-page findings (Automation / Voice / CV / Form Fill): 0 hits in 0 files
+
+Intentional exceptions (do not translate):
+- User-entered data (automation schedule names, CV field values, transcript text)
+- Job titles / company names from APIs
+- Technical URLs (chrome://extensions), file names, MIME types
+- Brand name "JobAI Scout" when used as product identity
+
+========================================================================
+
+## src/components/brand/JobAILogo.tsx (1)
+  L29: "JobAI Scout"
+
+## src/components/chat/ConversationList.tsx (1)
+  L136: "Search conversations..."
+
+## src/components/ExtractedDataCard.tsx (2)
+  L17: "Extracted CV Data"
+  L18: "Data automatically extracted from your resume by AI"
+
+## src/components/profile/CareerProfileWorkspace.tsx (26)
+  L167: "Work experience"
+  L167: "Add each role once. The extension can map them to repeatable ATS work-history sections."
+  L167: "Add role"
+  L168: "work experience"
+  L168: "Your verified work history helps the extension complete repeated employer and role sections accurately."
+  L168: "Add first role"
+  L172: "Degree, institution, start/end year and Completed/Ongoing status — kept in sync with the Education readiness field."
+  L172: "Add education"
+  L173: "education entries"
+  L173: "Add each degree separately so applications with multiple education blocks can be completed correctly."
+  L173: "Add education"
+  L177: "Show real work, outcomes and the tools you used. The AI selects relevant facts; it does not create new claims."
+  L177: "Add project"
+  L178: "Add portfolio projects that are safe to mention in applications and cover letters."
+  L178: "Add project"
+  L183: "Credentials & recognition"
+  L183: "Certifications, awards and publications."
+  L183: "Add item"
+  L184: "Add achievements that you are comfortable sharing with employers."
+  L184: "Add item"
+  L187: "Private by default. They are never filled without permission."
+  L187: "Add reference"
+  L188: "Only add a reference after you have permission to share their contact details."
+  L188: "Add reference"
+  L212: "Edit entry"
+  L212: "Remove entry"
+
+## src/components/profile/ResumeQualityAlert.tsx (1)
+  L50: "Dismiss notification"
+
+## src/components/profile/ResumeQualityAlertExample.tsx (2)
+  L16: "Software Engineer"
+  L45: "Made a project"
+
+## src/components/resume/ResumeSuggestionList.tsx (1)
+  L31: "All resume suggestions"
+
+## src/components/VoiceWidget.tsx (5)
+  L272: "Microphone error"
+  L272: "Please allow microphone access."
+  L311: "Open voice assistant"
+  L357: "Tap the mic and ask anything."
+  L435: "Voice Assistant"
+
+## src/lib/fuzzy-taxonomy/FuzzyAutocompleteInput.tsx (1)
+  L33: "Start typing..."
+
+## src/pages/About.tsx (12)
+  L31: "Active Users"
+  L32: "Jobs Matched"
+  L33: "Companies Trust Us"
+  L34: "Success Rate"
+  L38: "The Idea"
+  L39: "First Prototype"
+  L40: "Beta Launch"
+  L41: "Scale & Growth"
+  L112: "JobAI Scout home"
+  L187: "Our Mission"
+  L194: "Our Vision"
+  L201: "Our Values"
+
+## src/pages/AdminVoice.tsx (11)
+  L148: "Failed to load admin panel"
+  L166: "l.confidence_score !== null && l.confidence_score"
+  L252: "Settings saved"
+  L252: "Global voice assistant configs updated successfully."
+  L255: "Save failed"
+  L281: "Search failed"
+  L291: "Analytics logs cleared"
+  L293: "Failed to clear logs"
+  L541: "Type a mock user question to test RAG scores..."
+  L646: "Support Agent"
+  L686: "Warning: Reducing threshold below 50% might cause the assistant to invent website policies, prices, or feature support u"
+
+## src/pages/Analytics.tsx (27)
+  L281: "Active Jobs"
+  L282: "Remote Roles"
+  L283: "My Applications"
+  L284: "Top Skill"
+  L288: "Job Demand Trend"
+  L288: "New job postings over time"
+  L308: "Remote vs Onsite"
+  L326: "Top Skills in Demand"
+  L340: "Jobs by Location"
+  L356: "Jobs by Domain"
+  L370: "Experience Level Demand"
+  L386: "Top Hiring Companies"
+  L400: "My Application Activity"
+  L400: "Your applications over time"
+  L423: "Total Applications"
+  L424: "Active Jobs"
+  L425: "Conversion Rate"
+  L430: "Application Trend"
+  L450: "Application Status"
+  L466: "Hiring Funnel"
+  L466: "Candidates by stage"
+  L482: "Top Performing Job Posts"
+  L498: "Candidate Locations"
+  L512: "Performance Snapshot"
+  L515: "Avg Applications / Job"
+  L517: "In Interview"
+  L518: "Offers Extended"
+
+## src/pages/Contact.tsx (13)
+  L13: "Email Us"
+  L13: "support@jobai.com"
+  L14: "Call Us"
+  L15: "Our Office"
+  L15: "IIU Islamabad"
+  L16: "Business Hours"
+  L16: "Mon - Fri"
+  L50: "Message sent! 🎉"
+  L61: "JobAI Scout home"
+  L225: "Your name"
+  L237: "you@example.com"
+  L250: "How can we help?"
+  L262: "Tell us more about your needs..."
+
+## src/pages/Privacy.tsx (12)
+  L13: "1. Information We Collect"
+  L17: "2. How We Use Your Information"
+  L21: "3. AI & Data Processing"
+  L25: "4. Data Sharing"
+  L29: "5. Data Security"
+  L33: "6. Your Rights"
+  L37: "7. Cookies & Tracking"
+  L41: "8. Data Retention"
+  L45: "9. Changes to This Policy"
+  L49: "10. Contact Us"
+  L60: "JobAI Scout home"
+  L65: "Get Started"
+
+## src/pages/recruiter/RecruiterApplicationStatus.tsx (1)
+  L34: "Could not load application status"
+
+## src/pages/recruiter/RecruiterCandidates.tsx (10)
+  L41: "Could not load applicants"
+  L53: "Could not load candidate details"
+  L78: "Status was not updated"
+  L80: "Moved to ${statusLabel[status]}"
+  L80: "The applicant pipeline has been updated."
+  L89: "Note was not saved"
+  L93: "Private note saved"
+  L93: "Only your recruiter account can see this note."
+  L96: "applications.reduce"
+  L108: "Add an interview or review note…"
+
+## src/pages/recruiter/RecruiterJobs.tsx (15)
+  L85: "Job updated"
+  L89: "Job posted!"
+  L112: "Job deleted"
+  L136: "Senior React Developer"
+  L146: "Remote / City"
+  L163: "Min Salary"
+  L167: "Max Salary"
+  L172: "Experience Level"
+  L174: "Select level"
+  L176: "Entry Level"
+  L177: "Mid Level"
+  L185: "Job description..."
+  L189: "React, TypeScript, Node.js"
+  L193: "3+ years experience, CS degree"
+  L196: "Application URL"
+
+## src/pages/recruiter/RecruiterProfile.tsx (2)
+  L95: "Technology, Finance…"
+  L104: "A short description candidates will see with your postings."
+
+## src/pages/VoiceAgent.tsx (6)
+  L35: "Voice agent is ready. Start speaking!"
+  L38: "Voice agent session ended."
+  L73: "Configuration Error"
+  L74: "Voice agent is not configured. Please set VITE_ELEVENLABS_AGENT_ID."
+  L112: "Failed to Start"
+  L113: "Could not start voice agent."

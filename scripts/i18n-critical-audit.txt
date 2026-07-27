@@ -1,0 +1,13 @@
+i18n untranslated string audit
+Generated: 2026-07-27T18:32:31.201Z
+Files scanned: 22
+Files with findings: 0
+Critical-page findings (Automation / Voice / CV / Form Fill): 0 hits in 0 files
+
+Intentional exceptions (do not translate):
+- User-entered data (automation schedule names, CV field values, transcript text)
+- Job titles / company names from APIs
+- Technical URLs (chrome://extensions), file names, MIME types
+- Brand name "JobAI Scout" when used as product identity
+
+========================================================================

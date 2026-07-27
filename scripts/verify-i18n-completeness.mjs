@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const localesDir = join(root, "src", "locales");
-const LOCALE_CODES = ["en", "fr", "de", "hi"];
+const LOCALE_CODES = ["en", "fr", "de", "hi", "ur", "ar"];
 
 function collectKeys(value, prefix = "") {
   if (value !== null && typeof value === "object" && !Array.isArray(value)) {
@@ -108,7 +108,7 @@ if (missingInAny.length) {
   }
   if (missingInAny.length > 40) console.log(`  … and ${missingInAny.length - 40} more`);
 } else {
-  console.log("All referenced static keys exist in en/fr/de/hi");
+  console.log("All referenced static keys exist in en/fr/de/hi/ur/ar");
 }
 
 if (failed) {

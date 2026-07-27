@@ -1,0 +1,100 @@
+i18n untranslated string audit
+Generated: 2026-07-27T18:43:14.176Z
+Files scanned: 75
+Files with findings: 12
+Attribute findings (placeholder/alt/title/aria-*): 61
+Critical-page findings (Automation / Voice / CV / Form Fill): 0 hits in 0 files
+Mode: attrs-only
+
+Intentional exceptions (do not translate):
+- User-entered data (automation schedule names, CV field values, transcript text)
+- Job titles / company names from APIs
+- Technical URLs (chrome://extensions), file names, MIME types
+- Brand name "JobAI Scout" when used as product identity
+
+========================================================================
+
+## src/components/brand/JobAILogo.tsx (1)
+  L29 [attr:aria-label]: "JobAI Scout"
+
+## src/components/ExtractedDataCard.tsx (2)
+  L17 [attr:title]: "Extracted CV Data"
+  L18 [attr:description]: "Data automatically extracted from your resume by AI"
+
+## src/components/profile/CareerProfileWorkspace.tsx (26)
+  L167 [attr:title]: "Work experience"
+  L167 [attr:description]: "Add each role once. The extension can map them to repeatable ATS work-history sections."
+  L167 [attr:label]: "Add role"
+  L168 [attr:title]: "work experience"
+  L168 [attr:description]: "Your verified work history helps the extension complete repeated employer and role sections accurately."
+  L168 [attr:label]: "Add first role"
+  L172 [attr:description]: "Degree, institution, start/end year and Completed/Ongoing status — kept in sync with the Education readiness field."
+  L172 [attr:label]: "Add education"
+  L173 [attr:title]: "education entries"
+  L173 [attr:description]: "Add each degree separately so applications with multiple education blocks can be completed correctly."
+  L173 [attr:label]: "Add education"
+  L177 [attr:description]: "Show real work, outcomes and the tools you used. The AI selects relevant facts; it does not create new claims."
+  L177 [attr:label]: "Add project"
+  L178 [attr:description]: "Add portfolio projects that are safe to mention in applications and cover letters."
+  L178 [attr:label]: "Add project"
+  L183 [attr:title]: "Credentials & recognition"
+  L183 [attr:description]: "Certifications, awards and publications."
+  L183 [attr:label]: "Add item"
+  L184 [attr:description]: "Add achievements that you are comfortable sharing with employers."
+  L184 [attr:label]: "Add item"
+  L187 [attr:description]: "Private by default. They are never filled without permission."
+  L187 [attr:label]: "Add reference"
+  L188 [attr:description]: "Only add a reference after you have permission to share their contact details."
+  L188 [attr:label]: "Add reference"
+  L212 [attr:aria-label]: "Edit entry"
+  L212 [attr:aria-label]: "Remove entry"
+
+## src/components/profile/ResumeQualityAlert.tsx (1)
+  L50 [attr:aria-label]: "Dismiss notification"
+
+## src/components/resume/ATSScoreBadge.tsx (1)
+  L9 [attr:aria-label]: "ATS score ${score} out of 100"
+
+## src/components/resume/ResumeSuggestionList.tsx (1)
+  L31 [attr:aria-label]: "All resume suggestions"
+
+## src/components/VoiceWidget.tsx (1)
+  L311 [attr:aria-label]: "Open voice assistant"
+
+## src/pages/About.tsx (1)
+  L112 [attr:aria-label]: "JobAI Scout home"
+
+## src/pages/Analytics.tsx (24)
+  L281 [attr:label]: "Active Jobs"
+  L282 [attr:label]: "Remote Roles"
+  L283 [attr:label]: "My Applications"
+  L284 [attr:label]: "Top Skill"
+  L288 [attr:title]: "Job Demand Trend"
+  L288 [attr:description]: "New job postings over time"
+  L308 [attr:title]: "Remote vs Onsite"
+  L326 [attr:title]: "Top Skills in Demand"
+  L340 [attr:title]: "Jobs by Location"
+  L356 [attr:title]: "Jobs by Domain"
+  L370 [attr:title]: "Experience Level Demand"
+  L386 [attr:title]: "Top Hiring Companies"
+  L400 [attr:title]: "My Application Activity"
+  L400 [attr:description]: "Your applications over time"
+  L423 [attr:label]: "Total Applications"
+  L424 [attr:label]: "Active Jobs"
+  L425 [attr:label]: "Conversion Rate"
+  L430 [attr:title]: "Application Trend"
+  L450 [attr:title]: "Application Status"
+  L466 [attr:title]: "Hiring Funnel"
+  L466 [attr:description]: "Candidates by stage"
+  L482 [attr:title]: "Top Performing Job Posts"
+  L498 [attr:title]: "Candidate Locations"
+  L512 [attr:title]: "Performance Snapshot"
+
+## src/pages/Contact.tsx (1)
+  L62 [attr:aria-label]: "JobAI Scout home"
+
+## src/pages/Privacy.tsx (1)
+  L60 [attr:aria-label]: "JobAI Scout home"
+
+## src/pages/ProfileSettings.tsx (1)
+  L808 [attr:aria-label]: "Remove ${s}"

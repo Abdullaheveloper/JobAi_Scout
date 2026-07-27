@@ -6,6 +6,7 @@ import { CookieSettingsLink } from "@/components/CookieConsentBanner";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLandingHeroMetrics } from "@/hooks/useLandingHeroMetrics";
+import { MixedDir } from "@/components/MixedDir";
 import "./LandingRedesign.css";
 
 const RAIL_DOTS = [
@@ -145,6 +146,10 @@ export default function Index() {
   const appsBadge = t("landing.previewActiveBadge", {
     count: metrics.activeApplications ?? (metrics.isLive ? 0 : 3),
   });
+  const profileLabel = metrics.isLive ? metrics.profileLabel : t("landing.previewRole");
+  const profileStack = metrics.isLive ? metrics.profileStack : t("landing.previewStack");
+  const matchTitle =
+    metrics.isLive && metrics.matchPct != null ? metrics.matchTitle : t("landing.previewDesigner");
 
   return (
     <main className="landing-redesign" ref={rootRef}>
@@ -181,6 +186,9 @@ export default function Index() {
             <Link to="/login">{t("common.signIn")}</Link>
           </div>
           <div className="nav-cta">
+            <Link to="/login" className="btn btn-ghost btn-sm nav-signin">
+              {t("common.signIn")}
+            </Link>
             <ThemeToggle />
             <LanguageSwitcher />
             <Link to="/register" className="btn btn-primary btn-sm">
@@ -235,7 +243,9 @@ export default function Index() {
               </div>
               <h4>{t("landing.previewStrength")}</h4>
               <p>
-                {metrics.profileLabel} · {metrics.profileStack}
+                <MixedDir>
+                  {profileLabel} · {profileStack}
+                </MixedDir>
               </p>
               <div className="metric">{metrics.profileStrength}%</div>
             </div>
@@ -245,8 +255,12 @@ export default function Index() {
                 {t("landing.waypointMatch")}
                 <span className="badge">{matchBadge}</span>
               </div>
-              <h4>{metrics.matchTitle}</h4>
-              <p>{t("landing.previewInsight")}</p>
+              <h4>
+                <MixedDir>{matchTitle}</MixedDir>
+              </h4>
+              <p>
+                <MixedDir>{t("landing.previewInsight")}</MixedDir>
+              </p>
             </div>
 
             <div className="glass-card card-c">
@@ -255,7 +269,9 @@ export default function Index() {
                 <span className="badge">{appsBadge}</span>
               </div>
               <h4>{t("landing.previewAsk")}</h4>
-              <p>{t("landing.previewAskText")}</p>
+              <p>
+                <MixedDir>{t("landing.previewAskText")}</MixedDir>
+              </p>
             </div>
           </div>
           <div className="hero-waypoint">
@@ -299,12 +315,14 @@ export default function Index() {
               <div className="waypoint-dot-abs" />
               <div className="icon">{feature.icon}</div>
               <h3>{feature.title}</h3>
-              <p>{feature.text}</p>
+              <p>
+                <MixedDir>{feature.text}</MixedDir>
+              </p>
               <div className="checks">
                 {feature.points.map((point) => (
                   <span key={point}>
                     <CheckIcon />
-                    {point}
+                    <MixedDir>{point}</MixedDir>
                   </span>
                 ))}
               </div>

@@ -65,7 +65,7 @@ export const ResumeQualityAlert: React.FC<ResumeQualityAlertProps> = ({
           <span className="text-sm text-red-400 mx-1">→</span>
           <span className="text-2xl font-bold text-green-400">{potentialScore}</span>
           <span className="text-sm text-green-300">/100</span>
-          <span className="ml-2 px-2 py-1 bg-green-900/50 rounded text-xs font-semibold text-green-300">
+          <span className="ms-2 px-2 py-1 bg-green-900/50 rounded text-xs font-semibold text-green-300">
             +{scoreDifference} points
           </span>
         </div>

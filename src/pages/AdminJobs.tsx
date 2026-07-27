@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
+import { MixedDir } from "@/components/MixedDir";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,7 +62,7 @@ export default function AdminJobs() {
       .range(from, to);
 
     if (error) {
-      toast({ title: "Could not load jobs", description: error.message, variant: "destructive" });
+      toast({ title: t("admin.couldNotLoadJobs"), description: error.message, variant: "destructive" });
       setJobs([]);
       setTotalCount(0);
     } else {
@@ -79,10 +80,10 @@ export default function AdminJobs() {
       url: sourceUrl.trim(),
       enabled: true,
     });
-    if (error) return toast({ title: "Could not add source", description: error.message, variant: "destructive" });
+    if (error) return toast({ title: t("admin.couldNotAddSource"), description: error.message, variant: "destructive" });
     setSourceName("");
     setSourceUrl("");
-    toast({ title: "Job source added" });
+    toast({ title: t("admin.jobSourceAdded") });
     fetchSources();
   };
 
@@ -91,15 +92,15 @@ export default function AdminJobs() {
       .from("job_sources")
       .update({ enabled: !source.enabled })
       .eq("id", source.id);
-    if (error) toast({ title: "Could not update source", description: error.message, variant: "destructive" });
+    if (error) toast({ title: t("admin.couldNotUpdateSource"), description: error.message, variant: "destructive" });
     else fetchSources();
   };
 
   const deleteSource = async (id: string) => {
     const { error } = await (supabase as any).from("job_sources").delete().eq("id", id);
-    if (error) toast({ title: "Could not remove source", description: error.message, variant: "destructive" });
+    if (error) toast({ title: t("admin.couldNotRemoveSource"), description: error.message, variant: "destructive" });
     else {
-      toast({ title: "Source removed" });
+      toast({ title: t("admin.sourceRemoved") });
       fetchSources();
     }
   };
@@ -109,7 +110,7 @@ export default function AdminJobs() {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Job deleted" });
+      toast({ title: t("admin.jobDeleted") });
       const nextTotal = Math.max(0, totalCount - 1);
       const nextTotalPages = Math.max(1, Math.ceil(nextTotal / PAGE_SIZE));
       if (page > nextTotalPages) {
@@ -125,39 +126,54 @@ export default function AdminJobs() {
       <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="font-display text-3xl font-bold">{t("admin.manageJobs")}</h1>
-          <p className="text-muted-foreground mt-1">View and manage all job listings</p>
+          <p className="text-muted-foreground mt-1">
+            <MixedDir>{t("admin.manageJobsViewSubtitle")}</MixedDir>
+          </p>
         </div>
 
         <Card className="shadow-card">
           <CardContent className="p-5 space-y-4">
             <div>
               <h2 className="font-display text-lg font-semibold">{t("admin.collectionSources")}</h2>
-              <p className="text-sm text-muted-foreground">Add permitted RSS feeds or official company careers pages.</p>
+              <p className="text-sm text-muted-foreground">
+                <MixedDir>{t("admin.collectionSourcesHint")}</MixedDir>
+              </p>
             </div>
             <div className="grid gap-3 md:grid-cols-[160px_1fr_2fr_auto] items-end">
               <div>
-                <Label>Type</Label>
+                <Label>{t("admin.sourceType")}</Label>
                 <Select value={sourceType} onValueChange={setSourceType}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="rss">RSS / XML Feed</SelectItem>
-                    <SelectItem value="company_career">Company Careers</SelectItem>
+                    <SelectItem value="rss">{t("admin.sourceTypeRss")}</SelectItem>
+                    <SelectItem value="company_career">{t("admin.sourceTypeCareer")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Name</Label>
-                <Input value={sourceName} onChange={(e) => setSourceName(e.target.value)} placeholder="Company or feed name" />
+                <Label>{t("admin.sourceName")}</Label>
+                <Input
+                  value={sourceName}
+                  onChange={(e) => setSourceName(e.target.value)}
+                  placeholder={t("admin.sourceNamePlaceholder")}
+                />
               </div>
               <div>
-                <Label>URL</Label>
-                <Input value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder="https://..." />
+                <Label>{t("admin.sourceUrl")}</Label>
+                <Input
+                  type="url"
+                  value={sourceUrl}
+                  onChange={(e) => setSourceUrl(e.target.value)}
+                  placeholder={t("admin.sourceUrlPlaceholder")}
+                  inputMode="url"
+                  autoComplete="url"
+                />
               </div>
               <Button onClick={addSource}>
-                <Plus className="mr-1 h-4 w-4" />
-                Add
+                <Plus className="me-1 h-4 w-4" />
+                {t("admin.add")}
               </Button>
             </div>
             {sources.length > 0 && (
@@ -166,20 +182,27 @@ export default function AdminJobs() {
                   <div key={source.id} className="flex items-center gap-3 rounded-lg border p-3">
                     <Badge variant="outline">{source.source_type}</Badge>
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium">{source.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{source.url}</p>
+                      <p className="font-medium"><MixedDir>{source.name}</MixedDir></p>
+                      <p className="truncate text-xs text-muted-foreground" dir="ltr">{source.url}</p>
                       {source.last_error ? (
-                        <p className="mt-1 text-xs text-destructive">Last error: {source.last_error}</p>
+                        <p className="mt-1 text-xs text-destructive">
+                          <MixedDir>{t("admin.lastError", { error: source.last_error })}</MixedDir>
+                        </p>
                       ) : source.last_collected_at ? (
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Last collected: {new Date(source.last_collected_at).toLocaleString()} · {source.last_result_count || 0} jobs
+                          <MixedDir>
+                            {t("admin.lastCollected", {
+                              when: new Date(source.last_collected_at).toLocaleString(),
+                              count: source.last_result_count || 0,
+                            })}
+                          </MixedDir>
                         </p>
                       ) : (
-                        <p className="mt-1 text-xs text-muted-foreground">Not collected yet</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{t("admin.notCollectedYet")}</p>
                       )}
                     </div>
                     <Button variant="outline" size="sm" onClick={() => toggleSource(source)}>
-                      {source.enabled ? "Enabled" : "Disabled"}
+                      {source.enabled ? t("admin.enabled") : t("admin.disabled")}
                     </Button>
                     <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteSource(source.id)}>
                       <Trash2 className="h-4 w-4" />
@@ -198,32 +221,32 @@ export default function AdminJobs() {
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
               </div>
             ) : jobs.length === 0 ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">No jobs found.</div>
+              <div className="py-12 text-center text-sm text-muted-foreground">{t("admin.noJobsFound")}</div>
             ) : (
               <>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Source</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="w-[80px]">Actions</TableHead>
+                      <TableHead>{t("admin.colTitle")}</TableHead>
+                      <TableHead>{t("admin.colCompany")}</TableHead>
+                      <TableHead>{t("admin.colLocation")}</TableHead>
+                      <TableHead>{t("admin.colSource")}</TableHead>
+                      <TableHead>{t("admin.colStatus")}</TableHead>
+                      <TableHead className="w-[80px]">{t("admin.colActions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {jobs.map((job) => (
                       <TableRow key={job.id}>
-                        <TableCell className="font-medium">{job.title}</TableCell>
-                        <TableCell>{job.company}</TableCell>
-                        <TableCell>{job.location || "—"}</TableCell>
+                        <TableCell className="font-medium"><MixedDir>{job.title}</MixedDir></TableCell>
+                        <TableCell><MixedDir>{job.company}</MixedDir></TableCell>
+                        <TableCell><MixedDir>{job.location || "—"}</MixedDir></TableCell>
                         <TableCell>
                           <Badge variant="outline">{job.source}</Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant={job.is_active ? "default" : "secondary"}>
-                            {job.is_active ? "Active" : "Inactive"}
+                            {job.is_active ? t("admin.active") : t("admin.inactive")}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -243,7 +266,7 @@ export default function AdminJobs() {
 
                 <div className="flex flex-col items-center justify-between gap-3 border-t px-4 py-3 sm:flex-row">
                   <p className="text-sm text-muted-foreground">
-                    Showing {rangeStart}–{rangeEnd} of {totalCount}
+                    {t("admin.showingRange", { start: rangeStart, end: rangeEnd, total: totalCount })}
                   </p>
                   {totalPages > 1 && (
                     <div className="flex items-center gap-3">
@@ -253,9 +276,9 @@ export default function AdminJobs() {
                         disabled={page === 1 || loading}
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                       >
-                        Previous
+                        {t("admin.previous")}
                       </Button>
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-sm text-muted-foreground" dir="ltr">
                         {page} / {totalPages}
                       </span>
                       <Button
@@ -264,7 +287,7 @@ export default function AdminJobs() {
                         disabled={page === totalPages || loading}
                         onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                       >
-                        Next
+                        {t("admin.next")}
                       </Button>
                     </div>
                   )}
