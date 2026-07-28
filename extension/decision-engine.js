@@ -23,6 +23,48 @@
     directFillAt: 0.9,
   });
 
+  /** Every scanned field is routed into exactly one fill tier. */
+  const FILL_TIERS = Object.freeze({
+    DIRECT: "direct",
+    DECISION: "decision",
+    SYNTHESIZED: "synthesized",
+    PROTECTED: "protected",
+    MISSING_DATA: "missing_data",
+  });
+
+  /** Open-ended prompts with no literal profile column — AI synthesis candidates. */
+  const OPEN_ENDED_PATTERNS = [
+    /\bwhy\s+(?:should|do)\s+(?:we|you)\s+hire/i,
+    /\bdescribe\s+(?:a\s+)?(?:project|situation|time|challenge|experience|achievement)/i,
+    /\btell\s+(?:us|me)\s+about\s+(?:a|an|your|yourself)/i,
+    /\bwhat\s+makes\s+you\b/i,
+    /\bwhy\s+(?:are\s+you\s+)?interested/i,
+    /\bexplain\s+why/i,
+    /\badditional\s+(?:information|comments|details|notes)/i,
+    /\banything\s+else\b/i,
+    /\bshare\s+(?:a|an|your)\s+(?:example|story|experience)/i,
+    /\bwalk\s+us\s+through\b/i,
+    /\bhow\s+did\s+you\b/i,
+    /\bwhat\s+is\s+your\s+(?:biggest|greatest)\b/i,
+    /\bcover\s+letter\b/i,
+    /\btell.*about (?:yourself|you)\b/i,
+    /\bwhy.*(?:role|position|company|job|team)\b/i,
+  ];
+
+  const LITERAL_PROFILE_KEYS = new Set([
+    "email", "phone", "first_name", "last_name", "full_name",
+    "linkedin", "github", "portfolio", "portfolio_url", "website", "location",
+    "company", "current_company", "job_title", "current_title",
+    "education", "degree", "school", "university", "field_of_study",
+    "experience", "experience_years", "years_of_experience", "skills",
+    "willing_to_relocate", "work_type", "availability", "work_authorization",
+    "expected_salary", "salary", "commute_to_office", "graduation_year",
+    "experience_title", "experience_company", "experience_start_date", "experience_end_date", "experience_description",
+    "education_institution", "education_degree", "education_field", "education_start_date", "education_end_date",
+    "project_name", "project_role", "project_url", "project_description",
+    "reference_full_name", "reference_company", "reference_email", "reference_phone", "reference_relationship",
+  ]);
+
   // A field in one of these groups must never be completed by automation. The
   // patterns intentionally err on the side of user control: a false positive
   // results in a review prompt, not an unwanted application decision.
@@ -239,6 +281,76 @@
     return ["text", "textarea", "email", "tel", "url", "search", "contenteditable"].includes(controlType);
   }
 
+  function isLongTextControl(controlType) {
+    return ["textarea", "contenteditable"].includes(controlType);
+  }
+
+  function isOpenEndedQuestion(context, key, controlType) {
+    const text = compactText(context).toLowerCase();
+    if (!text) return false;
+    if (key === "summary") return true;
+    if (key === "custom_screening_answer" && isLongTextControl(controlType)) return true;
+    if (!isLongTextControl(controlType) && controlType !== "text") return false;
+    if (LITERAL_PROFILE_KEYS.has(normalizeKey(key)) && key !== "summary") return false;
+    return OPEN_ENDED_PATTERNS.some((pattern) => pattern.test(text));
+  }
+
+  function hasLiteralProfileMatch(key, value) {
+    if (value === null) return false;
+    if (normalizeKey(key) === "summary") return true;
+    return LITERAL_PROFILE_KEYS.has(normalizeKey(key));
+  }
+
+  /**
+   * Maps a classified field + decision into one of five fill tiers.
+   */
+  function resolveFillTier(options) {
+    const input = options || {};
+    const classification = input.classification || classifyField(input.field || input);
+    const decision = input.decision || decide(input);
+    const key = normalizeKey(input.key || classification.key);
+    const context = readFieldText(input.field || input);
+    const controlType = readControlType(input.field || input);
+    const value = input.value !== undefined ? normalizeAnswer(input.value) : decision.value;
+    const insufficientData = input.insufficientData === true;
+
+    if (classification.manualOnly || decision.action === "manual") {
+      return { tier: FILL_TIERS.PROTECTED, forceConfirm: false, insufficientData: false };
+    }
+
+    if (insufficientData) {
+      return { tier: FILL_TIERS.MISSING_DATA, forceConfirm: false, insufficientData: true };
+    }
+
+    const openEnded = isOpenEndedQuestion(context, key, controlType);
+    const literalMatch = hasLiteralProfileMatch(key, value);
+
+    if (openEnded && !literalMatch) {
+      return { tier: FILL_TIERS.SYNTHESIZED, forceConfirm: true, insufficientData: false };
+    }
+
+    if (key === "salary" || normalizeKey(input.key) === "salary") {
+      if (value === null) {
+        return { tier: FILL_TIERS.MISSING_DATA, forceConfirm: false, insufficientData: false };
+      }
+      return { tier: FILL_TIERS.DECISION, forceConfirm: true, insufficientData: false };
+    }
+
+    if (value === null || decision.reason === "missing-value") {
+      return { tier: FILL_TIERS.MISSING_DATA, forceConfirm: false, insufficientData: false };
+    }
+
+    if (decision.action === "autofill" && decision.canFill && !decision.requiresReview) {
+      return { tier: FILL_TIERS.DIRECT, forceConfirm: false, insufficientData: false };
+    }
+
+    return {
+      tier: FILL_TIERS.DECISION,
+      forceConfirm: decision.action === "fill_with_review" || decision.action === "suggest",
+      insufficientData: false,
+    };
+  }
+
   function hasDirectEvidence(evidence) {
     if (evidence === true) return true;
     if (typeof evidence === "string") {
@@ -391,8 +503,13 @@
 
   root.JobAIFormDecisionEngine = Object.freeze({
     POLICY,
+    FILL_TIERS,
+    OPEN_ENDED_PATTERNS,
     classifyField,
     decide,
+    resolveFillTier,
+    isOpenEndedQuestion,
+    hasLiteralProfileMatch,
     normalizeAnswer,
     normalizeConfidence,
     hasDirectEvidence,

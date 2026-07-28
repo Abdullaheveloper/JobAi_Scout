@@ -806,9 +806,12 @@ export type Database = {
           approved_by: string | null
           avatar_url: string | null
           application_answers: Json
+          autofill_preferences: Json | null
           availability: string | null
           bio: string | null
+          career_profile: Json | null
           certifications: string[] | null
+          commute_to_office: string | null
           created_at: string
           current_company: string | null
           cv_summary: string | null
@@ -818,6 +821,7 @@ export type Database = {
           email: string | null
           expected_salary: string | null
           experience_years: number | null
+          field_metadata: Json | null
           full_name: string | null
           github_url: string | null
           id: string
@@ -848,9 +852,12 @@ export type Database = {
           approved_by?: string | null
           avatar_url?: string | null
           application_answers?: Json
+          autofill_preferences?: Json | null
           availability?: string | null
           bio?: string | null
+          career_profile?: Json | null
           certifications?: string[] | null
+          commute_to_office?: string | null
           created_at?: string
           current_company?: string | null
           cv_summary?: string | null
@@ -860,6 +867,7 @@ export type Database = {
           email?: string | null
           expected_salary?: string | null
           experience_years?: number | null
+          field_metadata?: Json | null
           full_name?: string | null
           github_url?: string | null
           id?: string
@@ -890,9 +898,12 @@ export type Database = {
           approved_by?: string | null
           avatar_url?: string | null
           application_answers?: Json
+          autofill_preferences?: Json | null
           availability?: string | null
           bio?: string | null
+          career_profile?: Json | null
           certifications?: string[] | null
+          commute_to_office?: string | null
           created_at?: string
           current_company?: string | null
           cv_summary?: string | null
@@ -902,6 +913,7 @@ export type Database = {
           email?: string | null
           expected_salary?: string | null
           experience_years?: number | null
+          field_metadata?: Json | null
           full_name?: string | null
           github_url?: string | null
           id?: string

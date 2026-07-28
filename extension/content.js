@@ -682,6 +682,13 @@
   const MIN_CONFIDENCE = 0.4;
   const FILE_TYPES = ["resume", "cover_letter", "profile_photo", "document"];
   const decisionEngine = globalThis.JobAIFormDecisionEngine;
+  const FILL_TIERS = decisionEngine?.FILL_TIERS || {
+    DIRECT: "direct",
+    DECISION: "decision",
+    SYNTHESIZED: "synthesized",
+    PROTECTED: "protected",
+    MISSING_DATA: "missing_data",
+  };
   let fillPassInFlight = false;
   let activeFillPromise = null;
 
@@ -745,6 +752,66 @@
     return "full_name";
   }
 
+  function emptyTierBuckets() {
+    return { direct: [], decision: [], synthesized: [], protected: [], missing_data: [] };
+  }
+
+  function resolveTierForField({ el, key, context, value, decision, insufficientData = false }) {
+    if (!decisionEngine?.resolveFillTier) {
+      return { tier: FILL_TIERS.DECISION, forceConfirm: true, insufficientData: false };
+    }
+    return decisionEngine.resolveFillTier({
+      field: {
+        key,
+        context: context.text,
+        type: (el.type || "").toLowerCase(),
+        tagName: el.tagName,
+        isContentEditable: el.getAttribute?.("contenteditable") === "true",
+      },
+      decision,
+      classification: decision.classification,
+      key,
+      value,
+      insufficientData,
+    });
+  }
+
+  function questionTextFromContext(context) {
+    return [...(context.labelTexts || []), ...(context.ancestors || []), context.text]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 2000);
+  }
+
+  async function requestSynthesizedAnswer(questionText) {
+    if (!chrome?.runtime?.sendMessage) return { answer: null, insufficient_data: true };
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: "SYNTHESIZE_FORM_ANSWER",
+        question: questionText,
+      });
+      if (!response?.ok) return { answer: null, insufficient_data: true };
+      return {
+        answer: typeof response.answer === "string" ? response.answer : null,
+        insufficient_data: response.insufficient_data === true || !response.answer,
+      };
+    } catch {
+      return { answer: null, insufficient_data: true };
+    }
+  }
+
+  async function applyTextFill(el, value, isCE) {
+    if (el.tagName === "SELECT") return fillSelect(el, value);
+    if (isCE) {
+      fillContentEditable(el, value);
+      return true;
+    }
+    await humanType(el, value);
+    return true;
+  }
+
   function decisionForField({ el, key, context, confidence, value, evidence }) {
     if (!decisionEngine) return { action: "manual", canFill: false, reason: "safety-engine-unavailable" };
     return decisionEngine.decide({
@@ -781,16 +848,23 @@
   }
 
   async function fillForm(profile) {
-    if (fillPassInFlight) return { count: 0, fields: [], missing: [], suggestions: [], protected: [], reviewed: [] };
+    if (fillPassInFlight) {
+      return {
+        count: 0, fields: [], missing: [], suggestions: [], protected: [], reviewed: [],
+        tiers: emptyTierBuckets(), readyCount: 0,
+      };
+    }
     fillPassInFlight = true;
     const fields = collectFields();
     LOG(`Scanning ${fields.length} candidate field(s)`);
     let count = 0;
+    let readyCount = 0;
     const filledKeys = new Set();
     const missingKeys = new Set();
     const suggestions = [];
     const protectedFields = [];
     const reviewed = [];
+    const tiers = emptyTierBuckets();
     const preferences = normalizedPreferences(profile);
     const structuredIndexes = new Map();
 
@@ -835,7 +909,10 @@
       // are still surfaced even if semantic matching cannot name the field.
       if (!key) {
         const manual = decisionForField({ el, key: "", context, confidence: 0, value: null, evidence: null });
-        if (manual.action === "manual") addOutcome(protectedFields, "manual_review", { reason: manual.reason });
+        if (manual.action === "manual") {
+          addOutcome(protectedFields, "manual_review", { reason: manual.reason, tier: FILL_TIERS.PROTECTED });
+          addOutcome(tiers.protected, "manual_review", { reason: manual.reason, tier: FILL_TIERS.PROTECTED });
+        }
         continue;
       }
       if (confidence < MIN_CONFIDENCE) continue;
@@ -851,24 +928,32 @@
       const index = isStructured ? (structuredIndexes.get(key) || 0) : 0;
       if (isStructured) structuredIndexes.set(key, index + 1);
       const resolved = resolveValue(profile, key, context.text, index, type);
-      const value = resolved.value;
+      let value = resolved.value;
 
       // Handle file inputs separately
       if (isFile || FILE_TYPES.includes(key)) {
-        if (!isFile) continue; // Only handle actual file inputs
+        if (!isFile) continue;
         if (!["resume", "profile_photo"].includes(key)) {
-          addOutcome(suggestions, key, { reason: key === "cover_letter" ? "tailored-cover-letter-required" : "manual-document-upload" });
+          addOutcome(suggestions, key, { reason: key === "cover_letter" ? "tailored-cover-letter-required" : "manual-document-upload", tier: FILL_TIERS.DECISION });
+          addOutcome(tiers.decision, key, { reason: "manual-document-upload", tier: FILL_TIERS.DECISION, forceConfirm: true });
           continue;
         }
-        if (!value) { missingKeys.add(key); continue; }
+        if (!value) {
+          missingKeys.add(key);
+          addOutcome(tiers.missing_data, key, { reason: "missing-value", tier: FILL_TIERS.MISSING_DATA });
+          continue;
+        }
         if (confidence < 0.9) {
-          addOutcome(suggestions, key, { reason: `${key}-field-needs-review` });
+          addOutcome(suggestions, key, { reason: `${key}-field-needs-review`, tier: FILL_TIERS.DECISION, forceConfirm: true });
+          addOutcome(tiers.decision, key, { reason: `${key}-field-needs-review`, tier: FILL_TIERS.DECISION, forceConfirm: true });
           continue;
         }
         try {
           if (await fillFileInput(el, profile, key)) {
             count++;
+            readyCount++;
             filledKeys.add(key);
+            addOutcome(tiers.direct, key, { reason: "direct-file-fill", tier: FILL_TIERS.DIRECT });
             LOG(`Filled file: ${key}`);
           }
         } catch (e) { WARN("File fill failed:", e); }
@@ -876,54 +961,139 @@
       }
 
       const decision = decisionForField({ el, key, context, confidence, value, evidence: resolved.evidence });
-      if (decision.action === "manual") {
-        addOutcome(protectedFields, key, { reason: decision.reason });
+      let tierInfo = resolveTierForField({ el, key, context, value, decision });
+
+      if (tierInfo.tier === FILL_TIERS.PROTECTED || decision.action === "manual") {
+        addOutcome(protectedFields, key, { reason: decision.reason, tier: FILL_TIERS.PROTECTED });
+        addOutcome(tiers.protected, key, { reason: decision.reason, tier: FILL_TIERS.PROTECTED });
         continue;
       }
-      if (!value) { missingKeys.add(key); continue; }
+
+      if (tierInfo.tier === FILL_TIERS.SYNTHESIZED) {
+        const question = questionTextFromContext(context);
+        const synthesis = await requestSynthesizedAnswer(question);
+        if (synthesis.insufficient_data || !synthesis.answer) {
+          missingKeys.add(key);
+          addOutcome(tiers.missing_data, key, {
+            reason: "insufficient_data",
+            tier: FILL_TIERS.MISSING_DATA,
+            question: question.slice(0, 160),
+          });
+          continue;
+        }
+        value = synthesis.answer;
+        try {
+          if (isRadio) {
+            if (fillRadio(el, value)) count++;
+          } else if (isCheckbox) {
+            if (fillCheckbox(el, value)) count++;
+          } else {
+            await applyTextFill(el, value, isCE);
+            count++;
+          }
+          addOutcome(tiers.synthesized, key, {
+            reason: "ai-drafted",
+            tier: FILL_TIERS.SYNTHESIZED,
+            forceConfirm: true,
+            preview: String(value).slice(0, 140),
+          });
+          LOG(`Synthesized fill: ${key}`);
+        } catch (e) { WARN("synthesized fill failed", e, el); }
+        continue;
+      }
+
+      if (tierInfo.tier === FILL_TIERS.MISSING_DATA || !value) {
+        missingKeys.add(key);
+        addOutcome(tiers.missing_data, key, { reason: decision.reason || "missing-value", tier: FILL_TIERS.MISSING_DATA });
+        continue;
+      }
+
+      if (tierInfo.tier === FILL_TIERS.DECISION && (tierInfo.forceConfirm || key === "salary")) {
+        const salaryReason = key === "salary" ? "salary-requires-confirm" : (decision.reason || "review-suggestion");
+        addOutcome(suggestions, key, { reason: salaryReason, tier: FILL_TIERS.DECISION, forceConfirm: true });
+        addOutcome(tiers.decision, key, { reason: salaryReason, tier: FILL_TIERS.DECISION, forceConfirm: true });
+        continue;
+      }
 
       const threshold = isRadio || isCheckbox
         ? Math.max(0.9, preferences.checkboxConfidence)
         : preferences.textAutofillConfidence;
       if (confidence < threshold || decision.action === "suggest" || !decision.canFill) {
-        addOutcome(suggestions, key, { reason: decision.reason || "review-suggestion" });
+        addOutcome(suggestions, key, { reason: decision.reason || "review-suggestion", tier: FILL_TIERS.DECISION, forceConfirm: true });
+        addOutcome(tiers.decision, key, { reason: decision.reason || "review-suggestion", tier: FILL_TIERS.DECISION, forceConfirm: true });
         continue;
       }
 
       try {
         if (isRadio) {
-          if (fillRadio(el, value)) { count++; filledKeys.add(key); LOG(`Filled radio: ${key} = ${value}`); }
-          else { missingKeys.add(key); }
+          if (fillRadio(el, value)) {
+            count++;
+            if (tierInfo.tier === FILL_TIERS.DIRECT) { filledKeys.add(key); readyCount++; addOutcome(tiers.direct, key, { reason: decision.reason, tier: FILL_TIERS.DIRECT }); }
+            else { addOutcome(reviewed, key, { reason: decision.reason, tier: FILL_TIERS.DECISION }); addOutcome(tiers.decision, key, { reason: decision.reason, tier: FILL_TIERS.DECISION, forceConfirm: true }); }
+            LOG(`Filled radio: ${key} = ${value}`);
+          } else { missingKeys.add(key); addOutcome(tiers.missing_data, key, { reason: "missing-value", tier: FILL_TIERS.MISSING_DATA }); }
         } else if (isCheckbox) {
-          if (fillCheckbox(el, value)) { count++; filledKeys.add(key); LOG(`Filled checkbox: ${key} = ${value}`); }
-          else { missingKeys.add(key); }
+          if (fillCheckbox(el, value)) {
+            count++;
+            if (tierInfo.tier === FILL_TIERS.DIRECT) { filledKeys.add(key); readyCount++; addOutcome(tiers.direct, key, { reason: decision.reason, tier: FILL_TIERS.DIRECT }); }
+            else { addOutcome(reviewed, key, { reason: decision.reason, tier: FILL_TIERS.DECISION }); addOutcome(tiers.decision, key, { reason: decision.reason, tier: FILL_TIERS.DECISION, forceConfirm: true }); }
+            LOG(`Filled checkbox: ${key} = ${value}`);
+          } else { missingKeys.add(key); addOutcome(tiers.missing_data, key, { reason: "missing-value", tier: FILL_TIERS.MISSING_DATA }); }
         } else if (el.tagName === "SELECT") {
-          if (fillSelect(el, value)) { count++; filledKeys.add(key); }
+          if (fillSelect(el, value)) {
+            count++;
+            if (decision.action === "fill_with_review") {
+              addOutcome(reviewed, key, { reason: decision.reason, tier: FILL_TIERS.DECISION });
+              addOutcome(tiers.decision, key, { reason: decision.reason, tier: FILL_TIERS.DECISION, forceConfirm: true });
+            } else {
+              filledKeys.add(key);
+              readyCount++;
+              addOutcome(tiers.direct, key, { reason: decision.reason, tier: FILL_TIERS.DIRECT });
+            }
+          }
         } else if (isCE) {
           fillContentEditable(el, value);
-          count++; filledKeys.add(key);
+          count++;
+          if (decision.action === "fill_with_review") {
+            addOutcome(reviewed, key, { reason: decision.reason, tier: FILL_TIERS.DECISION });
+            addOutcome(tiers.decision, key, { reason: decision.reason, tier: FILL_TIERS.DECISION, forceConfirm: true });
+          } else {
+            filledKeys.add(key);
+            readyCount++;
+            addOutcome(tiers.direct, key, { reason: decision.reason, tier: FILL_TIERS.DIRECT });
+          }
         } else {
           await humanType(el, value);
-          count++; filledKeys.add(key);
+          count++;
+          if (decision.action === "fill_with_review") {
+            addOutcome(reviewed, key, { reason: decision.reason, tier: FILL_TIERS.DECISION });
+            addOutcome(tiers.decision, key, { reason: decision.reason, tier: FILL_TIERS.DECISION, forceConfirm: true });
+          } else {
+            filledKeys.add(key);
+            readyCount++;
+            addOutcome(tiers.direct, key, { reason: decision.reason, tier: FILL_TIERS.DIRECT });
+          }
         }
-        if (decision.action === "fill_with_review") addOutcome(reviewed, key, { reason: decision.reason });
-        LOG(`Filled: ${key} (${Math.round(confidence * 100)}%) [${reason}]`);
+        LOG(`Filled: ${key} (${Math.round(confidence * 100)}%) [${reason}] tier=${tierInfo.tier}`);
       } catch (e) { WARN("fill failed", e, el); }
     }
 
     if (hasManualResumePicker()) {
-      addOutcome(suggestions, "resume", { reason: "google-file-picker-required" });
+      addOutcome(suggestions, "resume", { reason: "google-file-picker-required", tier: FILL_TIERS.DECISION, forceConfirm: true });
+      addOutcome(tiers.decision, "resume", { reason: "google-file-picker-required", tier: FILL_TIERS.DECISION, forceConfirm: true });
     }
 
-    LOG(`Done — filled ${count} field(s)`);
+    LOG(`Done — filled ${count} field(s), ${readyCount} ready without review`);
     fillPassInFlight = false;
     return {
       count,
+      readyCount,
       fields: [...filledKeys],
       missing: [...missingKeys].filter((key) => !filledKeys.has(key)),
       suggestions,
       protected: protectedFields,
       reviewed,
+      tiers,
     };
   }
 
@@ -951,23 +1121,31 @@
     const suggestions = [];
     const protectedFields = [];
     const reviewed = [];
+    const tiers = emptyTierBuckets();
+    let readyCount = 0;
     const start = Date.now();
     while (Date.now() - start < totalMs) {
       const r = await fillForm(profile);
+      readyCount = Math.max(readyCount, r.readyCount || 0);
       for (const f of r.fields) seen.add(f);
       for (const f of r.missing || []) missing.add(f);
       for (const item of r.suggestions || []) addOutcome(suggestions, item.key, item);
       for (const item of r.protected || []) addOutcome(protectedFields, item.key, item);
       for (const item of r.reviewed || []) addOutcome(reviewed, item.key, item);
+      for (const bucket of Object.keys(tiers)) {
+        for (const item of r.tiers?.[bucket] || []) addOutcome(tiers[bucket], item.key, item);
+      }
       await new Promise(r => setTimeout(r, intervalMs));
     }
     return {
       count: seen.size,
+      readyCount,
       fields: [...seen],
       missing: [...missing].filter((key) => !seen.has(key)),
       suggestions,
       protected: protectedFields,
       reviewed,
+      tiers,
     };
   }
 
@@ -1040,6 +1218,9 @@
     if (/manual-protected/.test(text)) return "Verification, assessment, or final submission — never automated.";
     if (/tailored-cover-letter/.test(text)) return "Create a tailored letter for this job before adding it.";
     if (/missing-value/.test(text)) return "Add this fact to your Career Passport first.";
+    if (/insufficient_data/.test(text)) return "Not enough profile detail to draft an answer — add projects, skills, or experience.";
+    if (/ai-drafted/.test(text)) return "AI-drafted from your profile — review before submitting.";
+    if (/salary-requires-confirm/.test(text)) return "Confirm your salary expectation before submitting.";
     if (/direct-evidence/.test(text)) return "A saved fact needs your review before it can be used.";
     if (/confidence/.test(text) || /review/.test(text) || /suggest/.test(text)) return "Suggestion only — review it before using it.";
     if (/document-upload/.test(text)) return "Choose this document yourself.";
@@ -1054,12 +1235,26 @@
 
   function createSidePanel(fillResult, profile = {}) {
     removePanel();
-    const missing = fillResult?.missing || [];
-    const suggestions = fillResult?.suggestions || [];
-    const protectedFields = fillResult?.protected || [];
-    const reviewed = fillResult?.reviewed || [];
-    const googlePickerRequired = suggestions.some((item) => item?.reason === "google-file-picker-required");
-    highlightMissingFields(missing);
+    const tierData = fillResult?.tiers || emptyTierBuckets();
+    const missingFromTiers = (tierData.missing_data || []).map((item) => ({
+      key: item.key,
+      label: item.label || semanticLabel(item.key),
+      reason: item.reason || "missing-value",
+    }));
+    const missingKeys = fillResult?.missing || [];
+    const missingItems = [
+      ...missingFromTiers,
+      ...missingKeys
+        .filter((key) => !missingFromTiers.some((item) => item.key === key))
+        .map((key) => ({ key, label: semanticLabel(key), reason: "missing-value" })),
+    ];
+    const synthesized = tierData.synthesized || [];
+    const decisionItems = [...(fillResult?.reviewed || []), ...(fillResult?.suggestions || []), ...(tierData.decision || [])];
+    const protectedFields = [...(fillResult?.protected || []), ...(tierData.protected || [])];
+    const googlePickerRequired = decisionItems.some((item) => item?.reason === "google-file-picker-required");
+    highlightMissingFields(missingKeys);
+    const readyCount = Number(fillResult?.readyCount ?? fillResult?.fields?.length ?? 0);
+    const reviewCount = decisionItems.length + synthesized.length + missingItems.length;
 
     panelHost = document.createElement("div");
     panelHost.id = "jobai-side-panel-host";
@@ -1074,15 +1269,17 @@
         .header { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:18px 18px 14px; border-bottom:1px solid rgba(148,163,184,.16); } .header-brand { display:flex;align-items:center;gap:10px; } .brand-logo { width:34px;height:34px;flex:none;filter:drop-shadow(0 6px 12px rgba(99,102,241,.3)); }
         .eyebrow { color:#a5b4fc; font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; margin:0 0 5px; } h3 { margin:0; font-size:16px; letter-spacing:-.02em; } .close { appearance:none;border:0;background:rgba(148,163,184,.12);color:#e2e8f0;width:28px;height:28px;border-radius:9px;font-size:19px;cursor:pointer; } .close:hover,.close:focus-visible { background:rgba(139,92,246,.28);outline:2px solid #a78bfa;outline-offset:2px; }
         .summary { padding:14px 18px 4px; font-size:12px; line-height:1.5; color:#cbd5e1; } .stats { display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 18px 4px; } .stat { border:1px solid rgba(148,163,184,.16);border-radius:12px;padding:9px 7px;background:rgba(15,23,42,.44);text-align:center; } .stat strong { display:block;font-size:18px; } .stat span { display:block;margin-top:2px;font-size:10px;color:#aab8d5; }
-        .body { padding:8px 18px 18px; } .group { margin-top:13px; } .group h4 { margin:0 0 7px;color:#dbeafe;font-size:11px;letter-spacing:.08em;text-transform:uppercase; } .outcomes { margin:0;padding:0;list-style:none;display:grid;gap:6px; } .outcomes li { padding:9px 10px;border-radius:10px;border:1px solid rgba(148,163,184,.13);background:rgba(15,23,42,.38); } .outcomes li strong { display:block;font-size:12px; } .outcomes li span { display:block;margin-top:3px;color:#aab8d5;font-size:11px;line-height:1.35; } .outcomes.warn li { border-color:rgba(245,158,11,.25); } .outcomes.manual li { border-color:rgba(244,114,182,.28); } .empty { color:#94a3b8;font-size:11px;margin:0;line-height:1.45; } .google-help { margin-top:12px;padding:12px;border:1px solid rgba(96,165,250,.3);border-radius:12px;background:rgba(37,99,235,.09); } .google-help strong { display:block;font-size:12px;color:#dbeafe; } .google-help p { margin:5px 0 10px;font-size:11px;line-height:1.4;color:#b9c6df; } .google-actions { display:grid;grid-template-columns:1fr 1fr;gap:7px; } .google-actions button { border:1px solid rgba(129,140,248,.38);border-radius:9px;background:rgba(99,102,241,.16);color:#eef2ff;padding:8px;font-size:10px;font-weight:700;cursor:pointer; } .google-actions button:hover,.google-actions button:focus-visible { background:rgba(99,102,241,.3);outline:2px solid #a78bfa;outline-offset:1px; } .google-status { min-height:14px;margin-top:7px;color:#a7f3d0;font-size:10px; } .footer { padding:13px 18px;border-top:1px solid rgba(148,163,184,.16);font-size:11px;color:#b9c6df;line-height:1.45; } .footer strong { color:#e0e7ff; }
+        .body { padding:8px 18px 18px; } .group { margin-top:13px; } .group h4 { margin:0 0 7px;color:#dbeafe;font-size:11px;letter-spacing:.08em;text-transform:uppercase; } .outcomes { margin:0;padding:0;list-style:none;display:grid;gap:6px; } .outcomes li { padding:9px 10px;border-radius:10px;border:1px solid rgba(148,163,184,.13);background:rgba(15,23,42,.38); } .outcomes li strong { display:block;font-size:12px; } .outcomes li span { display:block;margin-top:3px;color:#aab8d5;font-size:11px;line-height:1.35; } .outcomes.warn li { border-color:rgba(245,158,11,.25); } .outcomes.manual li { border-color:rgba(244,114,182,.28); } .empty { color:#94a3b8;font-size:11px;margin:0;line-height:1.45; } .google-help { margin-top:12px;padding:12px;border:1px solid rgba(96,165,250,.3);border-radius:12px;background:rgba(37,99,235,.09); } .google-help strong { display:block;font-size:12px;color:#dbeafe; } .google-help p { margin:5px 0 10px;font-size:11px;line-height:1.4;color:#b9c6df; } .google-actions { display:grid;grid-template-columns:1fr 1fr;gap:7px; } .google-actions button { border:1px solid rgba(129,140,248,.38);border-radius:9px;background:rgba(99,102,241,.16);color:#eef2ff;padding:8px;font-size:10px;font-weight:700;cursor:pointer; } .google-actions button:hover,.google-actions button:focus-visible { background:rgba(99,102,241,.3);outline:2px solid #a78bfa;outline-offset:1px; } .google-status { min-height:14px;margin-top:7px;color:#a7f3d0;font-size:10px; }         .outcomes.synth li { border-color:rgba(56,189,248,.35); background:rgba(8,47,73,.32); } .outcomes.synth li span { color:#bae6fd; }
+        .footer { padding:13px 18px;border-top:1px solid rgba(148,163,184,.16);font-size:11px;color:#b9c6df;line-height:1.45; } .footer strong { color:#e0e7ff; }
       </style>
       <section class="panel" role="dialog" aria-label="JobAI fill review" aria-modal="false">
         <header class="header"><div class="header-brand">${BRAND_MARK}<div><p class="eyebrow">JobAI Scout · Evidence-led review</p><h3>Application ready for your review</h3></div></div><button class="close" type="button" aria-label="Close review">×</button></header>
-        <p class="summary">JobAI filled only supported profile facts. It never submits an application or accepts legal, consent, diversity, or verification fields for you.</p>
-        <div class="stats"><div class="stat"><strong>${Number(fillResult?.count || 0)}</strong><span>filled</span></div><div class="stat"><strong>${suggestions.length + reviewed.length}</strong><span>review</span></div><div class="stat"><strong>${protectedFields.length}</strong><span>protected</span></div></div>
+        <p class="summary">JobAI filled verified profile facts directly. AI-drafted answers and salary always need your explicit review before submitting.</p>
+        <div class="stats"><div class="stat"><strong>${readyCount}</strong><span>ready</span></div><div class="stat"><strong>${reviewCount}</strong><span>review</span></div><div class="stat"><strong>${protectedFields.length}</strong><span>protected</span></div></div>
         <div class="body">
-          <section class="group"><h4>Missing from Career Passport</h4>${outcomeList(missing.map((key) => ({ key, label: semanticLabel(key), reason: "missing-value" })), "No missing supported facts detected.", "warn")}</section>
-          <section class="group"><h4>Suggestions to review</h4>${outcomeList([...reviewed, ...suggestions], "No suggestions need your approval.", "warn")}</section>
+          <section class="group"><h4>Missing from Career Passport</h4>${outcomeList(missingItems, "No missing supported facts detected.", "warn")}</section>
+          <section class="group"><h4>AI-drafted — review before submitting</h4>${outcomeList(synthesized, "No AI-drafted answers on this screen.", "synth")}</section>
+          <section class="group"><h4>Suggestions to review</h4>${outcomeList(decisionItems, "No suggestions need your approval.", "warn")}</section>
           ${googlePickerRequired ? `<section class="google-help"><strong>Google file upload</strong><p>Google protects this picker. Download your saved JobAI resume, then choose it in Google's signed-in window.</p><div class="google-actions"><button class="download-resume" type="button" ${profile?.resume_url ? "" : "disabled"}>1. Get resume</button><button class="open-google-picker" type="button">2. Open picker</button></div><div class="google-status" role="status"></div></section>` : ""}
           <section class="group"><h4>Kept under your control</h4>${outcomeList(protectedFields, "No protected fields detected on this screen.", "manual")}</section>
         </div>
@@ -1341,10 +1538,12 @@
         watchDynamic(profile);
         status.className = "status ok";
         status.textContent = `Filled ${result.count} field${result.count === 1 ? "" : "s"}${result.missing.length ? ` · ${result.missing.length} need your input` : ""}.`;
-        const reviewCount = (result.missing?.length || 0) + (result.suggestions?.length || 0) + (result.protected?.length || 0);
+        const reviewCount = (result.missing?.length || 0) + (result.suggestions?.length || 0)
+          + (result.protected?.length || 0) + (result.reviewed?.length || 0)
+          + (result.tiers?.synthesized?.length || 0) + (result.tiers?.missing_data?.length || 0);
         status.textContent = `Filled ${result.count} field${result.count === 1 ? "" : "s"}${reviewCount ? ` · ${reviewCount} review item${reviewCount === 1 ? "" : "s"}` : ""}.`;
         fill.textContent = "Fill again";
-        if (reviewCount || result.reviewed?.length) createSidePanel(result, profile);
+        if (reviewCount || result.reviewed?.length || result.tiers?.synthesized?.length) createSidePanel(result, profile);
       } catch (error) {
         status.className = "status err";
         status.textContent = error?.message || "Auto-fill failed.";
@@ -1359,16 +1558,20 @@
       const profile = msg.profile || {};
       fillWithRetry(profile).then((r) => {
         watchDynamic(profile);
-        const reviewCount = (r.missing?.length || 0) + (r.suggestions?.length || 0) + (r.protected?.length || 0) + (r.reviewed?.length || 0);
+        const reviewCount = (r.missing?.length || 0) + (r.suggestions?.length || 0)
+          + (r.protected?.length || 0) + (r.reviewed?.length || 0)
+          + (r.tiers?.synthesized?.length || 0) + (r.tiers?.missing_data?.length || 0);
         if (reviewCount) createSidePanel(r, profile);
         sendResponse({
           ok: true,
           count: r.count,
+          readyCount: r.readyCount,
           fields: r.fields,
           missing: r.missing,
           suggestions: r.suggestions,
           protected: r.protected,
           reviewed: r.reviewed,
+          tiers: r.tiers,
           url: location.href,
         });
       }).catch((error) => {

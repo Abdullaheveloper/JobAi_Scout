@@ -187,6 +187,18 @@ export const api = {
     });
   },
 
+  /**
+   * Server-side synthesis for open-ended application questions.
+   */
+  async synthesizeFormAnswer(session, { question } = {}) {
+    const { supabaseUrl } = await getConfig();
+    return makeRequest(`${supabaseUrl}/functions/v1/synthesize-form-answer`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ question: String(question || "").slice(0, 2000) }),
+    });
+  },
+
   async downloadProfileFile(session, filePath, bucket = "resumes") {
     const { supabaseUrl, anonKey } = await getConfig();
     if (!["resumes", "profile-assets"].includes(bucket)) {

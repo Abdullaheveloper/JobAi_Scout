@@ -54,6 +54,9 @@ verify_jwt = true
 [functions.track-extension-usage]
 verify_jwt = false
 
+[functions.synthesize-form-answer]
+verify_jwt = true
+
 [functions.security-alert]
 verify_jwt = false
 

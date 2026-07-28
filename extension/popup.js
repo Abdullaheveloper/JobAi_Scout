@@ -172,23 +172,29 @@ function renderFillResult(result = {}) {
   const suggestions = Array.isArray(result.suggestions) ? result.suggestions : [];
   const reviewed = Array.isArray(result.reviewed) ? result.reviewed : [];
   const protectedFields = Array.isArray(result.protected) ? result.protected : [];
-  const reviewItems = [...reviewed, ...suggestions, ...missing];
+  const synthesized = Array.isArray(result.tiers?.synthesized) ? result.tiers.synthesized : [];
+  const missingData = Array.isArray(result.tiers?.missing_data) ? result.tiers.missing_data : [];
+  const reviewItems = [...reviewed, ...suggestions, ...missing, ...missingData];
+  const readyCount = Number(result.readyCount ?? filled.length ?? 0);
   const filledCount = Number(result.count || filled.length || 0);
 
   $("fillResult").style.display = "block";
-  $("fillResultTitle").textContent = filledCount > 0 ? "Application prepared" : "Review needed";
-  const requiresReview = reviewItems.length > 0 || protectedFields.length > 0;
+  $("fillResultTitle").textContent = readyCount > 0 ? "Application prepared" : "Review needed";
+  const requiresReview = reviewItems.length > 0 || protectedFields.length > 0 || synthesized.length > 0;
   $("resultBadge").textContent = requiresReview ? "Review" : "Ready";
   $("resultBadge").className = `badge ${requiresReview ? "badge-yellow" : "badge-green"}`;
 
   let details = `<div class="result-stats">
-    <div class="result-stat filled"><strong>${filledCount}</strong><span>Filled</span></div>
-    <div class="result-stat review"><strong>${reviewItems.length}</strong><span>Review</span></div>
+    <div class="result-stat filled"><strong>${readyCount}</strong><span>Ready</span></div>
+    <div class="result-stat review"><strong>${reviewItems.length + synthesized.length}</strong><span>Review</span></div>
     <div class="result-stat protected"><strong>${protectedFields.length}</strong><span>Protected</span></div>
   </div>`;
 
   if (filled.length) {
     details += `<div class="outcome-group"><p class="outcome-title">Filled from verified facts</p><div class="outcome-tags">${renderTags(filled, "badge-green")}</div></div>`;
+  }
+  if (synthesized.length) {
+    details += `<div class="outcome-group"><p class="outcome-title">AI-drafted — review before submitting</p><div class="outcome-tags">${renderTags(synthesized, "badge-blue")}</div></div>`;
   }
   if (reviewItems.length) {
     details += `<div class="outcome-group"><p class="outcome-title">Needs your review</p><div class="outcome-tags">${renderTags(reviewItems, "badge-yellow")}</div></div>`;

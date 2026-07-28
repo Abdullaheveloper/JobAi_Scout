@@ -9,7 +9,7 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!["GET_APPLICATION_PROFILE", "GET_PROFILE_FILE", "TRACK_FORM_FILL"].includes(message?.type)) {
+  if (!["GET_APPLICATION_PROFILE", "GET_PROFILE_FILE", "TRACK_FORM_FILL", "SYNTHESIZE_FORM_ANSWER"].includes(message?.type)) {
     return undefined;
   }
 
@@ -27,6 +27,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         page_url: message.page_url,
       });
       sendResponse({ ok: true });
+      return;
+    }
+    if (message.type === "SYNTHESIZE_FORM_ANSWER") {
+      const result = await api.synthesizeFormAnswer(session, {
+        question: message.question,
+      });
+      sendResponse({ ok: true, ...result });
       return;
     }
     const profile = await profileService.loadProfile(session, true);

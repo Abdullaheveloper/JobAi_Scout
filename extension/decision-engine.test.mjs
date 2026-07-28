@@ -118,4 +118,32 @@ assert.equal(
   "leave_blank"
 );
 
+// Five fill tiers — salary is decision with forced confirm; open-ended is synthesized.
+const salaryTier = engine.resolveFillTier({
+  field: { key: "salary", context: "Expected compensation", type: "text" },
+  decision: decision({ field: { key: "salary", context: "Expected compensation", type: "text" }, value: "90000", confidence: 1, evidence: { direct: true } }),
+  key: "salary",
+  value: "90000",
+});
+assert.equal(salaryTier.tier, engine.FILL_TIERS.DECISION);
+assert.equal(salaryTier.forceConfirm, true);
+
+const synthesizedTier = engine.resolveFillTier({
+  field: { key: "summary", context: "Describe a project you led", type: "textarea" },
+  decision: decision({ field: { key: "summary", context: "Describe a project you led", type: "textarea" }, value: null, confidence: 0.95 }),
+  key: "summary",
+  value: null,
+});
+assert.equal(synthesizedTier.tier, engine.FILL_TIERS.SYNTHESIZED);
+
+const insufficientTier = engine.resolveFillTier({
+  field: { key: "summary", context: "Why hire you?", type: "textarea" },
+  decision: decision({ field: { key: "summary", context: "Why hire you?", type: "textarea" }, value: null, confidence: 0.95 }),
+  key: "summary",
+  value: null,
+  insufficientData: true,
+});
+assert.equal(insufficientTier.tier, engine.FILL_TIERS.MISSING_DATA);
+assert.equal(insufficientTier.insufficientData, true);
+
 console.log("Decision engine safety tests passed.");
