@@ -39,6 +39,8 @@ window.chrome = {
   runtime: {
     getURL: (path) => `chrome-extension://jobai/${path}`,
     onMessage: { addListener: (listener) => { messageListener = listener; } },
+    // Background metering stub — null response skips the gate (no SW in smoke tests).
+    sendMessage: async () => null,
   },
   storage: { local: { get: async () => ({ session: { access_token: "test-token", user: { id: "test-user", email: "test@example.com" } } }) } },
 };

@@ -4,8 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Clock, LogOut, ShieldX, TimerOff } from "lucide-react";
 import { useAuth, ApprovalStatus } from "@/contexts/AuthContext";
 import { JobAILogo } from "@/components/brand/JobAILogo";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { NavAppearanceControls } from "@/components/NavAppearanceControls";
 import { MixedDir } from "@/components/MixedDir";
 import { Button } from "@/components/ui/button";
 
@@ -52,10 +51,14 @@ export default function WaitingApproval() {
           <Link to="/" aria-label={t("brand.homeAria")} className="auth-logo-link shrink-0">
             <JobAILogo markClassName="h-9 w-9" />
           </Link>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <LanguageSwitcher />
-            <Button variant="ghost" className="gap-2 text-muted-foreground" onClick={() => signOut()}>
+          <div className="flex min-w-0 items-center gap-2">
+            <NavAppearanceControls />
+            <Button
+              variant="ghost"
+              className="shrink-0 gap-2 text-muted-foreground"
+              onClick={() => signOut()}
+              aria-label={t("waitingApproval.signOut")}
+            >
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">{t("waitingApproval.signOut")}</span>
             </Button>

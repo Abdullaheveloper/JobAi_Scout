@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Mic, MicOff, X, Loader2, Volume2, Square, MessageSquare, Minimize2, Maximize2, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { isUsageLimitError } from "@/lib/usage-limits-client";
+import { useUsageLimitGate } from "@/hooks/useUsageLimitGate";
 
 // Browser-native voice engine
 import { VoiceRecognition } from "@/lib/voice/recognition";
@@ -19,7 +22,9 @@ const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
 export function VoiceWidget() {
   const location = useLocation();
+  const { t } = useTranslation();
   const { toast } = useToast();
+  const { showUsageLimit, usageLimitNotice } = useUsageLimitGate();
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [status, setStatus] = useState<VoiceState>("idle");
@@ -155,7 +160,15 @@ export function VoiceWidget() {
         signal: abort.signal,
       });
 
-      if (!chatResp.ok) throw new Error("Assistant response failed");
+      if (!chatResp.ok) {
+        const errBody = await chatResp.json().catch(() => ({}));
+        if (isUsageLimitError(errBody)) {
+          showUsageLimit(errBody, { variant: "banner" });
+          setStatus("idle");
+          throw new Error(errBody.error || "Usage limit reached");
+        }
+        throw new Error("Assistant response failed");
+      }
 
       const reader = chatResp.body!.getReader();
       const decoder = new TextDecoder();
@@ -389,6 +402,7 @@ export function VoiceWidget() {
 
           {/* Controls */}
           <div className="border-t border-border/40 p-4 space-y-2">
+            {usageLimitNotice}
             {/* Mini waveform */}
             <div className="flex items-center justify-center gap-0.5 h-8" ref={waveformRef}>
               {Array.from({ length: 28 }).map((_, i) => (

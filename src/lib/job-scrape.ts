@@ -1,4 +1,5 @@
 import type { Json, Tables } from "@/integrations/supabase/types";
+import { DEFAULT_MIN_MATCH_THRESHOLD } from "@/lib/match-preferences";
 
 export const JOB_ADAPTER_STEPS = [
   { key: "linkedin", label: "LinkedIn", source: "linkedin_apify" },
@@ -6,7 +7,9 @@ export const JOB_ADAPTER_STEPS = [
   { key: "rss", label: "RSS Feeds", source: "rss" },
   { key: "company_career", label: "Company Careers", source: "company_career" },
 ] as const;
-export const MIN_VISIBLE_MATCH_SCORE = 40;
+
+/** Unset / pre-migration fallback; prefer the user's minMatchThreshold when available. */
+export const MIN_VISIBLE_MATCH_SCORE = DEFAULT_MIN_MATCH_THRESHOLD;
 
 export type JobAdapterKey = typeof JOB_ADAPTER_STEPS[number]["key"];
 export type JobAdapterState = "waiting" | "running" | "completed" | "timed_out" | "failed" | "stopped";
@@ -34,8 +37,13 @@ export function isScrapeSessionActive(session: JobScrapeSession | null | undefin
   return Boolean(session && ["pending", "running"].includes(session.session_status));
 }
 
-export function isVisibleJobMatch(score: number | null | undefined): boolean {
-  return Number(score || 0) >= MIN_VISIBLE_MATCH_SCORE;
+export function isVisibleJobMatch(
+  score: number | null | undefined,
+  threshold: number = MIN_VISIBLE_MATCH_SCORE,
+): boolean {
+  const floor = Math.min(100, Math.max(0, Math.round(Number(threshold))));
+  const safeFloor = Number.isFinite(floor) ? floor : MIN_VISIBLE_MATCH_SCORE;
+  return Number(score || 0) >= safeFloor;
 }
 
 export function runningAdapterPosition(session: JobScrapeSession | null | undefined): number {

@@ -9,13 +9,12 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, FileUp, Briefcase, Bookmark, BarChart3, Users, UserCog, LogOut,
-  Shield, Mic, Zap, Plus, CalendarClock, Bell,
+  Shield, Mic, Zap, Plus, CalendarClock, Bell, Gauge,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import { JobAILogo } from "@/components/brand/JobAILogo";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { NavAppearanceControls } from "@/components/NavAppearanceControls";
 import { MixedDir } from "@/components/MixedDir";
 import { supabase } from "@/integrations/supabase/client";
 import { isRtlLocale, resolveLocale } from "@/i18n/languages";
@@ -54,6 +53,7 @@ function AppSidebar() {
     { title: t("nav.manageUsers"), url: "/admin/users", icon: Users },
     { title: t("nav.manageJobs"), url: "/admin/jobs", icon: Briefcase },
     { title: t("nav.platformAnalytics"), url: "/admin/analytics", icon: BarChart3 },
+    { title: t("nav.usageLimits"), url: "/admin/usage-limits", icon: Gauge },
   ];
 
   let navItems = userNav;
@@ -195,38 +195,40 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <div className="portal-shell min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="portal-header flex min-h-14 flex-wrap items-center gap-3 px-4 py-2 sm:flex-nowrap">
-            <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors" />
-            <div className="h-4 w-px bg-border" />
+          <header className="portal-header flex min-h-14 items-center gap-2 overflow-x-auto px-3 py-2 sm:gap-3 sm:overflow-visible sm:px-4">
+            <SidebarTrigger className="shrink-0 text-muted-foreground hover:text-foreground transition-colors" />
+            <div className="hidden h-4 w-px shrink-0 bg-border sm:block" />
             <h2
-              className="hidden font-semibold text-foreground text-sm sm:block"
+              className="hidden min-w-0 truncate font-semibold text-foreground text-sm md:block"
               style={{ fontFamily: "Space Grotesk, sans-serif" }}
             >
               {t("brand.tagline")}
             </h2>
             {workspaceTabs.length > 0 && (
-              <nav className="flex items-center rounded-lg border border-border bg-secondary/40 p-1" aria-label={t("nav.workspace")}>
+              <nav
+                className="flex max-w-[40vw] shrink items-center overflow-x-auto rounded-lg border border-border bg-secondary/40 p-1 sm:max-w-none"
+                aria-label={t("nav.workspace")}
+              >
                 {workspaceTabs.map((tab) => (
                   <NavLink
                     key={tab.url}
                     to={tab.url}
                     end={tab.url === "/admin"}
-                    className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground sm:px-2.5"
                     activeClassName="bg-background text-foreground shadow-sm"
                   >
-                    <tab.icon className="h-3.5 w-3.5" />
-                    {tab.label}
+                    <tab.icon className="h-3.5 w-3.5 shrink-0" />
+                    <span className="whitespace-nowrap">{tab.label}</span>
                   </NavLink>
                 ))}
               </nav>
             )}
-            <div className="ms-auto flex items-center gap-2">
-              <ThemeToggle />
-              <LanguageSwitcher />
+            <div className="ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+              <NavAppearanceControls />
               {role === "admin" && (
                 <Link
                   to="/admin/users?filter=pending"
-                  className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-secondary/50 text-muted-foreground transition-colors hover:border-amber-500/30 hover:text-amber-500"
+                  className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary/50 text-muted-foreground transition-colors hover:border-amber-500/30 hover:text-amber-500"
                   title={t("nav.pendingApprovals")}
                   aria-label={`${pendingCount} ${t("nav.pendingApprovals")}`}
                 >
@@ -238,9 +240,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   )}
                 </Link>
               )}
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">{t("common.aiActive")}</span>
+              <div
+                className="flex h-9 items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 sm:px-3"
+                title={t("common.aiActive")}
+              >
+                <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="hidden text-xs font-medium text-emerald-600 dark:text-emerald-400 sm:inline">
+                  {t("common.aiActive")}
+                </span>
+                <span className="sr-only sm:hidden">{t("common.aiActive")}</span>
               </div>
             </div>
           </header>

@@ -927,7 +927,25 @@
     };
   }
 
+  /**
+   * Server-side Form Fill gate: one feature_usage_log row per user-initiated
+   * fill attempt (not per MutationObserver re-pass, not on profile load).
+   */
+  async function gateFormFillUsage() {
+    if (!chrome?.runtime?.sendMessage) return;
+    const response = await chrome.runtime.sendMessage({
+      type: "TRACK_FORM_FILL",
+      fields: [],
+      page_url: location.href,
+    });
+    if (response == null) return; // no background listener (unit/smoke tests)
+    if (!response.ok) {
+      throw new Error(response.error || "Form Fill usage limit reached.");
+    }
+  }
+
   async function runFillWithRetry(profile, totalMs = 5000, intervalMs = 600) {
+    await gateFormFillUsage();
     const seen = new Set();
     const missing = new Set();
     const suggestions = [];
@@ -1353,6 +1371,8 @@
           reviewed: r.reviewed,
           url: location.href,
         });
+      }).catch((error) => {
+        sendResponse({ ok: false, error: error?.message || "Could not fill this form." });
       });
       return true;
     }

@@ -234,6 +234,57 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_usage_limits: {
+        Row: {
+          id: string
+          user_id: string | null
+          feature: Database["public"]["Enums"]["usage_feature"]
+          max_count: number
+          period: Database["public"]["Enums"]["usage_period"]
+          updated_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          feature: Database["public"]["Enums"]["usage_feature"]
+          max_count: number
+          period?: Database["public"]["Enums"]["usage_period"]
+          updated_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          feature?: Database["public"]["Enums"]["usage_feature"]
+          max_count?: number
+          period?: Database["public"]["Enums"]["usage_period"]
+          updated_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      feature_usage_log: {
+        Row: {
+          id: string
+          user_id: string
+          feature: Database["public"]["Enums"]["usage_feature"]
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          feature: Database["public"]["Enums"]["usage_feature"]
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          feature?: Database["public"]["Enums"]["usage_feature"]
+          created_at?: string
+        }
+        Relationships: []
+      }
       job_preferences: {
         Row: {
           id: string
@@ -773,6 +824,9 @@ export type Database = {
           languages: string[] | null
           linkedin_url: string | null
           location: string | null
+          match_weights: Json
+          min_match_threshold: number
+          has_set_match_preferences: boolean
           phone: string | null
           portfolio_url: string | null
           preferred_locale: string
@@ -812,6 +866,9 @@ export type Database = {
           languages?: string[] | null
           linkedin_url?: string | null
           location?: string | null
+          match_weights?: Json
+          min_match_threshold?: number
+          has_set_match_preferences?: boolean
           phone?: string | null
           portfolio_url?: string | null
           preferred_locale?: string
@@ -851,6 +908,9 @@ export type Database = {
           languages?: string[] | null
           linkedin_url?: string | null
           location?: string | null
+          match_weights?: Json
+          min_match_threshold?: number
+          has_set_match_preferences?: boolean
           phone?: string | null
           portfolio_url?: string | null
           preferred_locale?: string
@@ -1268,6 +1328,15 @@ export type Database = {
         Args: Record<string, never>
         Returns: undefined
       }
+      enforce_and_record_feature_usage: {
+        Args: {
+          p_user_id: string
+          p_feature: Database["public"]["Enums"]["usage_feature"]
+          p_record?: boolean
+          p_now?: string
+        }
+        Returns: Json
+      }
       expire_pending_approvals: {
         Args: Record<string, never>
         Returns: number
@@ -1320,6 +1389,7 @@ export type Database = {
           p_job_type?: string | null
           p_limit?: number
           p_location?: string | null
+          p_min_match_score?: number
           p_offset?: number
           p_session_id?: string | null
           p_source?: string | null
@@ -1356,6 +1426,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user" | "recruiter"
+      usage_feature: "job_scraping" | "form_fill" | "voice_assistant" | "automation"
+      usage_period: "day" | "month" | "year"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1484,6 +1556,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user", "recruiter"],
+      usage_feature: ["job_scraping", "form_fill", "voice_assistant", "automation"],
+      usage_period: ["day", "month", "year"],
     },
   },
 } as const

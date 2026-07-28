@@ -9,7 +9,9 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!["GET_APPLICATION_PROFILE", "GET_PROFILE_FILE"].includes(message?.type)) return undefined;
+  if (!["GET_APPLICATION_PROFILE", "GET_PROFILE_FILE", "TRACK_FORM_FILL"].includes(message?.type)) {
+    return undefined;
+  }
 
   (async () => {
     const session = await api.refreshIfNeeded();
@@ -17,6 +19,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.type === "GET_PROFILE_FILE") {
       const result = await api.downloadResume(session, message.filePath);
       sendResponse({ ok: true, blob: result.blob, contentType: result.contentType });
+      return;
+    }
+    if (message.type === "TRACK_FORM_FILL") {
+      await api.trackFormFill(session, {
+        fields: message.fields,
+        page_url: message.page_url,
+      });
+      sendResponse({ ok: true });
       return;
     }
     const profile = await profileService.loadProfile(session, true);

@@ -1,8 +1,7 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { NavAppearanceControls } from "@/components/NavAppearanceControls";
 
 const NotFound = () => {
   const location = useLocation();
@@ -14,9 +13,8 @@ const NotFound = () => {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-muted">
-      <div className="absolute end-4 top-4 flex items-center gap-2">
-        <ThemeToggle />
-        <LanguageSwitcher />
+      <div className="absolute end-4 top-4">
+        <NavAppearanceControls />
       </div>
       <div className="text-center">
         <h1 className="mb-4 text-4xl font-bold">{t("notFound.title")}</h1>

@@ -4,8 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { JobAILogo } from "@/components/brand/JobAILogo";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { NavAppearanceControls } from "@/components/NavAppearanceControls";
 import { MixedDir } from "@/components/MixedDir";
 import { useToast } from "@/hooks/use-toast";
 import type { ApprovalStatus } from "@/contexts/AuthContext";
@@ -108,8 +107,7 @@ export default function Login() {
             <JobAILogo markClassName="h-9 w-9" />
           </Link>
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <ThemeToggle />
-            <LanguageSwitcher />
+            <NavAppearanceControls />
             <Link to="/register" className="auth-link shrink-0 text-sm font-semibold sm:hidden">
               {t("signin.createAccount")}
             </Link>

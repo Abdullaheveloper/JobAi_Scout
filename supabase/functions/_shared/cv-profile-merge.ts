@@ -686,7 +686,7 @@ function educationEntriesToCareer(entries: EducationEntry[]): Array<Record<strin
 }
 
 function credentialsToCareer(entries: CredentialEntry[]): Array<Record<string, unknown>> {
-  return entries.map((entry) => ({
+  return dedupeCredentialEntries(entries).map((entry) => ({
     id: careerId(),
     type: entry.type || "certification",
     title: entry.title || "Credential",
@@ -698,19 +698,101 @@ function credentialsToCareer(entries: CredentialEntry[]): Array<Record<string, u
   }));
 }
 
-export function collectCredentialsFromExtracted(extracted: ExtractedData): CredentialEntry[] {
-  const byKey = new Map<string, CredentialEntry>();
-  const add = (entry: CredentialEntry | null | undefined) => {
-    if (!entry?.title?.trim()) return;
-    const key = `${entry.title.trim().toLowerCase()}|${(entry.verificationLink || "").toLowerCase()}`;
-    if (!byKey.has(key)) byKey.set(key, entry);
-  };
+/** Normalize credential titles for dedupe (strip prefixes, collapse whitespace). */
+export function normalizeCredentialTitleKey(title: string): string {
+  return String(title || "")
+    .toLowerCase()
+    .replace(/^(?:internship|certificate|certification|award|credential)\s*[:\-–—]\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  for (const entry of extracted.credentials || []) add(entry);
-  for (const line of extracted.certifications || []) add(parseCredentialLine(line));
+/** Internships belong in Work Experience, not Credentials & Recognition. */
+export function isInternshipLikeCredential(entry: {
+  title?: string;
+  description?: string;
+  type?: string;
+}): boolean {
+  const blob = `${entry.title || ""} ${entry.description || ""}`;
+  return /\bintern(?:ship)?\b/i.test(blob);
+}
+
+function credentialCompleteness(entry: CredentialEntry): number {
+  return [entry.issuer, entry.verificationLink, entry.date, entry.description]
+    .filter((value) => hasValue(value))
+    .length;
+}
+
+function mergeCredentialEntries(existing: CredentialEntry, incoming: CredentialEntry): CredentialEntry {
+  const preferIncoming = credentialCompleteness(incoming) > credentialCompleteness(existing);
+  const primary = preferIncoming ? incoming : existing;
+  const secondary = preferIncoming ? existing : incoming;
+  return {
+    title: primary.title || secondary.title,
+    issuer: primary.issuer || secondary.issuer,
+    date: primary.date ?? secondary.date ?? null,
+    verificationLink: primary.verificationLink || secondary.verificationLink,
+    type: primary.type || secondary.type || "certification",
+    description: primary.description || secondary.description,
+  };
+}
+
+/**
+ * Dedupe credentials by normalized title and/or shared verification URL,
+ * merging into the richer record (issuer, URL, dates).
+ */
+export function dedupeCredentialEntries(entries: CredentialEntry[]): CredentialEntry[] {
+  const byTitle = new Map<string, CredentialEntry>();
+  const urlToTitle = new Map<string, string>();
+
+  for (const entry of entries) {
+    if (!entry?.title?.trim()) continue;
+    if (isInternshipLikeCredential(entry)) continue;
+
+    const titleKey = normalizeCredentialTitleKey(entry.title);
+    if (!titleKey) continue;
+    const url = String(entry.verificationLink || "").trim().toLowerCase();
+
+    let key = titleKey;
+    if (url && urlToTitle.has(url)) {
+      key = urlToTitle.get(url)!;
+    }
+
+    const existing = byTitle.get(key);
+    if (existing) {
+      byTitle.set(key, mergeCredentialEntries(existing, entry));
+    } else {
+      byTitle.set(key, entry);
+    }
+    if (url) urlToTitle.set(url, key);
+  }
+
+  return [...byTitle.values()];
+}
+
+/**
+ * Collect credentials from structured credentials + certification lines.
+ * Internships (including verify-certificate links) stay in experience only —
+ * they must not be re-added as Credentials & Recognition cards.
+ */
+export function collectCredentialsFromExtracted(extracted: ExtractedData): CredentialEntry[] {
+  const collected: CredentialEntry[] = [];
+
+  for (const entry of extracted.credentials || []) {
+    if (entry?.title?.trim()) collected.push(entry);
+  }
+  for (const line of extracted.certifications || []) {
+    const parsed = parseCredentialLine(line);
+    if (parsed) collected.push(parsed);
+  }
+  // Non-internship experience rows that are clearly certs/awards with a URL.
   for (const exp of extracted.experience || []) {
-    if (exp.url && (exp.type === "internship" || /cert|credential|award/i.test(`${exp.title} ${exp.description}`))) {
-      add({
+    if (exp.type === "internship") continue;
+    if (
+      exp.url
+      && /cert|credential|award|license|publication/i.test(`${exp.title || ""} ${exp.description || ""}`)
+    ) {
+      collected.push({
         title: exp.title || "Credential",
         issuer: exp.company,
         date: null,
@@ -720,7 +802,8 @@ export function collectCredentialsFromExtracted(extracted: ExtractedData): Crede
       });
     }
   }
-  return [...byKey.values()];
+
+  return dedupeCredentialEntries(collected);
 }
 
 /** Map typed experience (+ education/credentials) into career_profile sections. */

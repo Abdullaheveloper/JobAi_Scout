@@ -17,6 +17,9 @@ import { JOB_ADAPTER_STEPS, isScrapeSessionActive, isVisibleJobMatch, parseAdapt
 import { FuzzyAutocompleteInput, jobTaxonomy, locationTaxonomy } from "@/lib/fuzzy-taxonomy";
 import { useTranslation } from "react-i18next";
 import { MixedDir } from "@/components/MixedDir";
+import { isUsageLimitError } from "@/lib/usage-limits-client";
+import { useMatchPreferencesGate } from "@/hooks/useMatchPreferencesGate";
+import { useUsageLimitGate } from "@/hooks/useUsageLimitGate";
 
 type RecommendedJob = Tables<"recommended_jobs">;
 type Job = Tables<"jobs">;
@@ -75,6 +78,8 @@ export default function JobBoard() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { gateOverlay, minMatchThreshold } = useMatchPreferencesGate();
+  const { showUsageLimit, usageLimitNotice } = useUsageLimitGate();
   const [recJobs, setRecJobs] = useState<RecommendedJob[]>([]);
   const [collectedJobs, setCollectedJobs] = useState<CollectedJob[]>([]);
   const [collectedTotal, setCollectedTotal] = useState(0);
@@ -125,7 +130,14 @@ export default function JobBoard() {
   }, [user]);
 
   const fetchCollectedJobs = useCallback(async (page: number, sessionId?: string | null, silent = false) => {
-    if (!user) return;
+    if (!user) {
+      if (!silent) {
+        setCollectedJobs([]);
+        setCollectedTotal(0);
+        setLoading(false);
+      }
+      return;
+    }
     if (!silent) setLoading(true);
     const pageStart = (page - 1) * COLLECTED_PAGE_SIZE;
     const terms = [...new Set(search.trim()
@@ -141,26 +153,31 @@ export default function JobBoard() {
       p_job_type: jobTypeFilter === "all" ? null : jobTypeFilter,
       p_work_mode: remoteFilter === "all" ? null : remoteFilter,
       p_include_remote: includeRemoteLocations && Boolean(locationFilter.trim()),
+      p_min_match_score: minMatchThreshold,
       p_limit: COLLECTED_PAGE_SIZE,
       p_offset: pageStart,
     };
     let { data, error } = await supabase.rpc("search_scrape_session_jobs", rpcParams);
-    // Allow the page to work while a hosted project is still applying the
-    // migration that adds the remote-location argument.
-    if (error && /p_include_remote|search_scrape_session_jobs/i.test(error.message)) {
-      const { p_include_remote: _ignored, ...legacyParams } = rpcParams;
-      ({ data, error } = await supabase.rpc("search_scrape_session_jobs", legacyParams));
+    // Allow the page to work while a hosted project is still applying newer
+    // RPC arguments (remote-location / min-match-score).
+    if (error && /p_min_match_score|p_include_remote|search_scrape_session_jobs/i.test(error.message)) {
+      const { p_min_match_score: _score, ...withoutScore } = rpcParams;
+      ({ data, error } = await supabase.rpc("search_scrape_session_jobs", withoutScore));
+      if (error && /p_include_remote|search_scrape_session_jobs/i.test(error.message)) {
+        const { p_include_remote: _ignored, ...legacyParams } = withoutScore;
+        ({ data, error } = await supabase.rpc("search_scrape_session_jobs", legacyParams));
+      }
     }
 
     if (error) {
       if (!silent) toast({ title: t("jobs.toastLoadFailed"), description: error.message || t("jobs.toastLoadFailedBody"), variant: "destructive" });
     } else {
-      const visibleJobs = (data || []).filter((job) => isVisibleJobMatch(job.match_score) && Boolean(job.recruiter_id || job.source_url));
+      const visibleJobs = (data || []).filter((job) => isVisibleJobMatch(job.match_score, minMatchThreshold) && Boolean(job.recruiter_id || job.source_url));
       setCollectedJobs(visibleJobs);
       setCollectedTotal(Number(data?.[0]?.total_count || 0));
     }
     if (!silent) setLoading(false);
-  }, [includeRemoteLocations, jobTypeFilter, locationFilter, remoteFilter, search, toast, user]);
+  }, [includeRemoteLocations, jobTypeFilter, locationFilter, minMatchThreshold, remoteFilter, search, toast, user]);
 
   const fetchLatestSession = useCallback(async (hydrateInputs = false): Promise<JobScrapeSession | null> => {
     if (!user) return null;
@@ -302,6 +319,10 @@ export default function JobBoard() {
       if (error) {
         const response = (error as { context?: Response }).context;
         const details = response ? await response.clone().json().catch(() => null) : null;
+        if (isUsageLimitError(details) || isUsageLimitError(data)) {
+          showUsageLimit((details || data) as Parameters<typeof showUsageLimit>[0], { variant: "banner" });
+          throw new Error((details as { error?: string })?.error || "Usage limit reached");
+        }
         if (details?.session) {
           startingSessionRef.current = false;
           setScrapeSession(details.session as JobScrapeSession);
@@ -310,6 +331,10 @@ export default function JobBoard() {
           return;
         }
         throw new Error(details?.error || error.message || "Could not start job scraping");
+      }
+      if (isUsageLimitError(data)) {
+        showUsageLimit(data, { variant: "banner" });
+        throw new Error(data.error || "Usage limit reached");
       }
       const session = data?.session as JobScrapeSession | undefined;
       startingSessionRef.current = false;
@@ -335,6 +360,9 @@ export default function JobBoard() {
       scrapeLockRef.current = false;
       startingSessionRef.current = false;
       setScraping(false);
+      if (/usage limit|disabled for your account/i.test(error instanceof Error ? error.message : "")) {
+        return;
+      }
       toast({ title: t("jobs.toastScrapeStartFailedTitle"), description: error instanceof Error ? error.message : t("jobs.toastScrapeStartFailedBody"), variant: "destructive" });
     }
   };
@@ -466,7 +494,7 @@ export default function JobBoard() {
     return recJobs.filter(j => {
       // The Browse Jobs experience has one recommendation quality floor for
       // both newly scraped and existing recommended records.
-      if (!isVisibleJobMatch(j.match_score)) return false;
+      if (!isVisibleJobMatch(j.match_score, minMatchThreshold)) return false;
       if (search) {
         const s = search.toLowerCase();
         if (!j.title.toLowerCase().includes(s) && !j.company.toLowerCase().includes(s)) return false;
@@ -488,7 +516,7 @@ export default function JobBoard() {
       if (remoteFilter === "hybrid" && !(j.location || "").toLowerCase().includes("hybrid")) return false;
       return true;
     });
-  }, [recJobs, search, locationFilter, jobTypeFilter, scoreFilter, remoteFilter]);
+  }, [recJobs, search, locationFilter, jobTypeFilter, scoreFilter, remoteFilter, minMatchThreshold]);
 
   const hasActiveFilters = Boolean(search || locationFilter || jobTypeFilter !== "all" || remoteFilter !== "all");
   const clearFilters = () => {
@@ -514,6 +542,7 @@ export default function JobBoard() {
 
   return (
     <DashboardLayout>
+      {gateOverlay}
       <div className="space-y-6 animate-fade-in pb-8">
         <section className="relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/15 via-card to-card px-6 py-7 shadow-card md:px-8 md:py-9">
           <div className="absolute -end-16 -top-20 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
@@ -583,6 +612,7 @@ export default function JobBoard() {
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-end">
+              {usageLimitNotice}
               <Button onClick={scraping ? handleStopScraping : handleScrapeJobs} disabled={!scraping && !search.trim()} className={`min-w-48 gap-2 border-0 shadow-lg ${scraping ? "bg-rose-600 hover:bg-rose-500 shadow-rose-500/20" : "gradient-primary shadow-primary/20"}`}>
                 {scraping ? <Square className="h-4 w-4 fill-current" /> : <RefreshCw className="h-4 w-4" />}
                 {scraping ? t("jobs.stopScraping") : t("jobs.scrapeButton")}
@@ -659,24 +689,32 @@ export default function JobBoard() {
                   <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[300px]">
                     <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold">{scrapeSession.total_jobs_scraped}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t("jobs.counterScraped")}</p></div>
                     <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold">{scrapeSession.total_jobs_saved}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t("jobs.counterSaved")}</p></div>
-                    <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold text-emerald-400">{scrapeSession.total_jobs_displayed}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t("jobs.counterShown")}</p></div>
+                    <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold text-success">{scrapeSession.total_jobs_displayed}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t("jobs.counterShown")}</p></div>
                   </div>
                 </div>
                 {(() => {
                   const summary = scrapeSession.exclusion_summary as Record<string, number> | null;
                   if (!summary) return null;
                   const details = [
-                    [summary.optional_filters, "job-type/work-mode"],
-                    [summary.invalid_or_duplicate, "invalid or duplicate"],
-                    [summary.career_level, "career level"],
-                    [summary.below_match_score, "below 40% match"],
+                    [summary.optional_filters, t("jobs.excludedJobTypeWorkMode")],
+                    [summary.invalid_or_duplicate, t("jobs.excludedInvalidDuplicate")],
+                    [summary.career_level, t("jobs.excludedCareerLevel")],
+                    [summary.below_match_score, t("jobs.excludedBelowMatch", { threshold: minMatchThreshold })],
                   ].filter(([count]) => Number(count) > 0);
-                  return details.length ? <p className="mt-3 text-xs text-muted-foreground">Excluded: {details.map(([count, label]) => `${count} ${label}`).join(" · ")}. Remote/Pakistan-wide roles are {includeRemoteLocations ? "included" : "excluded"} for this location search.</p> : null;
+                  return details.length ? (
+                    <p className="mt-3 text-xs text-muted-foreground" dir="auto">
+                      {t("jobs.excludedPrefix")} {details.map(([count, label]) => `${count} ${label}`).join(" · ")}. {includeRemoteLocations ? t("jobs.remoteIncludedNote") : t("jobs.remoteExcludedNote")}
+                    </p>
+                  ) : null;
                 })()}
                 {(() => {
                   const errors = scrapeSession.adapter_errors as Record<string, string[]> | null;
                   const messages = Object.entries(errors || {}).flatMap(([adapter, entries]) => entries.map((message) => `${adapter.replace(/_/g, " ")}: ${message}`));
-                  return messages.length ? <p className="mt-2 text-xs text-amber-300">Source details: {messages.join(" · ")}</p> : null;
+                  return messages.length ? (
+                    <p className="mt-2 text-xs text-warning" dir="auto">
+                      {t("jobs.sourceDetailsPrefix")} {messages.join(" · ")}
+                    </p>
+                  ) : null;
                 })()}
               </div>
             )}
@@ -759,8 +797,10 @@ export default function JobBoard() {
           <Card className="border-dashed border-border/90 bg-card/60 shadow-card">
             <CardContent className="py-12 text-center">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10"><Filter className="h-5 w-5 text-primary" /></div>
-              <h3 className="font-display text-xl font-semibold">No roles match this search</h3>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">Only roles with a 50% or higher match and a suitable career level are shown. Try a broader keyword, remove a filter, or run a new scrape.</p>
+              <h3 className="font-display text-xl font-semibold" dir="auto">{t("jobs.noRolesMatchTitle")}</h3>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground" dir="auto">
+                {t("jobs.noRolesMatchBody", { threshold: minMatchThreshold })}
+              </p>
               <Button className="mt-5 gap-1.5" variant="outline" onClick={clearFilters}><X className="h-3.5 w-3.5" /> {t("jobs.clearFilters")}</Button>
             </CardContent>
           </Card>

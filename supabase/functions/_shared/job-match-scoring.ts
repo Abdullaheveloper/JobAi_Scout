@@ -1,10 +1,18 @@
 import type { NormalizedJob } from "./job-types.ts";
+import {
+  DEFAULT_MIN_MATCH_THRESHOLD,
+  normalizeMatchWeights,
+  resolveEffectiveWeights,
+  type MatchWeights,
+} from "./match-preferences.ts";
 
 export type MatchProfile = {
   skills?: string[] | null;
   desired_roles?: string[] | null;
   location?: string | null;
   experience_years?: number | null;
+  education?: string | null;
+  expected_salary?: string | null;
 };
 
 export type CareerLevel = "internship" | "junior" | "mid" | "senior" | "unknown";
@@ -14,13 +22,15 @@ const CAREER_LEVELS: CareerLevel[] = ["internship", "junior", "mid", "senior"];
 export type MatchBreakdown = {
   score: number;
   explanation: {
-    formula: { title: number; skills: number; keywords: number; location: number; experience: number };
+    formula: Record<string, number>;
     titleMatch: { score: number; matched: string[] };
     roleMatch: { score: number; matched: boolean; detail: string };
     skillsMatch: { score: number; matched: string[]; considered: string[] };
     keywordMatch: { score: number; matched: string[] };
     locationMatch: { score: number; detail: string };
     experienceMatch: { score: number; detail: string };
+    educationMatch: { score: number; detail: string };
+    salaryMatch: { score: number; detail: string };
   };
 };
 
@@ -94,10 +104,59 @@ function normalizedLocation(value: unknown): string {
   return String(value || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function parseSalaryNumber(value: unknown): number | null {
+  const digits = String(value || "").replace(/[^0-9.]/g, "");
+  if (!digits) return null;
+  const n = Number(digits);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function salaryRatio(job: NormalizedJob, profile: MatchProfile): { ratio: number; detail: string } {
+  const expected = parseSalaryNumber(profile.expected_salary);
+  if (expected === null) {
+    return { ratio: 1, detail: "No salary preference supplied" };
+  }
+  const min = job.salary_min;
+  const max = job.salary_max;
+  if (min == null && max == null) {
+    return { ratio: 0.5, detail: "Job salary not specified" };
+  }
+  const low = min ?? max ?? expected;
+  const high = max ?? min ?? expected;
+  if (expected >= low && expected <= high) {
+    return { ratio: 1, detail: `Expected salary fits ${low}–${high}` };
+  }
+  if (expected < low) {
+    const gap = (low - expected) / Math.max(low, 1);
+    return { ratio: Math.max(0, 1 - gap), detail: `Role starts near ${low}; profile expects ${expected}` };
+  }
+  const gap = (expected - high) / Math.max(expected, 1);
+  return { ratio: Math.max(0, 1 - gap), detail: `Role tops near ${high}; profile expects ${expected}` };
+}
+
+function educationRatio(job: NormalizedJob, profile: MatchProfile): { ratio: number; detail: string } {
+  const education = String(profile.education || "").trim();
+  if (!education) {
+    return { ratio: 1, detail: "No education preference supplied" };
+  }
+  const terms = tokenize(education).slice(0, 12);
+  const evidence = `${job.title || ""} ${job.description || ""} ${(job.skills || []).join(" ")}`;
+  const result = coverage(terms, evidence);
+  return {
+    ratio: result.ratio,
+    detail: result.matched.length
+      ? `Matched education terms: ${result.matched.join(", ")}`
+      : "No education terms found in the posting",
+  };
+}
+
 export function calculateJobMatch(job: NormalizedJob, input: {
   query: string;
   location?: string | null;
   profile?: MatchProfile | null;
+  /** Sparse user weights; unset → equal weighting across default categories. */
+  matchWeights?: MatchWeights | null;
+  hasSetMatchPreferences?: boolean;
 }): MatchBreakdown {
   const profile = input.profile || {};
   const queryTerms = tokenize(input.query).slice(0, 8);
@@ -113,15 +172,15 @@ export function calculateJobMatch(job: NormalizedJob, input: {
   const skillDenominator = Math.min(Math.max(profileSkills.length, 1), 10);
   const skillRatio = profileSkills.length ? Math.min(1, matchedSkills.length / skillDenominator) : 0;
 
-  // Skills have their own 30-point component. Keeping them out of this
-  // denominator prevents a long profile skill list from weakening an exact
-  // user-query match in the keyword/description component.
   const keywordEvidence = `${job.description || ""} ${(job.skills || []).join(" ")} ${job.title}`;
   const queryKeywordCoverage = coverage(queryTerms, keywordEvidence);
   const roleKeywordCoverage = coverage(roleTerms, keywordEvidence);
   const keywordCoverage = queryKeywordCoverage.ratio >= roleKeywordCoverage.ratio
     ? queryKeywordCoverage
     : roleKeywordCoverage;
+
+  // Desired-role category blends title + keyword/description signal.
+  const desiredRoleRatio = (bestTitle.ratio * 0.6) + (keywordCoverage.ratio * 0.4);
 
   const preferredLocation = normalizedLocation(input.location || profile.location);
   const jobLocation = normalizedLocation(`${job.location || ""} ${job.work_mode || ""}`);
@@ -146,33 +205,53 @@ export function calculateJobMatch(job: NormalizedJob, input: {
       ? `Profile meets the detected ${requiredExperience}+ year requirement`
       : `Profile has ${userExperience} years; the role appears to request ${requiredExperience}+`;
 
-  const components = {
-    title: bestTitle.ratio * 35,
-    skills: skillRatio * 30,
-    keywords: keywordCoverage.ratio * 20,
-    location: locationRatio * 10,
-    experience: experienceRatio * 5,
+  const education = educationRatio(job, profile);
+  const salary = salaryRatio(job, profile);
+
+  const ratios: Record<string, number> = {
+    skills: skillRatio,
+    location: locationRatio,
+    desiredRole: desiredRoleRatio,
+    experience: experienceRatio,
+    education: education.ratio,
+    salary: salary.ratio,
   };
+
+  const weights = resolveEffectiveWeights(
+    normalizeMatchWeights(input.matchWeights),
+    input.hasSetMatchPreferences,
+  );
+
+  const components: Record<string, number> = {};
+  for (const [key, weight] of Object.entries(weights)) {
+    const ratio = ratios[key] ?? 0;
+    components[key] = ratio * weight;
+  }
+
   // Adjacent career levels are useful discovery results, but exact-level
   // opportunities should remain at the top of the list.
-  const score = Math.max(0, Math.min(100, Math.round(Object.values(components).reduce((sum, value) => sum + value, 0) - careerLevelPenalty(job, profile))));
+  const rawScore = Object.values(components).reduce((sum, value) => sum + value, 0);
+  const score = Math.max(0, Math.min(100, Math.round(rawScore - careerLevelPenalty(job, profile))));
+
+  const formula: Record<string, number> = {};
+  for (const [key, value] of Object.entries(components)) {
+    formula[key] = Math.round(value);
+  }
 
   return {
     score,
     explanation: {
-      formula: {
-        title: Math.round(components.title),
-        skills: Math.round(components.skills),
-        keywords: Math.round(components.keywords),
-        location: Math.round(components.location),
-        experience: Math.round(components.experience),
-      },
+      formula,
       titleMatch: { score: Math.round(bestTitle.ratio * 100), matched: bestTitle.matched },
       roleMatch: { score: Math.round(roleTitle.ratio * 100), matched: roleTitle.ratio > 0, detail: roleTitle.matched.length ? roleTitle.matched.join(", ") : "No desired-role term in the title" },
       skillsMatch: { score: Math.round(skillRatio * 100), matched: matchedSkills, considered: profileSkills },
       keywordMatch: { score: Math.round(keywordCoverage.ratio * 100), matched: keywordCoverage.matched },
       locationMatch: { score: Math.round(locationRatio * 100), detail: locationDetail },
       experienceMatch: { score: Math.round(experienceRatio * 100), detail: experienceDetail },
+      educationMatch: { score: Math.round(education.ratio * 100), detail: education.detail },
+      salaryMatch: { score: Math.round(salary.ratio * 100), detail: salary.detail },
     },
   };
 }
+
+export { DEFAULT_MIN_MATCH_THRESHOLD };

@@ -5,6 +5,12 @@ import { collectRssJobs } from "./adapters/rss.adapter.ts";
 import { collectCompanyCareerJobs } from "./adapters/company-career.adapter.ts";
 import { deduplicateJobs, upsertCollectedJobs, type NormalizedJob } from "./job-collection.ts";
 import { calculateJobMatch, type MatchProfile } from "./job-match-scoring.ts";
+import {
+  DEFAULT_MIN_MATCH_THRESHOLD,
+  clampThreshold,
+  normalizeMatchPreferences,
+  type MatchWeights,
+} from "./match-preferences.ts";
 import { JOB_ADAPTER_ORDER, runSequentialAdapters, type JobAdapterKey } from "./job-scrape-plan.ts";
 
 type AdapterPayload = { jobs: NormalizedJob[]; errors: string[] };
@@ -138,10 +144,21 @@ export async function runScrapeOrchestration(params: ScrapeOrchestrationParams):
 
     const { data: profileData } = await admin
       .from("profiles")
-      .select("skills, desired_roles, location, experience_years")
+      .select("skills, desired_roles, location, experience_years, education, expected_salary, match_weights, min_match_threshold, has_set_match_preferences")
       .eq("user_id", userId)
       .maybeSingle();
-    const profile: MatchProfile = profileData || {};
+    const profile: MatchProfile = {
+      skills: profileData?.skills,
+      desired_roles: profileData?.desired_roles,
+      location: profileData?.location,
+      experience_years: profileData?.experience_years,
+      education: profileData?.education,
+      expected_salary: profileData?.expected_salary,
+    };
+    const matchPrefs = normalizeMatchPreferences(profileData || {});
+    const matchWeights: MatchWeights = matchPrefs.matchWeights;
+    const minMatchThreshold = clampThreshold(matchPrefs.minMatchThreshold ?? DEFAULT_MIN_MATCH_THRESHOLD);
+    const hasSetMatchPreferences = matchPrefs.hasSetMatchPreferences;
 
     const query = sanitizeInput(params.query, 120) || sanitizeInput(profile.desired_roles?.[0], 120);
     if (!query) return { status: "no_query", session: null };
@@ -263,7 +280,13 @@ export async function runScrapeOrchestration(params: ScrapeOrchestrationParams):
           const uniqueJobs = deduplicated;
           const saved = await upsertCollectedJobs(uniqueJobs);
           const resultRows = saved.items.map((item, sourceResultOrder) => {
-            const match = calculateJobMatch(item.job, { query, location: requestedLocation || null, profile });
+            const match = calculateJobMatch(item.job, {
+              query,
+              location: requestedLocation || null,
+              profile,
+              matchWeights,
+              hasSetMatchPreferences,
+            });
             return {
               session_id: sessionId,
               user_id: userId,
@@ -276,8 +299,8 @@ export async function runScrapeOrchestration(params: ScrapeOrchestrationParams):
               scraped_at: new Date().toISOString(),
             };
           });
-          exclusions.below_match_score += resultRows.filter((row) => row.match_score < 40).length;
-          exclusions.display_eligible += resultRows.filter((row) => row.match_score >= 40).length;
+          exclusions.below_match_score += resultRows.filter((row) => row.match_score < minMatchThreshold).length;
+          exclusions.display_eligible += resultRows.filter((row) => row.match_score >= minMatchThreshold).length;
           if (resultRows.length) {
             const { data: mapped, error: mappingError } = await admin.from("job_scrape_results")
               .upsert(resultRows, { onConflict: "session_id,job_id", ignoreDuplicates: true })
@@ -288,7 +311,7 @@ export async function runScrapeOrchestration(params: ScrapeOrchestrationParams):
           const { count, error: countError } = await admin.from("job_scrape_results")
             .select("id", { count: "exact", head: true })
             .eq("session_id", sessionId)
-            .gte("match_score", 40);
+            .gte("match_score", minMatchThreshold);
           if (countError) throw new Error(`Could not count visible jobs: ${countError.message}`);
           totalDisplayed = count || 0;
           adapterStatuses[key] = result.status === "completed"

@@ -3,8 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, Lock } from "lucide-react";
 import { JobAILogo } from "@/components/brand/JobAILogo";
 import { supabase } from "@/integrations/supabase/client";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { NavAppearanceControls } from "@/components/NavAppearanceControls";
 import { MixedDir } from "@/components/MixedDir";
 import { useTranslation } from "react-i18next";
 
@@ -73,10 +72,9 @@ export default function ResetPassword() {
           <Link to="/" aria-label={t("brand.homeAria")} className="auth-logo-link shrink-0">
             <JobAILogo markClassName="h-9 w-9" />
           </Link>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <LanguageSwitcher />
-            <Link to="/login" className="auth-link text-sm font-semibold sm:hidden">
+          <div className="flex min-w-0 items-center gap-2">
+            <NavAppearanceControls />
+            <Link to="/login" className="auth-link shrink-0 text-sm font-semibold sm:hidden">
               {t("common.signIn")}
             </Link>
           </div>

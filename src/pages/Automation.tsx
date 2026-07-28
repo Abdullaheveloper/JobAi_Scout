@@ -13,11 +13,13 @@ import {
   deleteSchedule, listSchedules, toFormState, toggleScheduleActive,
   type JobScrapeSchedule, type ScheduleFormState,
 } from "@/lib/job-scrape-schedule";
+import { useMatchPreferencesGate } from "@/hooks/useMatchPreferencesGate";
 
 export default function Automation() {
   const { t } = useTranslation();
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { gateOverlay } = useMatchPreferencesGate();
   const [schedules, setSchedules] = useState<JobScrapeSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -26,10 +28,16 @@ export default function Automation() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setSchedules([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
       setSchedules(await listSchedules(user.id));
     } catch (error) {
+      setSchedules([]);
       toast({ title: t("automation.toastLoadFailed"), description: error instanceof Error ? error.message : t("common.tryAgain"), variant: "destructive" });
     } finally {
       setLoading(false);
@@ -70,6 +78,7 @@ export default function Automation() {
 
   return (
     <DashboardLayout>
+      {gateOverlay}
       <div className="space-y-6 animate-fade-in pb-8">
         <section className="relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/15 via-card to-card px-6 py-7 shadow-card md:px-8 md:py-9">
           <div className="absolute -end-16 -top-20 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />

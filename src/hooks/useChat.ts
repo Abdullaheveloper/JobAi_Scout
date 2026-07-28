@@ -3,6 +3,8 @@ import { useChatStore, type Source, type Message } from '@/stores/chat-store';
 import { useVoiceStore } from '@/stores/voice-store';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
+import { isUsageLimitError } from '@/lib/usage-limits-client';
+import { useUsageLimitGate } from '@/hooks/useUsageLimitGate';
 
 const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 const API_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -27,6 +29,7 @@ export function useChat() {
   const store = useChatStore();
   const voiceStore = useVoiceStore();
   const abortRef = useRef<AbortController | null>(null);
+  const { showUsageLimit, usageLimitNotice } = useUsageLimitGate();
 
   const sendMessage = useCallback(async (content: string, conversationIdOverride?: string | null) => {
     if (!content.trim()) return;
@@ -88,6 +91,10 @@ export function useChat() {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({ error: 'Request failed' }));
+        if (isUsageLimitError(errData)) {
+          showUsageLimit(errData, { variant: 'banner' });
+          throw new Error(errData.error || 'Usage limit reached');
+        }
         throw new Error(errData.error || `HTTP ${response.status}`);
       }
 
@@ -192,7 +199,7 @@ export function useChat() {
       store.setStreamingPhase(null);
       store.setStreamingText('');
     }
-  }, [store, voiceStore]);
+  }, [store, voiceStore, t]);
 
   const regenerateMessage = useCallback(async (messageId: string) => {
     const { messages, activeConversationId } = useChatStore.getState();
@@ -225,5 +232,6 @@ export function useChat() {
     sendMessage,
     regenerateMessage,
     stopGeneration,
+    usageLimitNotice,
   };
 }

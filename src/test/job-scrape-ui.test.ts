@@ -49,9 +49,11 @@ describe("job scrape UI state", () => {
     expect(scrapeCompletionMessage(session({ session_status: "partially_completed", current_adapter: null }))).toContain("some source errors");
   });
 
-  it("hides 39% jobs and includes the exact 40% boundary", () => {
+  it("hides jobs below the caller's threshold and includes the exact boundary", () => {
     expect(isVisibleJobMatch(39)).toBe(false);
     expect(isVisibleJobMatch(40)).toBe(true);
     expect(isVisibleJobMatch(100)).toBe(true);
+    expect(isVisibleJobMatch(54, 55)).toBe(false);
+    expect(isVisibleJobMatch(55, 55)).toBe(true);
   });
 });

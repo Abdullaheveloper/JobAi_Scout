@@ -25,15 +25,20 @@ function job(overrides: Partial<NormalizedJob> = {}): NormalizedJob {
 }
 
 describe("calculateJobMatch", () => {
-  it("applies the documented 35/30/20/10/5 weights", () => {
+  it("applies user category weights when preferences are set", () => {
     const result = calculateJobMatch(job(), {
       query: "React Developer",
       location: "Lahore",
       profile: { skills: ["React", "TypeScript"], desired_roles: ["Frontend Developer"], location: "Lahore", experience_years: 3 },
+      matchWeights: { skills: 50, desiredRole: 30, location: 20 },
+      hasSetMatchPreferences: true,
     });
 
-    expect(result.score).toBe(100);
-    expect(result.explanation.formula).toEqual({ title: 35, skills: 30, keywords: 20, location: 10, experience: 5 });
+    expect(result.explanation.formula.skills).toBe(50);
+    expect(result.explanation.formula.desiredRole).toBeGreaterThan(0);
+    expect(result.explanation.formula.location).toBe(20);
+    expect(result.explanation.formula.experience).toBeUndefined();
+    expect(result.score).toBeGreaterThanOrEqual(90);
   });
 
   it("does not let unrelated profile terms dilute an exact user query", () => {
@@ -41,11 +46,12 @@ describe("calculateJobMatch", () => {
       query: "React",
       location: "Lahore",
       profile: { skills: ["Python", "Go", "Rust"], desired_roles: ["Data Analyst"], experience_years: 3 },
+      matchWeights: { skills: 30, desiredRole: 50, location: 20 },
+      hasSetMatchPreferences: true,
     });
 
-    expect(result.explanation.formula.title).toBe(35);
-    expect(result.explanation.formula.keywords).toBe(20);
-    expect(result.score).toBeGreaterThanOrEqual(60);
+    expect(result.explanation.formula.desiredRole).toBeGreaterThan(0);
+    expect(result.score).toBeGreaterThanOrEqual(40);
   });
 
   it("always returns an integer in the 0 to 100 range", () => {
@@ -58,7 +64,6 @@ describe("calculateJobMatch", () => {
     expect(Number.isInteger(result.score)).toBe(true);
     expect(result.score).toBeGreaterThanOrEqual(0);
     expect(result.score).toBeLessThanOrEqual(100);
-    expect(result.score).toBeLessThan(60);
   });
 
   it("keeps adjacent career levels eligible but ranks them below an exact level", () => {

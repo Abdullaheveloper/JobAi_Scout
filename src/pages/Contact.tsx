@@ -5,8 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { JobAILogo } from "@/components/brand/JobAILogo";
 import { CookieSettingsLink } from "@/components/CookieConsentBanner";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { NavAppearanceControls } from "@/components/NavAppearanceControls";
 import { useTranslation } from "react-i18next";
 
 const contactInfo = [
@@ -58,13 +57,17 @@ export default function Contact() {
     <div className="public-page min-h-screen text-foreground overflow-x-hidden page-enter">
       {/* Navigation */}
       <nav className="sticky top-0 z-50 nav-premium">
-        <div className="container mx-auto px-6 flex h-16 items-center justify-between">
-          <Link to="/" aria-label="JobAI Scout home"><JobAILogo /></Link>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            <LanguageSwitcher />
-            <Link to="/about" className="nav-link-premium">About</Link>
-            <Link to="/register" className="btn-premium text-sm">Get Started <ArrowRight className="inline h-4 w-4 ms-1" /></Link>
+        <div className="container mx-auto px-4 sm:px-6 flex h-16 items-center justify-between gap-2">
+          <Link to="/" aria-label="JobAI Scout home" className="shrink-0">
+            <JobAILogo markClassName="h-8 w-8" className="[&_.jobai-wordmark]:hidden sm:[&_.jobai-wordmark]:inline" />
+          </Link>
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+            <NavAppearanceControls />
+            <Link to="/about" className="nav-link-premium hidden sm:inline shrink-0">{t("common.about")}</Link>
+            <Link to="/register" className="btn-premium text-sm shrink-0 px-3 py-2 sm:px-4">
+              {t("common.getStarted")}
+              <ArrowRight className="hidden sm:inline h-4 w-4 ms-1" />
+            </Link>
           </div>
         </div>
       </nav>

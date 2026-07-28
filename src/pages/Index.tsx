@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { Menu } from "lucide-react";
 import { JobAILogo } from "@/components/brand/JobAILogo";
 import { CookieSettingsLink } from "@/components/CookieConsentBanner";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { NavAppearanceControls } from "@/components/NavAppearanceControls";
 import { useLandingHeroMetrics } from "@/hooks/useLandingHeroMetrics";
 import { MixedDir } from "@/components/MixedDir";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { isRtlLocale, resolveLocale } from "@/i18n/languages";
 import "./LandingRedesign.css";
 
 const RAIL_DOTS = [
@@ -25,13 +32,19 @@ function CheckIcon() {
 }
 
 export default function Index() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const metrics = useLandingHeroMetrics();
   const [navScrolled, setNavScrolled] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [railPct, setRailPct] = useState(0);
   const stageRef = useRef<HTMLDivElement>(null);
   const stackRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLElement>(null);
+  const sheetSide = isRtlLocale(resolveLocale(i18n.resolvedLanguage || i18n.language))
+    ? "left"
+    : "right";
+
+  const closeMobileNav = () => setMobileNavOpen(false);
 
   useEffect(() => {
     const onScroll = () => {
@@ -186,17 +199,56 @@ export default function Index() {
             <Link to="/login">{t("common.signIn")}</Link>
           </div>
           <div className="nav-cta">
-            <Link to="/login" className="btn btn-ghost btn-sm nav-signin">
-              {t("common.signIn")}
-            </Link>
-            <ThemeToggle />
-            <LanguageSwitcher />
-            <Link to="/register" className="btn btn-primary btn-sm">
+            <NavAppearanceControls inlineFrom="md" />
+            <Link to="/register" className="btn btn-primary btn-sm nav-primary-cta">
               {t("common.getStarted")}
             </Link>
+            <button
+              type="button"
+              className="nav-menu-btn"
+              aria-label={t("common.openMenu")}
+              aria-expanded={mobileNavOpen}
+              aria-controls="landing-mobile-nav"
+              onClick={() => setMobileNavOpen(true)}
+            >
+              <Menu className="h-5 w-5" aria-hidden />
+            </button>
           </div>
         </div>
       </nav>
+
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent
+          id="landing-mobile-nav"
+          side={sheetSide}
+          className="landing-mobile-sheet w-[min(20rem,88vw)]"
+        >
+          <SheetHeader className="text-start">
+            <SheetTitle>{t("common.menu")}</SheetTitle>
+          </SheetHeader>
+          <nav className="mt-8 flex flex-col gap-1" aria-label={t("common.menu")}>
+            <a href="#features" className="landing-mobile-link" onClick={closeMobileNav}>
+              {t("nav.features")}
+            </a>
+            <a href="#workflow" className="landing-mobile-link" onClick={closeMobileNav}>
+              {t("nav.howItWorks")}
+            </a>
+            <a href="#recruiters" className="landing-mobile-link" onClick={closeMobileNav}>
+              {t("nav.forRecruiters")}
+            </a>
+            <Link to="/login" className="landing-mobile-link" onClick={closeMobileNav}>
+              {t("common.signIn")}
+            </Link>
+            <Link
+              to="/register"
+              className="landing-mobile-cta btn btn-primary"
+              onClick={closeMobileNav}
+            >
+              {t("common.getStarted")}
+            </Link>
+          </nav>
+        </SheetContent>
+      </Sheet>
 
       <header className="hero wrap">
         <div>

@@ -70,6 +70,7 @@ window.chrome = {
   runtime: {
     getURL: (path) => `chrome-extension://jobai/${path}`,
     onMessage: { addListener: (listener) => { messageListener = listener; } },
+    sendMessage: async () => null,
   },
   storage: {
     local: {

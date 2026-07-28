@@ -25,6 +25,8 @@ assert.match(api, /uploadProfileImage/, "API must support private profile-image 
 assert.match(api, /profile-assets/, "profile images must use the private profile-assets bucket");
 assert.match(api, /avatar_url:\s*filePath/, "API must save the private profile-image path");
 assert.ok(manifest.host_permissions.some((permission) => /\.supabase\.co\/\*$/.test(permission)), "manifest must authorize the configured private storage host");
+assert.match(api, /trackFormFill|track-extension-usage/, "API must meter Form Fill via track-extension-usage");
+assert.match(content, /TRACK_FORM_FILL/, "content must gate fill attempts through the background tracker");
 assert.match(content, /new DataTransfer\(\)/, "standard file inputs must receive the downloaded resume");
 assert.match(content, /storedFileName/, "attachments must preserve their real extension for ATS validation");
 assert.match(content, /google-file-picker-required/, "Google Forms Drive pickers must remain a manual review step");

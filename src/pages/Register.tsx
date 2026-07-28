@@ -5,8 +5,7 @@ import { ArrowRight, Building2, Check, Eye, EyeOff, Lock, Mail, User } from "luc
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { JobAILogo } from "@/components/brand/JobAILogo";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { NavAppearanceControls } from "@/components/NavAppearanceControls";
 import { MixedDir } from "@/components/MixedDir";
 
 type Role = "user" | "recruiter";
@@ -72,8 +71,7 @@ export default function Register() {
             <JobAILogo markClassName="h-9 w-9" />
           </Link>
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <ThemeToggle />
-            <LanguageSwitcher />
+            <NavAppearanceControls />
             <Link to="/login" className="auth-link shrink-0 text-sm font-semibold sm:hidden">
               {t("common.signIn")}
             </Link>

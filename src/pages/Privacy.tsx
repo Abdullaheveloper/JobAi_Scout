@@ -4,8 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Briefcase, Shield, ArrowLeft } from "lucide-react";
 import { JobAILogo } from "@/components/brand/JobAILogo";
 import { CookieSettingsLink } from "@/components/CookieConsentBanner";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { NavAppearanceControls } from "@/components/NavAppearanceControls";
 import { useTranslation } from "react-i18next";
 
 const sections = [
@@ -52,17 +51,24 @@ const sections = [
 ];
 
 export default function Privacy() {
+  const { t } = useTranslation();
+
   return (
     <div className="min-h-screen bg-background">
       {/* Nav */}
       <nav className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-lg">
-        <div className="container flex h-16 items-center justify-between">
-          <Link to="/" aria-label="JobAI Scout home"><JobAILogo /></Link>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <LanguageSwitcher />
-            <Button variant="ghost" asChild><Link to="/about">About</Link></Button>
-            <Button asChild><Link to="/register">Get Started</Link></Button>
+        <div className="container flex h-16 items-center justify-between gap-2 px-4 sm:px-6">
+          <Link to="/" aria-label="JobAI Scout home" className="shrink-0">
+            <JobAILogo markClassName="h-8 w-8" className="[&_.jobai-wordmark]:hidden sm:[&_.jobai-wordmark]:inline" />
+          </Link>
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <NavAppearanceControls />
+            <Button variant="ghost" className="hidden sm:inline-flex shrink-0" asChild>
+              <Link to="/about">{t("common.about")}</Link>
+            </Button>
+            <Button asChild className="shrink-0">
+              <Link to="/register">{t("common.getStarted")}</Link>
+            </Button>
           </div>
         </div>
       </nav>

@@ -9,6 +9,8 @@ import { MicPermissionDialog } from "./MicPermissionDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { VoiceRecognition } from "@/lib/voice/recognition";
+import { isUsageLimitError } from "@/lib/usage-limits-client";
+import { useUsageLimitGate } from "@/hooks/useUsageLimitGate";
 
 type Status = "idle" | "permission" | "listening" | "speaking-user" | "silence" | "uploading" | "thinking" | "speaking" | "paused" | "ended" | "error";
 type HistoryItem = { id: string; role: "user" | "assistant"; audio_url: string | null; audio_path: string | null; content: string; created_at: string };
@@ -32,6 +34,7 @@ function classifyMicrophoneError(error: unknown): MicrophoneIssue {
 
 export function VoiceMode() {
   const { t } = useTranslation();
+  const { showUsageLimit, usageLimitNotice } = useUsageLimitGate();
   const reducedMotion = useReducedMotion();
   const [status, setStatus] = useState<Status>("idle");
   const [volume, setVolume] = useState(0);
@@ -159,7 +162,15 @@ export function VoiceMode() {
       setLiveTranscript(transcript); appendMessage("user", transcript);
       const audioPath = `${auth.session.user.id}/${crypto.randomUUID()}/user.${extension}`; const uploadAudio = supabase.storage.from("voice-history").upload(audioPath, blob, { contentType: blob.type || "audio/webm" });
       setStatus("thinking"); const chat = await fetch(`${functionsUrl}/voice-chat`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ question: transcript, conversationId, stream: false }), signal: abort.signal });
-      const response = await chat.json().catch(() => ({})); if (!chat.ok) throw new Error(response.error || t("voice.assistantNoAnswer"));
+      const response = await chat.json().catch(() => ({}));
+      if (!chat.ok) {
+        if (isUsageLimitError(response)) {
+          showUsageLimit(response, { variant: "dialog" });
+          setStatus("idle");
+          throw new Error(response.error || t("voice.assistantNoAnswer"));
+        }
+        throw new Error(response.error || t("voice.assistantNoAnswer"));
+      }
       setConversationId(response.conversationId); appendMessage("assistant", response.answer);
       void uploadAudio.then(async ({ error }) => { if (error) return; const { data: message } = await supabase.from("voice_messages").select("id").eq("conversation_id", response.conversationId).eq("role", "user").order("created_at", { ascending: false }).limit(1).maybeSingle(); if (message) await supabase.from("voice_messages").update({ audio_path: audioPath }).eq("id", message.id); });
       try { await synthesizeAndPlay(response.answer, auth.session.user.id, response.conversationId, abort.signal); } catch (error) { if (!abort.signal.aborted) speakFallback(response.answer); else throw error; }
@@ -259,5 +270,6 @@ export function VoiceMode() {
     {uploadMessage && <div role="status" className={cn("fixed bottom-5 start-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl border bg-popover px-4 py-3 text-sm text-foreground shadow-2xl backdrop-blur-xl", uploadState === "error" ? "border-rose-300/40" : "border-indigo-300/25")}>{uploadState === "error" ? <CircleAlert className="h-4 w-4 shrink-0 text-rose-300" /> : <CheckCircle2 className="h-4 w-4 shrink-0 text-indigo-700 dark:text-indigo-200" />}<span>{uploadMessage}</span></div>}
     {historyOpen && <aside aria-label={t("voice.historyAria")} className="fixed inset-y-0 end-0 z-50 w-full max-w-sm overflow-auto border-s border-border bg-background/95 p-5 text-foreground shadow-2xl backdrop-blur-2xl"><div className="mb-6 flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-indigo-700 dark:text-indigo-200">{t("voice.conversation")}</p><h2 className="mt-1 font-display font-semibold">{t("voice.historyTitle")}</h2></div><Button variant="ghost" size="icon" aria-label={t("voice.historyClose")} onClick={() => setHistoryOpen(false)}><X className="h-4 w-4" /></Button></div>{history.length ? <div className="space-y-2">{history.map(item => <button key={item.id} onClick={() => playing === item.id ? stopPlayback() : void replay(item)} className="flex w-full items-center gap-3 rounded-xl border border-border bg-muted/40 p-3 text-start transition hover:bg-muted"><span className="rounded-full bg-indigo-500/15 p-2 text-indigo-700 dark:text-indigo-200">{playing === item.id ? <Pause size={15}/> : <Play size={15}/>}</span><span className="min-w-0 text-sm text-muted-foreground">{item.role === "user" ? t("voice.yourVoiceMessage") : t("voice.assistantResponse")}<small className="mt-1 block text-xs text-muted-foreground">{new Date(item.created_at).toLocaleString()}</small></span></button>)}</div> : <p className="text-sm text-muted-foreground">{t("voice.historyEmpty")}</p>}</aside>}
     <MicPermissionDialog open={micDialogOpen} onOpenChange={setMicDialogOpen} onRequestPermission={startAssistant} title={microphoneGuidance[micIssue].title} description={microphoneGuidance[micIssue].message} actionLabel={microphoneGuidance[micIssue].action} />
+    {usageLimitNotice}
   </main>;
 }

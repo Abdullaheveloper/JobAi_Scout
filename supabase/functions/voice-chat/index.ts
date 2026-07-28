@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { generateEmbedding } from "../_shared/openrouter-embeddings.ts";
 import { generateGeminiText } from "../_shared/gemini.ts";
 import { detectLanguage } from "../_shared/language.ts";
+import { enforceUsageLimit, recordUsageLog } from "../_shared/usage-limits.ts";
 
 // ─── CORS Headers ─────────────────────────────────────────────────────────────
 const corsHeaders = {
@@ -128,6 +129,14 @@ Deno.serve(async (req) => {
     }
     const userId = u.user.id;
 
+    const usageGate = await enforceUsageLimit(adminSupabase, userId, "voice_assistant", { record: false });
+    if (!usageGate.allowed) {
+      return new Response(JSON.stringify(usageGate.body), {
+        status: usageGate.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     let body: Record<string, unknown>;
     try {
       body = await req.json();
@@ -192,6 +201,8 @@ Deno.serve(async (req) => {
         status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    await recordUsageLog(adminSupabase, userId, "voice_assistant");
 
     if (cached) {
       const latencyMs = Date.now() - startTime;

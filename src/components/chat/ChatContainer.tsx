@@ -22,7 +22,7 @@ interface ChatContainerProps {
 
 export function ChatContainer({ className }: ChatContainerProps) {
   const store = useChatStore();
-  const { sendMessage, stopGeneration } = useChat();
+  const { sendMessage, stopGeneration, usageLimitNotice } = useChat();
   const voice = useVoice();
   const [textInput, setTextInput] = useState('');
   const [rows, setRows] = useState(1);
@@ -137,6 +137,8 @@ export function ChatContainer({ className }: ChatContainerProps) {
               <p className="text-sm text-indigo-600 dark:text-indigo-300 italic">{voice.interimTranscript}...</p>
             </div>
           )}
+
+          {usageLimitNotice && <div className="mb-3">{usageLimitNotice}</div>}
 
           <div className="flex items-end gap-2">
             {/* Text input */}

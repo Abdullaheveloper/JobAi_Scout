@@ -218,8 +218,61 @@ html.light .landing-redesign::before {
 .landing-redesign .nav-cta {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-shrink: 0;
+  min-width: 0;
+}
+
+.landing-redesign .nav-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1px solid var(--lr-line);
+  background: transparent;
+  color: var(--lr-paper);
+  cursor: pointer;
+  transition: border-color 0.25s ease, color 0.25s ease, background 0.25s ease;
+}
+
+.landing-redesign .nav-menu-btn:hover {
+  border-color: var(--lr-trail);
+  color: var(--lr-trail);
+}
+
+.landing-redesign .nav-menu-btn:focus-visible {
+  outline: 2px solid var(--lr-signal);
+  outline-offset: 2px;
+}
+
+.landing-redesign .nav-primary-cta {
+  flex-shrink: 0;
+}
+
+.landing-mobile-link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  transition: background 0.2s ease;
+}
+
+.landing-mobile-link:hover,
+.landing-mobile-link:focus-visible {
+  background: hsl(var(--muted));
+  outline: none;
+}
+
+.landing-mobile-cta {
+  margin-top: 0.75rem;
+  justify-content: center;
 }
 
 .landing-redesign .btn {
@@ -268,20 +321,17 @@ html.light .landing-redesign::before {
     display: none;
   }
 
-  /* Keep Sign in reachable when center nav links collapse */
+  .landing-redesign .nav-menu-btn {
+    display: inline-flex;
+  }
+
+  /* Compact bar: logo | settings | Get Started | hamburger — CTA always visible */
   .landing-redesign .nav-cta {
     gap: 6px;
-    max-width: calc(100vw - 7rem);
     flex-wrap: nowrap;
   }
 
-  .landing-redesign .nav-cta .nav-signin {
-    display: inline-flex;
-    padding: 8px 10px;
-    font-size: 12px;
-  }
-
-  .landing-redesign .nav-cta .btn-primary.btn-sm {
+  .landing-redesign .nav-cta .nav-primary-cta.btn-primary.btn-sm {
     padding: 8px 12px;
     font-size: 12px;
   }
@@ -291,10 +341,14 @@ html.light .landing-redesign::before {
   }
 }
 
-@media (min-width: 861px) {
-  /* Desktop already has Sign in in .nav-links — avoid duplicate */
-  .landing-redesign .nav-cta .nav-signin {
-    display: none;
+@media (max-width: 420px) {
+  .landing-redesign .nav-cta .nav-primary-cta.btn-primary.btn-sm {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .landing-redesign .nav-row {
+    gap: 8px;
   }
 }
 

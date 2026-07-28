@@ -36,6 +36,9 @@ verify_jwt = false
 [functions.manage-role]
 verify_jwt = false
 
+[functions.manage-usage-limits]
+verify_jwt = false
+
 [functions.expire-pending-approvals]
 verify_jwt = false
 

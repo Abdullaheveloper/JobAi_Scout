@@ -9,7 +9,16 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { LocaleProvider } from "@/i18n/LocaleProvider";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
+
+function JobSeekerRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute requiredRole="user">
+      <RouteErrorBoundary>{children}</RouteErrorBoundary>
+    </ProtectedRoute>
+  );
+}
 
 /* ─── Lazy-loaded Pages (code-split per route) ──────────── */
 const Index = lazy(() => import("./pages/Index"));
@@ -34,6 +43,7 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers"));
 const AdminJobs = lazy(() => import("./pages/AdminJobs"));
 const AdminAnalytics = lazy(() => import("./pages/AdminAnalytics"));
+const AdminUsageLimits = lazy(() => import("./pages/AdminUsageLimits"));
 const AdminVoice = lazy(() => import("./pages/AdminVoice"));
 const WaitingApproval = lazy(() => import("./pages/WaitingApproval"));
 const RecruiterJobs = lazy(() => import("./pages/recruiter/RecruiterJobs"));
@@ -79,16 +89,16 @@ const App = () => (
               <Route path="/contact" element={<Contact />} />
               <Route path="/privacy" element={<Privacy />} />
               {/* Job Seeker routes */}
-              <Route path="/dashboard" element={<ProtectedRoute requiredRole="user"><Dashboard /></ProtectedRoute>} />
-              <Route path="/dashboard/cv" element={<ProtectedRoute requiredRole="user"><CVUpload /></ProtectedRoute>} />
-              <Route path="/dashboard/jobs" element={<ProtectedRoute requiredRole="user"><JobBoard /></ProtectedRoute>} />
-              <Route path="/dashboard/automation" element={<ProtectedRoute requiredRole="user"><Automation /></ProtectedRoute>} />
-              <Route path="/dashboard/saved" element={<ProtectedRoute requiredRole="user"><SavedJobs /></ProtectedRoute>} />
-              <Route path="/dashboard/applications" element={<ProtectedRoute requiredRole="user"><Applications /></ProtectedRoute>} />
-              <Route path="/dashboard/auto-fill" element={<ProtectedRoute requiredRole="user"><AutoFormFill /></ProtectedRoute>} />
-              <Route path="/dashboard/assistant" element={<ProtectedRoute requiredRole="user"><VoiceAssistant /></ProtectedRoute>} />
-              <Route path="/dashboard/voice-agent" element={<ProtectedRoute requiredRole="user"><VoiceAgent /></ProtectedRoute>} />
-              <Route path="/dashboard/settings" element={<ProtectedRoute requiredRole="user"><ProfileSettings /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<JobSeekerRoute><Dashboard /></JobSeekerRoute>} />
+              <Route path="/dashboard/cv" element={<JobSeekerRoute><CVUpload /></JobSeekerRoute>} />
+              <Route path="/dashboard/jobs" element={<JobSeekerRoute><JobBoard /></JobSeekerRoute>} />
+              <Route path="/dashboard/automation" element={<JobSeekerRoute><Automation /></JobSeekerRoute>} />
+              <Route path="/dashboard/saved" element={<JobSeekerRoute><SavedJobs /></JobSeekerRoute>} />
+              <Route path="/dashboard/applications" element={<JobSeekerRoute><Applications /></JobSeekerRoute>} />
+              <Route path="/dashboard/auto-fill" element={<JobSeekerRoute><AutoFormFill /></JobSeekerRoute>} />
+              <Route path="/dashboard/assistant" element={<JobSeekerRoute><VoiceAssistant /></JobSeekerRoute>} />
+              <Route path="/dashboard/voice-agent" element={<JobSeekerRoute><VoiceAgent /></JobSeekerRoute>} />
+              <Route path="/dashboard/settings" element={<JobSeekerRoute><ProfileSettings /></JobSeekerRoute>} />
               <Route path="/dashboard/extension" element={<Navigate to="/dashboard/auto-fill" replace />} />
               {/* Recruiter routes */}
               <Route path="/recruiter" element={<Navigate to="/recruiter/jobs" replace />} />
@@ -101,6 +111,7 @@ const App = () => (
               <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><AdminUsers /></ProtectedRoute>} />
               <Route path="/admin/jobs" element={<ProtectedRoute requiredRole="admin"><AdminJobs /></ProtectedRoute>} />
               <Route path="/admin/analytics" element={<ProtectedRoute requiredRole="admin"><AdminAnalytics /></ProtectedRoute>} />
+              <Route path="/admin/usage-limits" element={<ProtectedRoute requiredRole="admin"><AdminUsageLimits /></ProtectedRoute>} />
               <Route path="/admin/voice" element={<ProtectedRoute requiredRole="admin"><AdminVoice /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

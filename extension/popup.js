@@ -447,6 +447,9 @@ $("fillBtn").addEventListener("click", async () => {
     }
 
     const result = await chrome.tabs.sendMessage(tab.id, { type: "FILL_FORM", profile });
+    if (!result?.ok) {
+      throw new Error(result?.error || "Could not fill this form.");
+    }
     renderFillResult(result);
 
     const reviewCount = (result.missing?.length || 0) + (result.suggestions?.length || 0) + (result.reviewed?.length || 0);

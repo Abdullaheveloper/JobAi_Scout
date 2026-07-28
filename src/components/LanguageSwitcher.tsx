@@ -13,11 +13,16 @@ import { useTheme } from "@/theme/ThemeProvider";
 
 type LanguageSwitcherProps = {
   className?: string;
+  triggerClassName?: string;
   /** Visual density — auto follows current theme */
   variant?: "dark" | "light" | "auto";
 };
 
-export function LanguageSwitcher({ className, variant = "auto" }: LanguageSwitcherProps) {
+export function LanguageSwitcher({
+  className,
+  triggerClassName,
+  variant = "auto",
+}: LanguageSwitcherProps) {
   const { t, i18n } = useTranslation();
   const { theme } = useTheme();
   const current = resolveLocale(i18n.resolvedLanguage || i18n.language);
@@ -41,7 +46,7 @@ export function LanguageSwitcher({ className, variant = "auto" }: LanguageSwitch
       />
       <Select value={current} onValueChange={onChange}>
         <SelectTrigger
-          className={triggerClass}
+          className={cn(triggerClass, triggerClassName)}
           aria-label={t("common.selectLanguage")}
         >
           <SelectValue placeholder={t("common.language")} />

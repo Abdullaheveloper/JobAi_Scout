@@ -170,6 +170,23 @@ export const api = {
     }
   },
 
+  /**
+   * Gate + meter one Form Fill attempt. Server records feature_usage_log and
+   * extension_usage; throws with the server message on USAGE_LIMIT_REACHED.
+   */
+  async trackFormFill(session, { fields = [], page_url = null } = {}) {
+    const { supabaseUrl } = await getConfig();
+    return makeRequest(`${supabaseUrl}/functions/v1/track-extension-usage`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        email: session.user?.email || null,
+        fields: Array.isArray(fields) ? fields.slice(0, 50) : [],
+        page_url: typeof page_url === "string" ? page_url.slice(0, 500) : null,
+      }),
+    });
+  },
+
   async downloadProfileFile(session, filePath, bucket = "resumes") {
     const { supabaseUrl, anonKey } = await getConfig();
     if (!["resumes", "profile-assets"].includes(bucket)) {

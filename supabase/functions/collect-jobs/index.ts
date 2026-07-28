@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { runScrapeOrchestration } from "../_shared/scrape-orchestrator.ts";
+import { runUsageGuardedScrape } from "../_shared/scrape-usage-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,12 +48,23 @@ Deno.serve(async (req) => {
     const maxItems = Math.min(Math.max(Number(input.maxItems) || 25, 1), 25);
 
     const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const result = await runScrapeOrchestration({
-      admin, userId: user.id, query, location: requestedLocation || null, jobType, workMode, maxItems,
+
+    // Limit check MUST short-circuit before any scrape / match work.
+    const guarded = await runUsageGuardedScrape({
+      admin,
+      userId: user.id,
+      feature: "job_scraping",
+      run: () => runScrapeOrchestration({
+        admin, userId: user.id, query, location: requestedLocation || null, jobType, workMode, maxItems,
+      }),
     });
 
+    if (!guarded.allowed) return jsonResponse(guarded.body, guarded.status);
+
+    const result = guarded.result;
     if (result.status === "conflict") return jsonResponse({ error: "A job scraping session is already running.", session: result.session }, 409);
     if (result.status === "no_query") return jsonResponse({ error: "Enter a skill, job title, or keyword before scraping jobs." }, 400);
+
     return jsonResponse({ success: result.status !== "failed", session: result.session });
   } catch (error) {
     const technical = error instanceof Error ? error : new Error("Job scraping failed");

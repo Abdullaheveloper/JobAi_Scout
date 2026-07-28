@@ -199,12 +199,20 @@ describe("CV experience / company merge helpers", () => {
       },
     ], {
       education: "BS Computer Science | 2022 — 2026 Completed — Example University",
-      credentials: [{
-        title: "Artificial Intelligence Internship",
-        issuer: "Kaizen Hive",
-        verificationLink: "http://program.kaizenhive.com/verify-certificate?id=1",
-        type: "certification",
-      }],
+      credentials: [
+        // Internship-shaped credentials must not become Credentials cards.
+        {
+          title: "Artificial Intelligence Internship",
+          issuer: "Kaizen Hive",
+          verificationLink: "http://program.kaizenhive.com/verify-certificate?id=1",
+          type: "certification",
+        },
+        {
+          title: "Google IT Automation with Python",
+          issuer: "Google",
+          type: "certification",
+        },
+      ],
     });
 
     expect(fromCv?.projects).toHaveLength(1);
@@ -215,7 +223,8 @@ describe("CV experience / company merge helpers", () => {
     });
     expect(fromCv?.projects?.[0]).toMatchObject({ name: "Agentic Resume Tool" });
     expect(fromCv?.education?.length).toBeGreaterThan(0);
-    expect(fromCv?.achievements?.length).toBeGreaterThan(0);
+    expect(fromCv?.achievements?.some((a) => String(a.title).includes("Artificial Intelligence"))).toBe(false);
+    expect(fromCv?.achievements?.some((a) => /Google IT/i.test(String(a.title)))).toBe(true);
 
     const merged = mergeCareerProfileSections(
       {
@@ -239,7 +248,8 @@ describe("CV experience / company merge helpers", () => {
     // Manual credentials kept; prior CV-sourced credentials replaced.
     expect(merged.achievements?.some((a) => a.title === "User Award")).toBe(true);
     expect(merged.achievements?.some((a) => a.title === "Old Cert")).toBe(false);
-    expect(merged.achievements?.some((a) => String(a.title).includes("Artificial Intelligence"))).toBe(true);
+    expect(merged.achievements?.some((a) => /Google IT/i.test(String(a.title)))).toBe(true);
+    expect(merged.achievements?.some((a) => String(a.title).includes("Artificial Intelligence"))).toBe(false);
   });
 });
 
@@ -299,7 +309,7 @@ describe("Education parsing + experience calc + validation", () => {
     expect(validateSalary("")).toMatchObject({ valid: true, value: null });
   });
 
-  it("collects credentials from certifications and internship verify URLs", () => {
+  it("collects real credentials and skips internship duplicates", () => {
     const extracted = normalizeExtractedData({
       experience: [{
         title: "Artificial Intelligence Internship",
@@ -311,12 +321,27 @@ describe("Education parsing + experience calc + validation", () => {
         "Google IT Automation with Python",
         "Internship: Artificial Intelligence Internship from Kaizen Hive|http://program.kaizenhive.com/verify-certificate?id=1",
       ],
-      credentials: [{ title: "Dean List Award", issuer: "Uni", type: "award" }],
+      credentials: [
+        { title: "Dean List Award", issuer: "Uni", type: "award" },
+        // Same cert twice: once bare (no issuer/url), once full — must collapse to one.
+        { title: "Google IT Automation with Python", type: "certification" },
+        {
+          title: "Google IT Automation with Python",
+          issuer: "Google",
+          verificationLink: "https://coursera.org/verify/google-it",
+          type: "certification",
+        },
+      ],
     });
     const credentials = collectCredentialsFromExtracted(extracted);
     expect(credentials.some((c) => /Google IT/i.test(c.title || ""))).toBe(true);
+    expect(credentials.filter((c) => /Google IT/i.test(c.title || "")).length).toBe(1);
+    expect(credentials.find((c) => /Google IT/i.test(c.title || ""))).toMatchObject({
+      issuer: "Google",
+      verificationLink: "https://coursera.org/verify/google-it",
+    });
     expect(credentials.some((c) => /Dean List/i.test(c.title || ""))).toBe(true);
-    expect(credentials.some((c) => /kaizenhive\.com\/verify/i.test(c.verificationLink || ""))).toBe(true);
+    expect(credentials.some((c) => /Artificial Intelligence|kaizenhive/i.test(`${c.title} ${c.issuer} ${c.verificationLink}`))).toBe(false);
   });
 
   it("stores experience calc note in field_metadata without a new column", () => {

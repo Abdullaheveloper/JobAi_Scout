@@ -192,6 +192,59 @@ function normalizeAchievement(raw: unknown): CareerAchievement | null {
   };
 }
 
+function achievementTitleKey(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/^(?:internship|certificate|certification|award|credential)\s*[:\-–—]\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function achievementCompleteness(entry: CareerAchievement): number {
+  return [entry.issuer, entry.url, entry.date, entry.description].filter(Boolean).length;
+}
+
+/** Merge duplicate credential cards (same title and/or same URL); prefer richer fields. */
+function dedupeAchievements(entries: CareerAchievement[]): CareerAchievement[] {
+  const byTitle = new Map<string, CareerAchievement>();
+  const urlToTitle = new Map<string, string>();
+
+  for (const entry of entries) {
+    const titleKey = achievementTitleKey(entry.title);
+    if (!titleKey) continue;
+    const url = entry.url.trim().toLowerCase();
+
+    let key = titleKey;
+    if (url && urlToTitle.has(url)) key = urlToTitle.get(url)!;
+
+    const existing = byTitle.get(key);
+    if (!existing) {
+      byTitle.set(key, entry);
+      if (url) urlToTitle.set(url, key);
+      continue;
+    }
+
+    const preferIncoming = achievementCompleteness(entry) > achievementCompleteness(existing);
+    const primary = preferIncoming ? entry : existing;
+    const secondary = preferIncoming ? existing : entry;
+    byTitle.set(key, {
+      ...primary,
+      id: existing.id,
+      title: primary.title || secondary.title,
+      issuer: primary.issuer || secondary.issuer,
+      date: primary.date || secondary.date,
+      url: primary.url || secondary.url,
+      description: primary.description || secondary.description,
+      ...(primary.source || secondary.source
+        ? { source: primary.source || secondary.source }
+        : {}),
+    });
+    if (url) urlToTitle.set(url, key);
+  }
+
+  return [...byTitle.values()];
+}
+
 function normalizeReference(raw: unknown): CareerReference | null {
   if (!raw || typeof raw !== "object") return null;
   const value = raw as Record<string, unknown>;
@@ -216,7 +269,9 @@ export function normalizeCareerProfile(raw: unknown): CareerProfile {
     experiences: asArray(value.experiences).map(normalizeExperience).filter((item): item is CareerExperience => Boolean(item)),
     education: asArray(value.education).map(normalizeEducation).filter((item): item is CareerEducation => Boolean(item)),
     projects: asArray(value.projects).map(normalizeProject).filter((item): item is CareerProject => Boolean(item)),
-    achievements: asArray(value.achievements).map(normalizeAchievement).filter((item): item is CareerAchievement => Boolean(item)),
+    achievements: dedupeAchievements(
+      asArray(value.achievements).map(normalizeAchievement).filter((item): item is CareerAchievement => Boolean(item)),
+    ),
     references: asArray(value.references).map(normalizeReference).filter((item): item is CareerReference => Boolean(item)),
   };
 }

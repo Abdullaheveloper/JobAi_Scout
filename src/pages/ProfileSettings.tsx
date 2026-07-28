@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -9,9 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Loader2, Save, User, Phone, Linkedin, Github, Mail, Briefcase, Sparkles,
-  MapPin, Globe, Building2, GraduationCap, Award,
-  Languages, DollarSign, AlertCircle, ShieldCheck, Bot, ImagePlus, Upload, X,
+  Loader2, Save, User, Linkedin, Github, Sparkles,
+  Globe, Award,
+  Languages, AlertCircle, ShieldCheck, Bot, ImagePlus, Upload, X,
 } from "lucide-react";
 import { FuzzyAutocompleteInput, locationTaxonomy, skillsTaxonomy } from "@/lib/fuzzy-taxonomy";
 import { Badge } from "@/components/ui/badge";
@@ -29,13 +29,28 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProfileReadinessCard } from "@/components/profile/ProfileReadinessCard";
 import { buildProfileReadinessItems, profileReadinessPercent } from "@/lib/profile-readiness";
 import {
-  EXPERIENCE_INVALID_MESSAGE,
-  SALARY_INVALID_MESSAGE,
+  PROFILE_CONTACT_FIELDS,
+  getContactField,
+  groupContactFields,
+  type ProfileContactFieldSchema,
+  type ProfileContactFormKey,
+} from "@/lib/profile-contact-fields";
+import {
+  AVAILABILITY_OPTIONS,
+  CREDENTIAL_PROFILE_FIELDS,
+  PROFESSIONAL_LINK_FIELDS,
+  WORK_PREFERENCE_OPTIONS,
+  translateExperienceCalcNote,
+  type ProfileCareerFieldDef,
+} from "@/lib/career-passport-fields";
+import {
   clampExperienceYears,
   formatEducationFlat,
   parseEducationString,
   validateSalary,
 } from "../../supabase/functions/_shared/cv-profile-merge.ts";
+import { useMatchPreferencesGate } from "@/hooks/useMatchPreferencesGate";
+import { MatchPreferencesEditor } from "@/components/match/MatchPreferencesEditor";
 
 // ── Color-coded section themes ─────────────────────────────────
 const SECTION_THEMES = {
@@ -142,6 +157,32 @@ function DataSourceBadge({ source }: { source?: string }) {
   return <Badge variant="outline" className="text-xs">{source}</Badge>;
 }
 
+/** Label + optional source badge — always resolves copy from the shared contact field schema. */
+function ContactFieldLabel({
+  field,
+  source,
+  className,
+  showIcon = true,
+}: {
+  field: ProfileContactFieldSchema;
+  source?: string;
+  className?: string;
+  showIcon?: boolean;
+}) {
+  const { t } = useTranslation();
+  const Icon = field.icon;
+  return (
+    <Label
+      htmlFor={field.id}
+      className={className ?? `flex items-center gap-1.5`}
+    >
+      {showIcon ? <Icon className="h-3.5 w-3.5" /> : null}
+      {t(field.labelKey)}
+      {field.sourceKey ? <DataSourceBadge source={source} /> : null}
+    </Label>
+  );
+}
+
 // ── URL validation ─────────────────────────────────────────────
 function isValidUrl(str: string): boolean {
   if (!str) return true;
@@ -153,6 +194,7 @@ export default function ProfileSettings() {
   const { t } = useTranslation();
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
+  const { gateOverlay, hasSetMatchPreferences } = useMatchPreferencesGate();
   const [saving, setSaving] = useState(false);
   const [profileImageUploading, setProfileImageUploading] = useState(false);
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
@@ -355,20 +397,27 @@ export default function ProfileSettings() {
 
   const experienceCalcNote = useMemo(() => {
     const meta = (profile as any)?.field_metadata?.experience_years;
-    if (meta && typeof meta === "object" && typeof meta.calcNote === "string") return meta.calcNote as string;
+    if (meta && typeof meta === "object" && typeof meta.calcNote === "string") {
+      return translateExperienceCalcNote(meta.calcNote as string, t);
+    }
     return "";
-  }, [profile]);
+  }, [profile, t]);
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
-    if (form.linkedin_url && !isValidUrl(form.linkedin_url)) errs.linkedin_url = "Invalid URL";
-    if (form.github_url && !isValidUrl(form.github_url)) errs.github_url = "Invalid URL";
-    if (form.portfolio_url && !isValidUrl(form.portfolio_url)) errs.portfolio_url = "Invalid URL";
-    if (form.phone && form.phone.toLowerCase() !== "no" && !/^[+\d\s()-]*$/.test(form.phone)) errs.phone = "Invalid phone format";
+    if (form.linkedin_url && !isValidUrl(form.linkedin_url)) errs.linkedin_url = t("settings.urlInvalid");
+    if (form.github_url && !isValidUrl(form.github_url)) errs.github_url = t("settings.urlInvalid");
+    if (form.portfolio_url && !isValidUrl(form.portfolio_url)) errs.portfolio_url = t("settings.urlInvalid");
+    const phoneField = getContactField("phone");
+    if (form.phone && form.phone.toLowerCase() !== "no" && !/^[+\d\s()-]*$/.test(form.phone)) {
+      errs.phone = t(phoneField.invalidKey!);
+    }
+    const experienceField = getContactField("experience_years");
     const experienceCheck = clampExperienceYears(form.experience_years);
-    if (!experienceCheck.valid) errs.experience_years = experienceCheck.message || EXPERIENCE_INVALID_MESSAGE;
+    if (!experienceCheck.valid) errs.experience_years = t(experienceField.invalidKey!);
+    const salaryField = getContactField("expected_salary");
     const salaryCheck = validateSalary(form.expected_salary);
-    if (!salaryCheck.valid) errs.expected_salary = salaryCheck.message || SALARY_INVALID_MESSAGE;
+    if (!salaryCheck.valid) errs.expected_salary = t(salaryField.invalidKey!);
     for (const [index, line] of form.application_answers.split("\n").entries()) {
       if (line.trim() && !line.includes("=")) errs.application_answers = `Line ${index + 1} needs: question = answer`;
     }
@@ -497,9 +546,153 @@ export default function ProfileSettings() {
   const S = SECTION_THEMES.social;
   const K = SECTION_THEMES.skills;
   const A = SECTION_THEMES.additional;
+  const contactFieldRows = useMemo(() => groupContactFields(PROFILE_CONTACT_FIELDS), []);
+
+  const renderContactField = (field: ProfileContactFieldSchema) => {
+    const source = field.sourceKey ? dataSources[field.sourceKey] : undefined;
+    const error = errors[field.id];
+    const labelClass =
+      field.input === "email-locked"
+        ? "flex items-center gap-1.5 text-muted-foreground"
+        : field.input === "textarea"
+          ? P.titleColor
+          : `flex items-center gap-1.5 ${P.titleColor}`;
+
+    const helper =
+      field.id === "education" && field.helperKey ? (
+        <p className="text-xs text-muted-foreground">
+          {t(field.helperKey)}
+          {careerProfile.education.length
+            ? ` ${t("settings.educationEntryCount", { count: careerProfile.education.length })}`
+            : ""}
+          .
+        </p>
+      ) : field.helperKey ? (
+        <p className="text-xs text-muted-foreground" dir="auto">{t(field.helperKey)}</p>
+      ) : null;
+
+    const errorLine = error ? (
+      <p className="text-xs text-rose-400 flex items-center gap-1">
+        <AlertCircle className="h-3 w-3" />
+        {error}
+      </p>
+    ) : null;
+
+    let control: ReactNode = null;
+
+    switch (field.input) {
+      case "email-locked":
+        control = (
+          <Input
+            id={field.id}
+            type="email"
+            value={form.email}
+            disabled
+            className="border-border bg-muted/50 text-muted-foreground"
+          />
+        );
+        break;
+      case "phone":
+        control = (
+          <ColorInput
+            id={field.id}
+            type="tel"
+            inputMode="tel"
+            value={form.phone}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val.toLowerCase() === "n" || val.toLowerCase() === "no") {
+                updateField("phone", val);
+              } else {
+                updateField("phone", val.replace(/[a-zA-Z]/g, ""));
+              }
+            }}
+            placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
+            inputFocus={P.inputFocus}
+            className={error ? "border-rose-400/50" : ""}
+          />
+        );
+        break;
+      case "location":
+        control = (
+          <FuzzyAutocompleteInput
+            id={field.id}
+            taxonomy={locationTaxonomy}
+            value={form.location}
+            onChange={(value) => updateField("location", value)}
+            onCommit={(canonical) => updateField("location", canonical)}
+            placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
+            aria-label={t(field.labelKey)}
+            inputClassName={`transition-all duration-300 bg-background border-border focus:shadow-lg ${P.inputFocus}`}
+          />
+        );
+        break;
+      case "number":
+        control = (
+          <ColorInput
+            id={field.id}
+            type="number"
+            min={0}
+            max={40}
+            step={0.1}
+            value={form.experience_years}
+            onChange={(e) => updateField("experience_years", Number(e.target.value))}
+            inputFocus={P.inputFocus}
+            className={error ? "border-rose-400/50" : ""}
+          />
+        );
+        break;
+      case "textarea":
+        control = (
+          <ColorTextarea
+            id={field.id}
+            value={form.bio}
+            onChange={(e) => updateField("bio", e.target.value)}
+            placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
+            rows={3}
+            inputFocus={P.inputFocus}
+          />
+        );
+        break;
+      case "text":
+      default: {
+        const key = field.id as ProfileContactFormKey;
+        const value = form[key];
+        control = (
+          <ColorInput
+            id={field.id}
+            value={typeof value === "number" ? String(value) : value}
+            onChange={(e) => updateField(key, e.target.value)}
+            placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
+            inputFocus={P.inputFocus}
+            className={error ? "border-rose-400/50" : ""}
+          />
+        );
+        break;
+      }
+    }
+
+    return (
+      <div key={field.id} className="space-y-2">
+        <ContactFieldLabel
+          field={field}
+          source={source}
+          className={labelClass}
+          showIcon={field.input !== "textarea"}
+        />
+        {control}
+        {errorLine}
+        {field.id === "experience_years" && experienceCalcNote ? (
+          <p className="text-xs text-muted-foreground">{experienceCalcNote}</p>
+        ) : null}
+        {helper}
+      </div>
+    );
+  };
 
   return (
     <DashboardLayout>
+      {gateOverlay}
       <div className="mx-auto max-w-4xl space-y-6 animate-fade-in">
         {/* ── Page Header ─────────────────────────────────── */}
         <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card px-6 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-8">
@@ -546,7 +739,7 @@ export default function ProfileSettings() {
             <CardTitle className="flex items-center gap-2 font-display">
               <User className="h-5 w-5 text-primary" /> {t("settings.contactBackground")}
             </CardTitle>
-            <CardDescription>{t("settings.personalDesc")}</CardDescription>
+            <CardDescription dir="auto">{t("settings.personalDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-4 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 sm:flex-row sm:items-center">
@@ -555,224 +748,71 @@ export default function ProfileSettings() {
               </div>
               <div className="min-w-0 flex-1">
                 <Label htmlFor="profile-image" className={`font-semibold ${P.titleColor}`}>{t("settings.profileImage")}</Label>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">{t("settings.profileImageHint")}</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground" dir="auto">{t("settings.profileImageHint")}</p>
                 <input id="profile-image" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" className="sr-only" onChange={handleProfileImageUpload} />
                 <Button type="button" variant="outline" size="sm" className="mt-3 gap-2" disabled={profileImageUploading} asChild={!profileImageUploading}>
                   {profileImageUploading ? <span><Loader2 className="h-4 w-4 animate-spin" />{t("settings.uploading")}</span> : <label htmlFor="profile-image" className="cursor-pointer"><Upload className="h-4 w-4" />{profileImagePreview ? t("settings.replaceImage") : t("settings.uploadImage")}</label>}
                 </Button>
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="full_name" className={`flex items-center gap-1.5 ${P.titleColor}`}>
-                  <User className="h-3.5 w-3.5" /> {t("settings.fullName")}
-                  <DataSourceBadge source={dataSources.full_name} />
-                </Label>
-                <ColorInput id="full_name" value={form.full_name} onChange={e => updateField("full_name", e.target.value)} placeholder={t("settings.placeholderName")} inputFocus={P.inputFocus} />
+            {contactFieldRows.map((row) => (
+              <div
+                key={row.map((f) => f.id).join("-")}
+                className={row.length === 1 && row[0].fullWidth ? "space-y-2" : "grid gap-4 sm:grid-cols-2"}
+              >
+                {row.map((field) => renderContactField(field))}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email" className="flex items-center gap-1.5 text-muted-foreground">
-                  <Mail className="h-3.5 w-3.5" /> {t("settings.email")}
-                </Label>
-                <Input id="email" type="email" value={form.email} disabled className="border-border bg-muted/50 text-muted-foreground" />
-                <p className="text-xs text-muted-foreground">{t("settings.emailLocked")}</p>
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="phone" className={`flex items-center gap-1.5 ${P.titleColor}`}>
-                  <Phone className="h-3.5 w-3.5" /> Phone Number
-                  <DataSourceBadge source={dataSources.phone} />
-                </Label>
-                <ColorInput
-                  id="phone"
-                  type="tel"
-                  inputMode="tel"
-                  value={form.phone}
-                  onChange={e => {
-                    const val = e.target.value;
-                    if (val.toLowerCase() === "n" || val.toLowerCase() === "no") {
-                      updateField("phone", val);
-                    } else {
-                      updateField("phone", val.replace(/[a-zA-Z]/g, ""));
-                    }
-                  }}
-                  placeholder={t("settings.placeholderPhone")}
-                  inputFocus={P.inputFocus}
-                  className={errors.phone ? "border-rose-400/50" : ""}
-                />
-                {errors.phone && <p className="text-xs text-rose-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.phone}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location" className={`flex items-center gap-1.5 ${P.titleColor}`}>
-                  <MapPin className="h-3.5 w-3.5" /> {t("settings.location")}
-                  <DataSourceBadge source={dataSources.location} />
-                </Label>
-                <FuzzyAutocompleteInput
-                  id="location"
-                  taxonomy={locationTaxonomy}
-                  value={form.location}
-                  onChange={(value) => updateField("location", value)}
-                  onCommit={(canonical) => updateField("location", canonical)}
-                  placeholder={t("settings.placeholderLocation")}
-                  aria-label={t("settings.location")}
-                  inputClassName={`transition-all duration-300 bg-background border-border focus:shadow-lg ${P.inputFocus}`}
-                />
-                <p className="text-xs text-muted-foreground">Used for location-based job matching</p>
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="experience" className={`flex items-center gap-1.5 ${P.titleColor}`}>
-                  <Briefcase className="h-3.5 w-3.5" /> Experience (years)
-                  <DataSourceBadge source={dataSources.experience_years} />
-                </Label>
-                <ColorInput
-                  id="experience"
-                  type="number"
-                  min={0}
-                  max={40}
-                  step={0.1}
-                  value={form.experience_years}
-                  onChange={e => updateField("experience_years", Number(e.target.value))}
-                  inputFocus={P.inputFocus}
-                  className={errors.experience_years ? "border-rose-400/50" : ""}
-                />
-                {errors.experience_years && (
-                  <p className="text-xs text-rose-400 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />{errors.experience_years}
-                  </p>
-                )}
-                {experienceCalcNote && (
-                  <p className="text-xs text-muted-foreground">{experienceCalcNote}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="company" className={`flex items-center gap-1.5 ${P.titleColor}`}>
-                  <Building2 className="h-3.5 w-3.5" /> Current Company
-                  <DataSourceBadge source={dataSources.current_company} />
-                </Label>
-                <ColorInput id="company" value={form.current_company} onChange={e => updateField("current_company", e.target.value)} placeholder={t("settings.placeholderCompany")} inputFocus={P.inputFocus} />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="salary" className={`flex items-center gap-1.5 ${P.titleColor}`}>
-                  <DollarSign className="h-3.5 w-3.5" /> Expected Salary
-                  <DataSourceBadge source={dataSources.expected_salary} />
-                </Label>
-                <ColorInput
-                  id="salary"
-                  value={form.expected_salary}
-                  onChange={e => updateField("expected_salary", e.target.value)}
-                  placeholder={t("settings.placeholderSalary")}
-                  inputFocus={P.inputFocus}
-                  className={errors.expected_salary ? "border-rose-400/50" : ""}
-                />
-                {errors.expected_salary && (
-                  <p className="text-xs text-rose-400 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />{errors.expected_salary}
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground">Must be greater than 10,000</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="education" className={`flex items-center gap-1.5 ${P.titleColor}`}>
-                  <GraduationCap className="h-3.5 w-3.5" /> Education
-                  <DataSourceBadge source={dataSources.education} />
-                </Label>
-                <ColorInput
-                  id="education"
-                  value={form.education}
-                  onChange={e => updateField("education", e.target.value)}
-                  placeholder={t("settings.placeholderEducation")}
-                  inputFocus={P.inputFocus}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Used for readiness. Structured degree rows live in Career Passport below
-                  {careerProfile.education.length ? ` (${careerProfile.education.length} entr${careerProfile.education.length === 1 ? "y" : "ies"})` : ""}.
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bio" className={P.titleColor}>Bio / About Me</Label>
-              <ColorTextarea id="bio" value={form.bio} onChange={e => updateField("bio", e.target.value)} placeholder={t("settings.placeholderBio")} rows={3} inputFocus={P.inputFocus} />
-            </div>
+            ))}
           </CardContent>
         </Card>
 
-        {/* ── Social Links (Violet) ───────────────────────── */}
+        {/* ── Professional links ──────────────────────────── */}
         <Card className="border-border bg-card shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-display">
-              <Globe className="h-5 w-5 text-primary" /> Professional links
+              <Globe className="h-5 w-5 text-primary" /> {t("careerPassport.professionalLinks")}
             </CardTitle>
             <CardDescription>{t("settings.extensionAutofillHint")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="linkedin" className={`flex items-center gap-1.5 ${S.titleColor}`}>
-                <Linkedin className="h-3.5 w-3.5" /> LinkedIn URL
-                <DataSourceBadge source={dataSources.linkedin_url} />
-              </Label>
-              <ColorInput
-                id="linkedin"
-                type="url"
-                value={form.linkedin_url}
-                onChange={e => updateField("linkedin_url", e.target.value)}
-                placeholder={t("settings.placeholderLinkedin")}
-                inputFocus={S.inputFocus}
-                className={errors.linkedin_url ? "border-rose-400/50" : ""}
-              />
-              {errors.linkedin_url && <p className="text-xs text-rose-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.linkedin_url}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="github" className={`flex items-center gap-1.5 ${S.titleColor}`}>
-                <Github className="h-3.5 w-3.5" /> GitHub URL
-                <DataSourceBadge source={dataSources.github_url} />
-              </Label>
-              <ColorInput
-                id="github"
-                type="url"
-                value={form.github_url}
-                onChange={e => updateField("github_url", e.target.value)}
-                placeholder={t("settings.placeholderGithub")}
-                inputFocus={S.inputFocus}
-                className={errors.github_url ? "border-rose-400/50" : ""}
-              />
-              {errors.github_url && <p className="text-xs text-rose-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.github_url}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="portfolio" className={`flex items-center gap-1.5 ${S.titleColor}`}>
-                <Globe className="h-3.5 w-3.5" /> Portfolio URL
-                <DataSourceBadge source={dataSources.portfolio_url} />
-              </Label>
-              <ColorInput
-                id="portfolio"
-                type="url"
-                value={form.portfolio_url}
-                onChange={e => updateField("portfolio_url", e.target.value)}
-                placeholder={t("settings.placeholderPortfolio")}
-                inputFocus={S.inputFocus}
-                className={errors.portfolio_url ? "border-rose-400/50" : ""}
-              />
-              {errors.portfolio_url && <p className="text-xs text-rose-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.portfolio_url}</p>}
-            </div>
+            {PROFESSIONAL_LINK_FIELDS.map((field) => {
+              const Icon = field.icon === "linkedin" ? Linkedin : field.icon === "github" ? Github : Globe;
+              const value = String(form[field.key as keyof typeof form] ?? "");
+              const error = errors[field.key];
+              return (
+                <div key={field.key} className="space-y-2">
+                  <Label htmlFor={field.key} className={`flex items-center gap-1.5 ${S.titleColor}`}>
+                    <Icon className="h-3.5 w-3.5" /> {t(field.labelKey)}
+                    {field.dataSourceKey ? <DataSourceBadge source={dataSources[field.dataSourceKey]} /> : null}
+                  </Label>
+                  <ColorInput
+                    id={field.key}
+                    type={field.type || "text"}
+                    value={value}
+                    onChange={(e) => updateField(field.key, e.target.value)}
+                    placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
+                    inputFocus={S.inputFocus}
+                    className={error ? "border-rose-400/50" : ""}
+                  />
+                  {error && <p className="text-xs text-rose-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{error}</p>}
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
 
-        {/* ── Skills & Roles (Emerald) ────────────────────── */}
+        {/* ── Matching essentials ─────────────────────────── */}
         <Card className="border-primary/25 bg-primary/[0.03] shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-display">
-              <Sparkles className="h-5 w-5 text-primary" /> Matching essentials
+              <Sparkles className="h-5 w-5 text-primary" /> {t("careerPassport.matchingEssentials")}
             </CardTitle>
             <CardDescription>{t("settings.skillsHint")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="skills" className={`flex items-center gap-1.5 ${K.titleColor}`}>
-                Skills <DataSourceBadge source={dataSources.skills} />
+                {t("careerPassport.fields.skills")} <DataSourceBadge source={dataSources.skills} />
               </Label>
               <FuzzyAutocompleteInput
                 id="skills"
@@ -805,7 +845,7 @@ export default function ProfileSettings() {
                       {s}
                       <button
                         type="button"
-                        aria-label={`Remove ${s}`}
+                        aria-label={t("careerPassport.removeSkillAria", { skill: s })}
                         className="rounded-sm opacity-70 hover:opacity-100"
                         onClick={() => {
                           updateField(
@@ -820,11 +860,11 @@ export default function ProfileSettings() {
                   ))}
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">Select a suggestion or press Enter to add. Canonical names are preferred when matched.</p>
+              <p className="text-xs text-muted-foreground">{t("careerPassport.hints.skillsSuggest")}</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="roles" className={`flex items-center gap-1.5 ${K.titleColor}`}>
-                Desired Roles <DataSourceBadge source={dataSources.desired_roles} />
+                {t("settings.desiredRoles")} <DataSourceBadge source={dataSources.desired_roles} />
               </Label>
               <ColorTextarea id="roles" value={form.desired_roles} onChange={e => updateField("desired_roles", e.target.value)} placeholder={t("settings.placeholderRoles")} rows={2} inputFocus={K.inputFocus} />
               {roles.length > 0 && (
@@ -838,7 +878,6 @@ export default function ProfileSettings() {
           </CardContent>
         </Card>
 
-        {/* ── Additional Info (Amber) ─────────────────────── */}
         <CareerProfileWorkspace
           value={careerProfile}
           onChange={(next) => {
@@ -850,51 +889,107 @@ export default function ProfileSettings() {
         <Card className="border-border bg-card shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-display">
-              <Award className="h-5 w-5 text-primary" /> Credentials
+              <Award className="h-5 w-5 text-primary" /> {t("careerPassport.credentials")}
             </CardTitle>
             <CardDescription>{t("settings.additionalDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="certifications" className={`flex items-center gap-1.5 ${A.titleColor}`}>
-                <Award className="h-3.5 w-3.5" /> Certifications
-                <DataSourceBadge source={dataSources.certifications} />
-              </Label>
-              <ColorTextarea id="certifications" value={form.certifications} onChange={e => updateField("certifications", e.target.value)} placeholder={t("settings.placeholderCerts")} rows={2} inputFocus={A.inputFocus} />
-              <p className="text-xs text-muted-foreground">Comma-separated list of certifications</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="languages" className={`flex items-center gap-1.5 ${A.titleColor}`}>
-                <Languages className="h-3.5 w-3.5" /> Languages
-                <DataSourceBadge source={dataSources.languages} />
-              </Label>
-              <ColorInput id="languages" value={form.languages} onChange={e => updateField("languages", e.target.value)} placeholder={t("settings.placeholderLanguages")} inputFocus={A.inputFocus} />
-              <p className="text-xs text-muted-foreground">Comma-separated list of languages you speak</p>
-            </div>
+            {CREDENTIAL_PROFILE_FIELDS.map((field: ProfileCareerFieldDef) => {
+              const Icon = field.icon === "award" ? Award : Languages;
+              const value = String(form[field.key as keyof typeof form] ?? "");
+              return (
+                <div key={field.key} className="space-y-2">
+                  <Label htmlFor={field.key} className={`flex items-center gap-1.5 ${A.titleColor}`}>
+                    <Icon className="h-3.5 w-3.5" /> {t(field.labelKey)}
+                    {field.dataSourceKey ? <DataSourceBadge source={dataSources[field.dataSourceKey]} /> : null}
+                  </Label>
+                  {field.kind === "textarea" ? (
+                    <ColorTextarea
+                      id={field.key}
+                      value={value}
+                      onChange={(e) => updateField(field.key, e.target.value)}
+                      placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
+                      rows={2}
+                      inputFocus={A.inputFocus}
+                    />
+                  ) : (
+                    <ColorInput
+                      id={field.key}
+                      value={value}
+                      onChange={(e) => updateField(field.key, e.target.value)}
+                      placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
+                      inputFocus={A.inputFocus}
+                    />
+                  )}
+                  {field.hintKey ? <p className="text-xs text-muted-foreground">{t(field.hintKey)}</p> : null}
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
 
         <Card className="border-border bg-card shadow-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-display"><ShieldCheck className="h-5 w-5 text-primary" /> Application autofill</CardTitle>
+            <CardTitle className="flex items-center gap-2 font-display"><ShieldCheck className="h-5 w-5 text-primary" /> {t("careerPassport.applicationAutofill")}</CardTitle>
             <CardDescription>{t("settings.autofillHint")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2"><Label htmlFor="work_authorization" className="text-foreground">{t("settings.workAuthorization")}</Label><select id="work_authorization" value={form.work_authorization} onChange={e => updateField("work_authorization", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">{t("settings.chooseAnswer")}</option><option value="yes">{t("settings.authorized")}</option><option value="no">{t("settings.notAuthorized")}</option></select></div>
               <div className="space-y-2"><Label htmlFor="willing_to_relocate" className="text-foreground">{t("settings.willingToRelocate")}</Label><select id="willing_to_relocate" value={form.willing_to_relocate} onChange={e => updateField("willing_to_relocate", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">{t("settings.chooseAnswer")}</option><option value="yes">{t("common.yes")}</option><option value="no">{t("common.no")}</option></select></div>
-              <div className="space-y-2"><Label htmlFor="work_type" className="text-foreground">Work preference</Label><select id="work_type" value={form.work_type} onChange={e => updateField("work_type", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">Choose a preference</option><option value="onsite">On-site</option><option value="hybrid">Hybrid</option><option value="remote">Remote</option></select></div>
+              <div className="space-y-2">
+                <Label htmlFor="work_type" className="text-foreground">{t("settings.workPreference")}</Label>
+                <select id="work_type" value={form.work_type} onChange={e => updateField("work_type", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60">
+                  {WORK_PREFERENCE_OPTIONS.map((option) => (
+                    <option key={option.value || "__empty"} value={option.value}>{t(option.labelKey)}</option>
+                  ))}
+                </select>
+              </div>
               <div className="space-y-2"><Label htmlFor="commute_to_office" className="text-foreground">{t("settings.commute")}</Label><select id="commute_to_office" value={form.commute_to_office} onChange={e => updateField("commute_to_office", e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"><option value="">{t("settings.chooseAnswer")}</option><option value="yes">{t("common.yes")}</option><option value="no">{t("common.no")}</option><option value="depends">{t("settings.dependsLocation")}</option></select></div>
-              <div className="space-y-2"><Label htmlFor="availability" className="text-foreground">{t("settings.availability")}</Label><ColorInput id="availability" value={form.availability} onChange={e => updateField("availability", e.target.value)} placeholder={t("settings.placeholderAvailability")} inputFocus="focus-visible:ring-indigo-400/60" /></div>
+              <div className="space-y-2">
+                <Label htmlFor="availability" className="text-foreground">{t("settings.availability")}</Label>
+                <select
+                  id="availability"
+                  value={form.availability}
+                  onChange={(e) => updateField("availability", e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-400/60"
+                >
+                  {AVAILABILITY_OPTIONS.map((option) => (
+                    <option key={option.value || "__empty"} value={option.value}>{t(option.labelKey)}</option>
+                  ))}
+                  {form.availability && !AVAILABILITY_OPTIONS.some((option) => option.value === form.availability) ? (
+                    <option value={form.availability}>{form.availability}</option>
+                  ) : null}
+                </select>
+              </div>
             </div>
             <div className="grid gap-4 rounded-xl border border-primary/20 bg-primary/[0.04] p-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
-              <div className="space-y-2"><Label htmlFor="text-confidence" className="text-foreground">Text-field confidence</Label><Input id="text-confidence" type="number" min="0.75" max="1" step="0.01" value={autofillPreferences.textAutofillConfidence} onChange={event => setAutofillPreferences(current => ({ ...current, textAutofillConfidence: Math.min(1, Math.max(0.75, Number(event.target.value) || 0.75)) }))} className="border-border bg-background" /><p className="text-xs text-muted-foreground">Safe text fields are filled at or above this evidence score.</p></div>
-              <div className="space-y-2"><Label htmlFor="checkbox-confidence" className="text-foreground">Non-sensitive checkbox threshold</Label><Input id="checkbox-confidence" type="number" min="0.41" max="1" step="0.01" value={autofillPreferences.checkboxConfidence} onChange={event => setAutofillPreferences(current => ({ ...current, checkboxConfidence: Math.min(1, Math.max(0.41, Number(event.target.value) || 0.41)) }))} className="border-border bg-background" /><p className="text-xs text-muted-foreground">40% is the minimum suggestion threshold; direct evidence is still required.</p></div>
-              <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-sm"><Switch checked={autofillPreferences.reviewBeforeSensitiveAnswers} onCheckedChange={checked => setAutofillPreferences(current => ({ ...current, reviewBeforeSensitiveAnswers: checked }))} /><span>Review sensitive suggestions</span></label>
+              <div className="space-y-2">
+                <Label htmlFor="text-confidence" className="text-foreground">{t("careerPassport.textFieldConfidence")}</Label>
+                <Input id="text-confidence" type="number" min="0.75" max="1" step="0.01" value={autofillPreferences.textAutofillConfidence} onChange={event => setAutofillPreferences(current => ({ ...current, textAutofillConfidence: Math.min(1, Math.max(0.75, Number(event.target.value) || 0.75)) }))} className="border-border bg-background" />
+                <p className="text-xs text-muted-foreground">{t("careerPassport.textFieldConfidenceHint")}</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="checkbox-confidence" className="text-foreground">{t("careerPassport.checkboxThreshold")}</Label>
+                <Input id="checkbox-confidence" type="number" min="0.41" max="1" step="0.01" value={autofillPreferences.checkboxConfidence} onChange={event => setAutofillPreferences(current => ({ ...current, checkboxConfidence: Math.min(1, Math.max(0.41, Number(event.target.value) || 0.41)) }))} className="border-border bg-background" />
+                <p className="text-xs text-muted-foreground">{t("careerPassport.checkboxThresholdHint")}</p>
+              </div>
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-sm">
+                <Switch checked={autofillPreferences.reviewBeforeSensitiveAnswers} onCheckedChange={checked => setAutofillPreferences(current => ({ ...current, reviewBeforeSensitiveAnswers: checked }))} />
+                <span>{t("careerPassport.reviewSensitive")}</span>
+              </label>
             </div>
-            <div className="rounded-xl border border-amber-400/20 bg-amber-500/[0.06] px-4 py-3 text-sm leading-6 text-amber-100/90"><strong>Always manual:</strong> terms, privacy consent, declarations, diversity/self-identification, CAPTCHA, verification codes, assessments, and final submission. The extension can explain a suggestion but will never click them.</div>
+            <div
+              role="note"
+              className="rounded-xl border border-amber-600/35 bg-amber-100 px-4 py-3 text-sm leading-6 text-amber-950 dark:border-amber-400/35 dark:bg-amber-500/20 dark:text-amber-50"
+            >
+              <strong>{t("careerPassport.alwaysManualPrefix")}</strong>{" "}
+              {t("careerPassport.alwaysManualBody")}
+            </div>
           </CardContent>
         </Card>
+
+        {hasSetMatchPreferences ? <MatchPreferencesEditor /> : null}
 
         {/* ── Save Button ─────────────────────────────────── */}
         <div className="relative group">
