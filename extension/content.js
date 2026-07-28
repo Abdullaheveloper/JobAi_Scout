@@ -16,13 +16,13 @@
     { key: "experience_title", patterns: [/\b(?:job|work|employment|professional)\s+(?:title|role)\b/i, /\btitle\b/i] },
     { key: "experience_company", patterns: [/\b(?:work|employment|professional)\s+(?:company|employer)\b/i, /\bcompany\s+name\b/i] },
     { key: "experience_start_date", patterns: [/\b(?:employment|work|job)\s+(?:start|from|begin)\b/i, /\bstart\s+date\b/i] },
-    { key: "experience_end_date", patterns: [/\b(?:employment|work|job)\s+(?:end|to|until)\b/i, /\bend\s+date\b/i] },
+    { key: "experience_end_date", patterns: [/\b(?:employment|work|job)\s+(?:end|to|until)\b/i, /\b(?:work|employment|job|position|role)\s+end\s+date\b/i] },
     { key: "experience_description", patterns: [/\b(?:employment|work|job)\s+(?:duties|responsibilities|description)\b/i, /\bjob\s+description\b/i] },
     { key: "education_institution", patterns: [/\b(?:education|academic)\s+(?:institution|school|university|college)\b/i, /\b(?:university|college|school|institution)\s+name\b/i] },
     { key: "education_degree", patterns: [/\b(?:education|academic)\s+(?:degree|qualification)\b/i] },
     { key: "education_field", patterns: [/\b(?:field|area)\s+of\s+study\b/i, /\bmajor\b/i] },
     { key: "education_start_date", patterns: [/\beducation\s+(?:start|from)\b/i] },
-    { key: "education_end_date", patterns: [/\beducation\s+(?:end|to|graduation)\b/i, /\bgraduation\s+(?:date|year)\b/i, /\byear\s+of\s+graduation\b/i] },
+    { key: "education_end_date", patterns: [/\beducation\s+end\s+date\b/i, /\beducation\s+(?:end|to|graduation)\b/i, /\bgraduation\s+(?:date|year)\b/i, /\byear\s+of\s+graduation\b/i] },
     { key: "project_name", patterns: [/\bproject\s+(?:name|title)\b/i] },
     { key: "project_description", patterns: [/\bproject\s+(?:description|summary)\b/i] },
     { key: "project_url", patterns: [/\bproject\s+(?:url|link|website)\b/i] },
@@ -540,7 +540,26 @@
     return entries.find((entry) => entry?.isCurrent || entry?.is_current) || entries[0] || {};
   }
 
+  function educationEntryAt(profile, index = 0) {
+    const entries = listFromCareer(profile, "education");
+    const direct = entries[index];
+    if (direct && (direct.endDate || direct.end_date || direct.institution || direct.school || direct.degree)) {
+      return direct;
+    }
+    if (index === 0) {
+      return entries.find((entry) => entry?.endDate || entry?.end_date) || direct || {};
+    }
+    return direct || {};
+  }
+
   function educationSummaryFacts(profile) {
+    const entries = listFromCareer(profile, "education");
+    const primary = entries.find((entry) => entry?.endDate || entry?.end_date) || entries[0];
+    if (primary) {
+      const institution = valueText(primary.institution || primary.school);
+      const endDate = valueText(primary.endDate || primary.end_date);
+      if (institution || endDate) return { institution, endDate };
+    }
     const summary = valueText(profile?.education);
     if (!summary) return { institution: "", endDate: "" };
     const segments = summary.split(/[\n,;|]/).map((part) => part.trim()).filter(Boolean);
@@ -559,7 +578,7 @@
 
   function resolveStructuredValue(profile, key, index, fieldType) {
     const experience = listFromCareer(profile, "experiences")[index] || {};
-    const education = listFromCareer(profile, "education")[index] || {};
+    const education = educationEntryAt(profile, index);
     const project = listFromCareer(profile, "projects")[index] || {};
     const reference = listFromCareer(profile, "references")[index] || {};
     const achievements = listFromCareer(profile, "achievements");
@@ -622,15 +641,15 @@
       first_name: first,
       last_name: rest.join(" "),
       full_name: valueText(profile.full_name),
-      linkedin: valueText(profile.linkedin_url),
-      github: valueText(profile.github_url),
-      portfolio: valueText(profile.portfolio_url) || valueText(profile.linkedin_url) || valueText(profile.github_url),
+      linkedin: valueText(profile.linkedin_url || profile.linkedin),
+      github: valueText(profile.github_url || profile.github),
+      portfolio: valueText(profile.portfolio_url || profile.portfolio) || valueText(profile.linkedin_url || profile.linkedin) || valueText(profile.github_url || profile.github),
       location: valueText(profile.location),
       company: valueText(profile.current_company || latestExperience.company),
       experience: profile.experience_years === 0 ? "0" : valueText(profile.experience_years),
       summary: valueText(profile.cv_summary || profile.bio),
       skills: valueText(skills),
-      salary: valueText(profile.expected_salary),
+      salary: valueText(profile.expected_salary ?? profile.salary),
       education: valueText(profile.education),
       education_institution: valueText(educationFacts.institution),
       education_end_date: dateForField(educationFacts.endDate, fieldType),
@@ -835,16 +854,45 @@
     }
   }
 
+  function resumeUploadContext(text) {
+    return /(?:resume|cv|curriculum vitae)/i.test(String(text || ""));
+  }
+
   function findGoogleFilePicker() {
-    if (!/docs\.google\.com\/forms/i.test(location.href)) return null;
-    return Array.from(document.querySelectorAll("button, [role='button']")).find((element) => {
-      const context = `${element.textContent || ""} ${ancestorContext(element, 8).join(" ")}`.toLowerCase();
-      return /add file|upload.*(?:resume|cv)|resume.*upload/.test(context);
-    }) || null;
+    const pickerPattern = /(?:add file|upload (?:a )?file|choose file|attach (?:a )?file|select (?:a )?file|upload.*(?:resume|cv)|resume.*upload)/i;
+    for (const root of walkRoots()) {
+      const candidates = root.querySelectorAll?.("button, [role='button'], div[tabindex='0'], span[tabindex='0']") || [];
+      for (const element of candidates) {
+        const context = [
+          element.textContent,
+          element.getAttribute?.("aria-label"),
+          ancestorContext(element, 8).join(" "),
+        ].filter(Boolean).join(" ").toLowerCase();
+        if (pickerPattern.test(context) && resumeUploadContext(context)) return element;
+      }
+    }
+    return null;
+  }
+
+  function hasWritableResumeInput() {
+    for (const root of walkRoots()) {
+      const inputs = root.querySelectorAll?.("input[type='file']") || [];
+      for (const input of inputs) {
+        const context = buildContext(input).text;
+        if (resumeUploadContext(context)) return true;
+      }
+    }
+    return false;
   }
 
   function hasManualResumePicker() {
-    return Boolean(findGoogleFilePicker());
+    if (hasWritableResumeInput()) return false;
+    if (findGoogleFilePicker()) return true;
+    for (const root of walkRoots()) {
+      const frames = root.querySelectorAll?.("iframe[src*='docs.google.com'], iframe[src*='googleusercontent.com'], iframe[src*='drive.google.com']") || [];
+      if (frames.length && resumeUploadContext(root.body?.innerText || root.textContent || "")) return true;
+    }
+    return false;
   }
 
   async function fillForm(profile) {
@@ -1224,7 +1272,7 @@
     if (/direct-evidence/.test(text)) return "A saved fact needs your review before it can be used.";
     if (/confidence/.test(text) || /review/.test(text) || /suggest/.test(text)) return "Suggestion only — review it before using it.";
     if (/document-upload/.test(text)) return "Choose this document yourself.";
-    if (/google-file-picker/.test(text)) return "Google requires you to choose the resume in its signed-in file picker.";
+    if (/google-file-picker/.test(text)) return "Google Drive picker — download your resume, then choose it manually in the same signed-in account.";
     return "Needs your review.";
   }
 
@@ -1264,24 +1312,27 @@
     shadow.innerHTML = `
       <style>
         :host { pointer-events:auto; }
-        .panel { position:fixed; top:16px; right:16px; width:min(360px,calc(100vw - 32px)); max-height:calc(100vh - 32px); overflow:auto; box-sizing:border-box; color:#edf2ff; background:linear-gradient(160deg,#111936 0%,#0b1125 58%,#14103b 100%); border:1px solid rgba(139,92,246,.36); border-radius:18px; box-shadow:0 26px 70px rgba(2,6,23,.52); font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; animation:jobai-review-enter .24s ease-out; }
+        .panel { position:fixed; top:16px; right:16px; width:min(360px,calc(100vw - 32px)); max-height:calc(100vh - 32px); box-sizing:border-box; color:#edf2ff; background:linear-gradient(160deg,#111936 0%,#0b1125 58%,#14103b 100%); border:1px solid rgba(139,92,246,.36); border-radius:18px; box-shadow:0 26px 70px rgba(2,6,23,.52); font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; animation:jobai-review-enter .24s ease-out; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
         @keyframes jobai-review-enter { from { transform:translateY(-10px);opacity:0 } to { transform:translateY(0);opacity:1 } }
-        .header { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:18px 18px 14px; border-bottom:1px solid rgba(148,163,184,.16); } .header-brand { display:flex;align-items:center;gap:10px; } .brand-logo { width:34px;height:34px;flex:none;filter:drop-shadow(0 6px 12px rgba(99,102,241,.3)); }
+        .panel-scroll { flex:1; overflow-y:auto; min-height:0; overscroll-behavior:contain; }
+        .header { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:18px 18px 14px; border-bottom:1px solid rgba(148,163,184,.16); flex:none; } .header-brand { display:flex;align-items:center;gap:10px; } .brand-logo { width:34px;height:34px;flex:none;filter:drop-shadow(0 6px 12px rgba(99,102,241,.3)); }
         .eyebrow { color:#a5b4fc; font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; margin:0 0 5px; } h3 { margin:0; font-size:16px; letter-spacing:-.02em; } .close { appearance:none;border:0;background:rgba(148,163,184,.12);color:#e2e8f0;width:28px;height:28px;border-radius:9px;font-size:19px;cursor:pointer; } .close:hover,.close:focus-visible { background:rgba(139,92,246,.28);outline:2px solid #a78bfa;outline-offset:2px; }
         .summary { padding:14px 18px 4px; font-size:12px; line-height:1.5; color:#cbd5e1; } .stats { display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 18px 4px; } .stat { border:1px solid rgba(148,163,184,.16);border-radius:12px;padding:9px 7px;background:rgba(15,23,42,.44);text-align:center; } .stat strong { display:block;font-size:18px; } .stat span { display:block;margin-top:2px;font-size:10px;color:#aab8d5; }
         .body { padding:8px 18px 18px; } .group { margin-top:13px; } .group h4 { margin:0 0 7px;color:#dbeafe;font-size:11px;letter-spacing:.08em;text-transform:uppercase; } .outcomes { margin:0;padding:0;list-style:none;display:grid;gap:6px; } .outcomes li { padding:9px 10px;border-radius:10px;border:1px solid rgba(148,163,184,.13);background:rgba(15,23,42,.38); } .outcomes li strong { display:block;font-size:12px; } .outcomes li span { display:block;margin-top:3px;color:#aab8d5;font-size:11px;line-height:1.35; } .outcomes.warn li { border-color:rgba(245,158,11,.25); } .outcomes.manual li { border-color:rgba(244,114,182,.28); } .empty { color:#94a3b8;font-size:11px;margin:0;line-height:1.45; } .google-help { margin-top:12px;padding:12px;border:1px solid rgba(96,165,250,.3);border-radius:12px;background:rgba(37,99,235,.09); } .google-help strong { display:block;font-size:12px;color:#dbeafe; } .google-help p { margin:5px 0 10px;font-size:11px;line-height:1.4;color:#b9c6df; } .google-actions { display:grid;grid-template-columns:1fr 1fr;gap:7px; } .google-actions button { border:1px solid rgba(129,140,248,.38);border-radius:9px;background:rgba(99,102,241,.16);color:#eef2ff;padding:8px;font-size:10px;font-weight:700;cursor:pointer; } .google-actions button:hover,.google-actions button:focus-visible { background:rgba(99,102,241,.3);outline:2px solid #a78bfa;outline-offset:1px; } .google-status { min-height:14px;margin-top:7px;color:#a7f3d0;font-size:10px; }         .outcomes.synth li { border-color:rgba(56,189,248,.35); background:rgba(8,47,73,.32); } .outcomes.synth li span { color:#bae6fd; }
-        .footer { padding:13px 18px;border-top:1px solid rgba(148,163,184,.16);font-size:11px;color:#b9c6df;line-height:1.45; } .footer strong { color:#e0e7ff; }
+        .footer { padding:13px 18px;border-top:1px solid rgba(148,163,184,.16);font-size:11px;color:#b9c6df;line-height:1.45; flex:none; } .footer strong { color:#e0e7ff; }
       </style>
       <section class="panel" role="dialog" aria-label="JobAI fill review" aria-modal="false">
         <header class="header"><div class="header-brand">${BRAND_MARK}<div><p class="eyebrow">JobAI Scout · Evidence-led review</p><h3>Application ready for your review</h3></div></div><button class="close" type="button" aria-label="Close review">×</button></header>
+        <div class="panel-scroll">
         <p class="summary">JobAI filled verified profile facts directly. AI-drafted answers and salary always need your explicit review before submitting.</p>
         <div class="stats"><div class="stat"><strong>${readyCount}</strong><span>ready</span></div><div class="stat"><strong>${reviewCount}</strong><span>review</span></div><div class="stat"><strong>${protectedFields.length}</strong><span>protected</span></div></div>
         <div class="body">
           <section class="group"><h4>Missing from Career Passport</h4>${outcomeList(missingItems, "No missing supported facts detected.", "warn")}</section>
           <section class="group"><h4>AI-drafted — review before submitting</h4>${outcomeList(synthesized, "No AI-drafted answers on this screen.", "synth")}</section>
-          <section class="group"><h4>Suggestions to review</h4>${outcomeList(decisionItems, "No suggestions need your approval.", "warn")}</section>
-          ${googlePickerRequired ? `<section class="google-help"><strong>Google file upload</strong><p>Google protects this picker. Download your saved JobAI resume, then choose it in Google's signed-in window.</p><div class="google-actions"><button class="download-resume" type="button" ${profile?.resume_url ? "" : "disabled"}>1. Get resume</button><button class="open-google-picker" type="button">2. Open picker</button></div><div class="google-status" role="status"></div></section>` : ""}
+          <section class="group suggestions-list"><h4>Suggestions to review</h4>${outcomeList(decisionItems, "No suggestions need your approval.", "warn")}</section>
+          ${googlePickerRequired ? `<section class="google-help"><strong>Google Drive file upload</strong><p>JobAI cannot attach your resume here. Google opens a signed-in Drive picker instead of a normal file input. Download your saved resume, then choose it in the same Google account you used to open this form. If the file is missing in the picker, upload it to Drive first or pick it from Downloads after downloading.</p><div class="google-actions"><button class="download-resume" type="button" ${profile?.resume_url ? "" : "disabled"}>1. Download resume</button><button class="open-google-picker" type="button">2. Open Google picker</button></div><div class="google-status" role="status"></div></section>` : ""}
           <section class="group"><h4>Kept under your control</h4>${outcomeList(protectedFields, "No protected fields detected on this screen.", "manual")}</section>
+        </div>
         </div>
         <footer class="footer"><strong>Privacy first:</strong> update your Career Passport in JobAI Scout, then run fill again. Employer-specific questions are never stored as reusable answers.</footer>
       </section>`;
@@ -1293,7 +1344,7 @@
       status.textContent = "Preparing your saved resume…";
       try {
         await downloadSavedResume(profile);
-        status.textContent = "Downloaded. Now open Google's picker and select the file.";
+        status.textContent = "Downloaded. Open Google's picker and choose the file from Downloads or Drive.";
       } catch (error) {
         status.textContent = error?.message || "Could not prepare your resume.";
       } finally {
@@ -1310,7 +1361,7 @@
       picker.scrollIntoView({ behavior: "smooth", block: "center" });
       picker.focus?.();
       picker.click();
-      status.textContent = "Choose the downloaded resume in Google's signed-in picker.";
+      status.textContent = "Choose the downloaded resume in Google's signed-in picker (Downloads or Drive).";
     });
   }
 
