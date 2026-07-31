@@ -1,29 +1,30 @@
-/* JobAI Scout landing — structure/motion from redesign HTML; colors from app theme */
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+/* JobAI Scout landing — Soft UI Evolution + trust teal (ui-ux-pro-max design system) */
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,500&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 
 .landing-redesign {
-  /* Reference semantic tokens → Cosmic Dark / indigo-violet-cyan brand */
-  --lr-ink: var(--bg-void, #020817);
-  --lr-ink-2: var(--bg-deep, #060d24);
-  --lr-panel: var(--bg-surface, #0f1535);
-  --lr-panel-2: var(--bg-elevated, #151c42);
-  --lr-line: rgba(99, 102, 241, 0.22);
-  --lr-paper: #f1f5f9;
-  --lr-paper-dim: #94a3b8;
-  --lr-muted: #64748b;
-  --lr-signal: var(--color-primary, #6366f1);
-  --lr-signal-2: #818cf8;
-  --lr-trail: var(--color-cyan, #06b6d4);
-  --lr-trail-dim: rgba(6, 182, 212, 0.4);
-  --lr-violet: var(--color-violet, #8b5cf6);
-  --lr-radius: 14px;
-  --lr-serif: "Fraunces", "Noto Sans Devanagari", serif;
-  --lr-sans: "Inter", "Noto Sans Devanagari", -apple-system, sans-serif;
-  --lr-mono: "IBM Plex Mono", ui-monospace, monospace;
-  --lr-nav-bg: rgba(2, 8, 23, 0.72);
-  --lr-nav-border: rgba(99, 102, 241, 0.18);
+  /* Soft UI Evolution — trust teal + professional blue (avoids AI purple) */
+  --lr-ink: #041512;
+  --lr-ink-2: #0a2420;
+  --lr-panel: #0f2a26;
+  --lr-panel-2: #143330;
+  --lr-line: rgba(20, 184, 166, 0.22);
+  --lr-paper: #f0fdfa;
+  --lr-paper-dim: #99b8b3;
+  --lr-muted: #6b908a;
+  --lr-signal: #0f766e;
+  --lr-signal-2: #2dd4bf;
+  --lr-trail: #0369a1;
+  --lr-trail-dim: rgba(3, 105, 161, 0.4);
+  --lr-accent: #14b8a6;
+  --lr-radius: 12px;
+  --lr-serif: "Space Grotesk", "Noto Sans Devanagari", sans-serif;
+  --lr-sans: "DM Sans", "Noto Sans Devanagari", sans-serif;
+  --lr-mono: "JetBrains Mono", ui-monospace, monospace;
+  --lr-nav-bg: rgba(4, 21, 18, 0.78);
+  --lr-nav-border: rgba(20, 184, 166, 0.18);
   --lr-overlay: rgba(255, 255, 255, 0.04);
-  --lr-glow: rgba(99, 102, 241, 0.1);
+  --lr-glow: rgba(15, 118, 110, 0.14);
+  --lr-shadow-soft: 0 2px 4px rgba(0, 0, 0, 0.18), 0 8px 24px rgba(0, 0, 0, 0.22);
   --lr-pad-x: 32px;
 
   background: var(--lr-ink);
@@ -36,23 +37,24 @@
 }
 
 html.light .landing-redesign {
-  --lr-ink: #f8fafc;
-  --lr-ink-2: #f1f5f9;
+  --lr-ink: #f0fdfa;
+  --lr-ink-2: #e6f7f3;
   --lr-panel: #ffffff;
   --lr-panel-2: #ffffff;
-  --lr-line: rgba(79, 70, 229, 0.16);
-  --lr-paper: #0f172a;
-  --lr-paper-dim: #475569;
+  --lr-line: rgba(15, 118, 110, 0.16);
+  --lr-paper: #134e4a;
+  --lr-paper-dim: #3d6b66;
   --lr-muted: #64748b;
-  --lr-signal: #4f46e5;
-  --lr-signal-2: #4338ca;
-  --lr-trail: #0891b2;
-  --lr-trail-dim: rgba(8, 145, 178, 0.35);
-  --lr-violet: #7c3aed;
-  --lr-nav-bg: rgba(255, 255, 255, 0.88);
-  --lr-nav-border: rgba(79, 70, 229, 0.14);
-  --lr-overlay: rgba(15, 23, 42, 0.04);
-  --lr-glow: rgba(79, 70, 229, 0.08);
+  --lr-signal: #0f766e;
+  --lr-signal-2: #0d9488;
+  --lr-trail: #0369a1;
+  --lr-trail-dim: rgba(3, 105, 161, 0.32);
+  --lr-accent: #14b8a6;
+  --lr-nav-bg: rgba(240, 253, 250, 0.9);
+  --lr-nav-border: rgba(15, 118, 110, 0.14);
+  --lr-overlay: rgba(19, 78, 74, 0.04);
+  --lr-glow: rgba(15, 118, 110, 0.1);
+  --lr-shadow-soft: 0 2px 4px rgba(15, 118, 110, 0.06), 0 10px 28px rgba(15, 118, 110, 0.1);
 }
 
 .landing-redesign::before {
@@ -60,18 +62,18 @@ html.light .landing-redesign {
   position: fixed;
   inset: 0;
   background-image:
-    radial-gradient(circle at 15% 20%, rgba(6, 182, 212, 0.07), transparent 40%),
-    radial-gradient(circle at 85% 60%, var(--lr-glow), transparent 40%),
-    radial-gradient(circle at 50% 100%, rgba(139, 92, 246, 0.08), transparent 45%);
+    radial-gradient(ellipse 80% 55% at 12% 18%, rgba(20, 184, 166, 0.16), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 88% 55%, rgba(3, 105, 161, 0.14), transparent 50%),
+    radial-gradient(ellipse 90% 45% at 48% 100%, rgba(15, 118, 110, 0.12), transparent 55%);
   pointer-events: none;
   z-index: 0;
 }
 
 html.light .landing-redesign::before {
   background-image:
-    radial-gradient(circle at 15% 20%, rgba(8, 145, 178, 0.06), transparent 40%),
-    radial-gradient(circle at 85% 60%, rgba(79, 70, 229, 0.08), transparent 40%),
-    radial-gradient(circle at 50% 100%, rgba(124, 58, 237, 0.06), transparent 45%);
+    radial-gradient(ellipse 80% 55% at 12% 18%, rgba(20, 184, 166, 0.14), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 88% 55%, rgba(3, 105, 161, 0.1), transparent 50%),
+    radial-gradient(ellipse 90% 45% at 48% 100%, rgba(15, 118, 110, 0.08), transparent 55%);
 }
 
 .landing-redesign .contour-svg {
@@ -142,13 +144,18 @@ html.light .landing-redesign::before {
 .landing-redesign h2,
 .landing-redesign h3 {
   font-family: var(--lr-serif);
-  font-weight: 500;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  letter-spacing: -0.03em;
 }
 
 .landing-redesign em {
-  font-style: italic;
+  font-style: normal;
+  font-weight: 700;
   color: var(--lr-signal-2);
+  background: linear-gradient(120deg, var(--lr-signal-2), var(--lr-trail));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 /* ---------- NAV ---------- */
@@ -200,7 +207,7 @@ html.light .landing-redesign::before {
 .landing-redesign .logo .accent {
   color: var(--lr-signal-2);
   font-family: var(--lr-serif);
-  font-style: italic;
+  font-weight: 700;
 }
 
 .landing-redesign .nav-links {
@@ -279,8 +286,8 @@ html.light .landing-redesign::before {
   font-family: var(--lr-sans);
   font-size: 14px;
   font-weight: 600;
-  padding: 11px 20px;
-  border-radius: 999px;
+  padding: 12px 22px;
+  border-radius: 12px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -291,13 +298,14 @@ html.light .landing-redesign::before {
 }
 
 .landing-redesign .btn-primary {
-  background: linear-gradient(135deg, var(--lr-signal) 0%, var(--lr-violet) 100%);
+  background: linear-gradient(135deg, var(--lr-signal) 0%, var(--lr-trail) 100%);
   color: #fff;
+  box-shadow: var(--lr-shadow-soft);
 }
 
 .landing-redesign .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 30px -8px rgba(99, 102, 241, 0.55);
+  box-shadow: 0 12px 28px -8px rgba(15, 118, 110, 0.45);
 }
 
 .landing-redesign .btn-ghost {
@@ -307,8 +315,9 @@ html.light .landing-redesign::before {
 }
 
 .landing-redesign .btn-ghost:hover {
-  border-color: var(--lr-trail);
-  color: var(--lr-trail);
+  border-color: var(--lr-accent);
+  color: var(--lr-signal-2);
+  background: var(--lr-overlay);
 }
 
 .landing-redesign .btn-sm {
@@ -385,7 +394,7 @@ html.light .landing-redesign::before {
   height: 0%;
   background: linear-gradient(to bottom, var(--lr-signal), var(--lr-trail));
   border-radius: 2px;
-  box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+  box-shadow: 0 0 8px rgba(15, 118, 110, 0.45);
   transition: height 0.1s linear;
 }
 
@@ -405,7 +414,7 @@ html.light .landing-redesign::before {
 .landing-redesign .trail-rail .rail-dot.lit {
   background: var(--lr-signal);
   border-color: var(--lr-signal);
-  box-shadow: 0 0 10px rgba(99, 102, 241, 0.8);
+  box-shadow: 0 0 10px rgba(20, 184, 166, 0.55);
 }
 
 .landing-redesign .trail-rail .rail-label {
@@ -510,13 +519,17 @@ html.light .landing-redesign::before {
   position: absolute;
   width: 320px;
   padding: 22px;
-  background: linear-gradient(155deg, rgba(21, 28, 66, 0.92), rgba(15, 21, 53, 0.85));
+  background: linear-gradient(155deg, rgba(20, 48, 44, 0.92), rgba(10, 36, 32, 0.88));
   border: 1px solid var(--lr-line);
-  border-radius: 16px;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.6);
+  border-radius: 14px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--lr-shadow-soft);
   animation: lr-float 6s ease-in-out infinite;
+}
+
+html.light .landing-redesign .glass-card {
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.92), rgba(240, 253, 250, 0.88));
 }
 
 .landing-redesign .glass-card .waypoint-label {
@@ -533,10 +546,10 @@ html.light .landing-redesign::before {
 }
 
 .landing-redesign .glass-card .waypoint-label .badge {
-  background: rgba(6, 182, 212, 0.12);
+  background: rgba(3, 105, 161, 0.14);
   color: var(--lr-trail);
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: 8px;
   font-size: 9.5px;
   flex-shrink: 0;
 }
@@ -851,19 +864,21 @@ html.light .landing-redesign::before {
   padding: 30px;
   position: relative;
   overflow: hidden;
-  transition: transform 0.35s ease, border-color 0.35s ease;
+  box-shadow: var(--lr-shadow-soft);
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .landing-redesign .feature-card:hover {
-  transform: translateY(-6px);
-  border-color: var(--lr-trail-dim);
+  transform: translateY(-4px);
+  border-color: var(--lr-accent);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12), 0 16px 36px rgba(15, 118, 110, 0.16);
 }
 
 .landing-redesign .feature-card .icon {
   width: 42px;
   height: 42px;
-  border-radius: 11px;
-  background: rgba(99, 102, 241, 0.14);
+  border-radius: 10px;
+  background: rgba(15, 118, 110, 0.16);
   color: var(--lr-signal-2);
   display: flex;
   align-items: center;
@@ -1013,9 +1028,9 @@ html.light .landing-redesign::before {
 .landing-redesign .assistant-card {
   background: var(--lr-panel);
   border: 1px solid var(--lr-line);
-  border-radius: 18px;
+  border-radius: 14px;
   padding: 28px;
-  box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--lr-shadow-soft);
 }
 
 .landing-redesign .assistant-head {
@@ -1091,21 +1106,27 @@ html.light .landing-redesign::before {
 }
 
 .landing-redesign .path-card {
-  border-radius: 18px;
+  border-radius: 14px;
   padding: 34px;
   position: relative;
   overflow: hidden;
   border: 1px solid var(--lr-line);
   display: block;
-  transition: border-color 0.3s ease, transform 0.3s ease;
+  box-shadow: var(--lr-shadow-soft);
+  transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .landing-redesign .path-card:hover {
   transform: translateY(-3px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12), 0 16px 36px rgba(15, 118, 110, 0.16);
 }
 
 .landing-redesign .path-card.seeker {
-  background: linear-gradient(155deg, rgba(99, 102, 241, 0.18), rgba(15, 21, 53, 0.9));
+  background: linear-gradient(155deg, rgba(15, 118, 110, 0.28), rgba(10, 36, 32, 0.92));
+}
+
+html.light .landing-redesign .path-card.seeker {
+  background: linear-gradient(155deg, rgba(20, 184, 166, 0.16), rgba(255, 255, 255, 0.95));
 }
 
 .landing-redesign .path-card.recruit {
@@ -1115,7 +1136,7 @@ html.light .landing-redesign::before {
 .landing-redesign .path-card .icon {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: 10px;
   margin-bottom: 20px;
   display: flex;
   align-items: center;
@@ -1123,12 +1144,12 @@ html.light .landing-redesign::before {
 }
 
 .landing-redesign .path-card.seeker .icon {
-  background: rgba(99, 102, 241, 0.18);
+  background: rgba(15, 118, 110, 0.2);
   color: var(--lr-signal-2);
 }
 
 .landing-redesign .path-card.recruit .icon {
-  background: rgba(6, 182, 212, 0.14);
+  background: rgba(3, 105, 161, 0.16);
   color: var(--lr-trail);
 }
 
@@ -1178,16 +1199,17 @@ html.light .landing-redesign::before {
 
 /* ---------- FINAL CTA ---------- */
 .landing-redesign .final-cta {
-  border-radius: 24px;
+  border-radius: 16px;
   padding: 80px 40px;
   text-align: center;
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(circle at 30% 20%, rgba(99, 102, 241, 0.22), transparent 55%),
-    radial-gradient(circle at 75% 70%, rgba(6, 182, 212, 0.15), transparent 55%),
+    radial-gradient(circle at 30% 20%, rgba(15, 118, 110, 0.28), transparent 55%),
+    radial-gradient(circle at 75% 70%, rgba(3, 105, 161, 0.18), transparent 55%),
     var(--lr-panel-2);
   border: 1px solid var(--lr-line);
+  box-shadow: var(--lr-shadow-soft);
 }
 
 .landing-redesign .final-cta .compass-icon {

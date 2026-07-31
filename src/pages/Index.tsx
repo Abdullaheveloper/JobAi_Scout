@@ -167,10 +167,10 @@ export default function Index() {
   return (
     <main className="landing-redesign" ref={rootRef}>
       <svg className="contour-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M-50,120 C 200,80 400,180 650,120 S 1100,60 1300,140" stroke="#06b6d4" strokeWidth="1" fill="none" />
-        <path d="M-50,320 C 250,260 500,380 750,300 S 1150,260 1350,340" stroke="#06b6d4" strokeWidth="1" fill="none" />
-        <path d="M-50,560 C 220,510 480,610 720,540 S 1120,500 1350,580" stroke="#6366f1" strokeWidth="1" fill="none" />
-        <path d="M-50,800 C 260,740 520,840 780,770 S 1150,730 1360,820" stroke="#06b6d4" strokeWidth="1" fill="none" />
+        <path d="M-50,120 C 200,80 400,180 650,120 S 1100,60 1300,140" stroke="#14b8a6" strokeWidth="1" fill="none" />
+        <path d="M-50,320 C 250,260 500,380 750,300 S 1150,260 1350,340" stroke="#14b8a6" strokeWidth="1" fill="none" />
+        <path d="M-50,560 C 220,510 480,610 720,540 S 1120,500 1350,580" stroke="#0369a1" strokeWidth="1" fill="none" />
+        <path d="M-50,800 C 260,740 520,840 780,770 S 1150,730 1360,820" stroke="#0f766e" strokeWidth="1" fill="none" />
       </svg>
 
       <div className="trail-rail" aria-hidden="true">
@@ -426,7 +426,7 @@ export default function Index() {
             <div className="assistant-head">
               <div className="assistant-avatar">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M12 2 3 7v10l9 5 9-5V7z" stroke="#020817" strokeWidth="1.6" strokeLinejoin="round" />
+                  <path d="M12 2 3 7v10l9 5 9-5V7z" stroke="#041512" strokeWidth="1.6" strokeLinejoin="round" />
                 </svg>
               </div>
               <div>
@@ -473,8 +473,8 @@ export default function Index() {
         <div className="final-cta reveal">
           <div className="compass-icon">
             <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-              <circle cx="16" cy="16" r="14.5" stroke="#818cf8" strokeWidth="1.4" />
-              <path d="M16 6 L20 16 L16 26 L12 16 Z" fill="#6366f1" />
+              <circle cx="16" cy="16" r="14.5" stroke="#2dd4bf" strokeWidth="1.4" />
+              <path d="M16 6 L20 16 L16 26 L12 16 Z" fill="#0f766e" />
             </svg>
           </div>
           <h2>{t("landing.ctaTitle")}</h2>
