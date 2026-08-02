@@ -15,6 +15,15 @@ verify_jwt = true
 [functions.career-chat]
 verify_jwt = false
 
+[functions.assistant-agent]
+verify_jwt = true
+
+[functions.assistant-tool]
+verify_jwt = true
+
+[functions.assistant-memory]
+verify_jwt = true
+
 [functions.elevenlabs-tts]
 verify_jwt = false
 

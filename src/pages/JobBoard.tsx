@@ -20,6 +20,7 @@ import { MixedDir } from "@/components/MixedDir";
 import { isUsageLimitError } from "@/lib/usage-limits-client";
 import { useMatchPreferencesGate } from "@/hooks/useMatchPreferencesGate";
 import { useUsageLimitGate } from "@/hooks/useUsageLimitGate";
+import { setVisibleJobId } from "@/lib/assistant/screen-context";
 
 type RecommendedJob = Tables<"recommended_jobs">;
 type Job = Tables<"jobs">;
@@ -106,6 +107,8 @@ export default function JobBoard() {
   const previousSessionIdRef = useRef<string | null>(null);
   const hydratedSessionRef = useRef<string | null>(null);
   const announcedSessionRef = useRef<string | null>(null);
+
+  useEffect(() => () => setVisibleJobId(null), []);
 
   useEffect(() => {
     if (!user) {
@@ -730,7 +733,13 @@ export default function JobBoard() {
               <Badge variant="secondary" className="w-fit border border-border/70 bg-muted/50 font-normal">{t("jobs.updatedFromSources")}</Badge>
             </div>
             {collectedJobs.map((job) => (
-              <Card key={`modern-${job.id}`} className="group overflow-hidden border-border/80 bg-card shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-card-hover">
+              <Card
+                key={`modern-${job.id}`}
+                tabIndex={0}
+                onPointerEnter={() => setVisibleJobId(job.id)}
+                onFocusCapture={() => setVisibleJobId(job.id)}
+                className="group overflow-hidden border-border/80 bg-card shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-card-hover"
+              >
                 <CardContent className="p-0">
                   <div className="flex gap-4 p-5 md:gap-5 md:p-6">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-display text-base font-bold text-primary">{(job.company || "J").charAt(0).toUpperCase()}</div>
@@ -837,7 +846,13 @@ export default function JobBoard() {
               const isNew = isNewJob(job.synced_at || job.created_at);
               const portalColor = PORTAL_COLORS[job.source_portal] || "bg-gray-200 text-gray-700";
               return (
-                <Card key={job.id} className="shadow-card hover:shadow-card-hover transition-all group">
+                <Card
+                  key={job.id}
+                  tabIndex={0}
+                  onPointerEnter={() => setVisibleJobId(job.id)}
+                  onFocusCapture={() => setVisibleJobId(job.id)}
+                  className="shadow-card hover:shadow-card-hover transition-all group"
+                >
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-3 flex-1 min-w-0">

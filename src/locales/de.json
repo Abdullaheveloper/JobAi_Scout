@@ -1217,6 +1217,9 @@
     "showDetails": "Bewerberdetails anzeigen",
     "updateStatusAria": "Status aktualisieren für {{name}}"
   },
+  "assistantShell": {
+    "controls": "Steuerung des JobAI Scout-Assistenten", "open": "Assistenten öffnen", "microphone": "Mikrofon", "history": "Speicher und Verlauf", "collapse": "Assistentenbereich verkleinern", "expand": "Assistentenbereich erweitern", "stop": "Assistenten stoppen", "close": "Assistenten schließen", "liveSite": "Live-JobAI-Scout-Seite", "resize": "Assistentenbereich skalieren", "panel": "JobAI Scout-Assistent", "title": "JobAI Scout-Assistent", "ready": "Bereit, wenn Sie es sind", "state_idle": "Bereit, wenn Sie es sind", "state_listening": "Hört zu...", "state_processing": "Denkt nach...", "state_speaking": "Spricht...", "historyTitle": "Gesprächsverlauf", "historyEmpty": "Ihre Assistentengespräche werden hier angezeigt.", "emptyTitle": "Wie kann ich helfen?", "emptyBody": "Fragen Sie nach Jobs oder erhalten Sie Hilfe bei der Nutzung der Live-Seite.", "messageLabel": "Nachricht an den JobAI Scout-Assistenten", "messagePlaceholder": "Nachricht eingeben...", "useMicrophone": "Mikrofon verwenden", "send": "Nachricht senden", "thinking": "Denke nach...", "listening": "Hört zu...", "interrupted": "Unterbrochen", "voiceUnsupported": "Spracherkennung wird in diesem Browser nicht unterstützt.", "error": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
+  },
   "errors": {
     "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
     "network": "Netzwerkfehler. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",

@@ -100,6 +100,7 @@ export class VoiceRecognition {
       };
       const msg = errorMap[event.error] ?? `Speech recognition error: ${event.error}`;
       if (msg) this.options.onError?.(msg);
+      this.restartOnEnd = false;
       this.active = false;
     };
 

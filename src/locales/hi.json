@@ -1217,6 +1217,9 @@
     "showDetails": "आवेदक विवरण दिखाएँ",
     "updateStatusAria": "{{name}} की स्थिति अपडेट करें"
   },
+  "assistantShell": {
+    "controls": "JobAI Scout सहायक नियंत्रण", "open": "सहायक खोलें", "microphone": "माइक्रोफ़ोन", "history": "मेमोरी और इतिहास", "collapse": "सहायक पैनल छोटा करें", "expand": "सहायक पैनल बड़ा करें", "stop": "सहायक रोकें", "close": "सहायक बंद करें", "liveSite": "लाइव JobAI Scout साइट", "resize": "सहायक पैनल का आकार बदलें", "panel": "JobAI Scout सहायक", "title": "JobAI Scout सहायक", "ready": "आपके लिए तैयार", "state_idle": "आपके लिए तैयार", "state_listening": "सुन रहा हूँ...", "state_processing": "सोच रहा हूँ...", "state_speaking": "बोल रहा हूँ...", "historyTitle": "बातचीत का इतिहास", "historyEmpty": "आपकी सहायक बातचीत यहाँ दिखाई देगी।", "emptyTitle": "मैं कैसे मदद कर सकता हूँ?", "emptyBody": "नौकरियों के बारे में पूछें या लाइव साइट उपयोग करते समय मदद लें।", "messageLabel": "JobAI Scout सहायक को संदेश", "messagePlaceholder": "संदेश लिखें...", "useMicrophone": "माइक्रोफ़ोन उपयोग करें", "send": "संदेश भेजें", "thinking": "सोच रहा हूँ...", "listening": "सुन रहा हूँ...", "interrupted": "बाधित", "voiceUnsupported": "यह ब्राउज़र वॉइस पहचान का समर्थन नहीं करता।", "error": "कुछ गलत हुआ। कृपया फिर प्रयास करें।"
+  },
   "errors": {
     "generic": "कुछ गलत हो गया। कृपया पुनः प्रयास करें।",
     "network": "नेटवर्क त्रुटि। अपना कनेक्शन जाँचें और पुनः प्रयास करें।",

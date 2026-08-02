@@ -1217,6 +1217,9 @@
     "showDetails": "إظهار تفاصيل المتقدم",
     "updateStatusAria": "تحديث الحالة لـ {{name}}"
   },
+  "assistantShell": {
+    "controls": "عناصر تحكم مساعد JobAI Scout", "open": "فتح المساعد", "microphone": "الميكروفون", "history": "الذاكرة والسجل", "collapse": "تصغير لوحة المساعد", "expand": "توسيع لوحة المساعد", "stop": "إيقاف المساعد", "close": "إغلاق المساعد", "liveSite": "موقع JobAI Scout المباشر", "resize": "تغيير حجم لوحة المساعد", "panel": "مساعد JobAI Scout", "title": "مساعد JobAI Scout", "ready": "جاهز عندما تكون مستعدًا", "state_idle": "جاهز عندما تكون مستعدًا", "state_listening": "جارٍ الاستماع...", "state_processing": "جارٍ التفكير...", "state_speaking": "جارٍ التحدث...", "historyTitle": "سجل المحادثات", "historyEmpty": "ستظهر محادثاتك مع المساعد هنا.", "emptyTitle": "كيف يمكنني مساعدتك؟", "emptyBody": "اسأل عن الوظائف أو احصل على المساعدة أثناء استخدام الموقع المباشر.", "messageLabel": "مراسلة مساعد JobAI Scout", "messagePlaceholder": "اكتب رسالة...", "useMicrophone": "استخدام الميكروفون", "send": "إرسال الرسالة", "thinking": "جارٍ التفكير...", "listening": "جارٍ الاستماع...", "interrupted": "تمت المقاطعة", "voiceUnsupported": "التعرف الصوتي غير مدعوم في هذا المتصفح.", "error": "حدث خطأ. يرجى المحاولة مرة أخرى."
+  },
   "errors": {
     "generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
     "network": "Network error. Check your connection and try again.",

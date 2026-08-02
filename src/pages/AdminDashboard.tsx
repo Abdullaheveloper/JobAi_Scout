@@ -1,60 +1,78 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
 import { MixedDir } from "@/components/MixedDir";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Briefcase, TrendingUp, Shield, MousePointerClick, UserCheck } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Users, Briefcase, Shield, MousePointerClick, UserCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
+
+type UsageRecord = {
+  field_count: number;
+};
 
 export default function AdminDashboard() {
   const { t } = useTranslation();
-  const [stats, setStats] = useState({ users: 0, jobs: 0, applications: 0, fillClicks: 0, fieldsFilled: 0, pending: 0 });
-  const [fieldBreakdown, setFieldBreakdown] = useState<{ field: string; count: number }[]>([]);
-  const [topUsers, setTopUsers] = useState<{ email: string; clicks: number; fields: number }[]>([]);
+  const [stats, setStats] = useState({ users: 0, jobs: 0, fillClicks: 0, fieldsFilled: 0, pending: 0 });
+  const fetchInProgress = useRef(false);
 
-  useEffect(() => {
-    fetchStats();
+  const fetchStats = useCallback(async () => {
+    if (fetchInProgress.current) return;
+    fetchInProgress.current = true;
+
+    try {
+      const [usersRes, jobsRes, pendingRes] = await Promise.all([
+        supabase.from("profiles").select("id", { count: "exact", head: true }),
+        supabase.from("jobs").select("id", { count: "exact", head: true }),
+        supabase.from("profiles").select("id", { count: "exact", head: true }).eq("approval_status", "pending"),
+      ]);
+
+      // Supabase limits a select to 1,000 rows by default. Read every page so the
+      // admin totals always represent the complete persisted form-fill history.
+      const usage: UsageRecord[] = [];
+      const pageSize = 1000;
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from("extension_usage")
+          .select("field_count")
+          .order("created_at", { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        usage.push(...(data || []));
+        if (!data || data.length < pageSize) break;
+      }
+
+      const totalFields = usage.reduce((sum, record) => sum + (record.field_count || 0), 0);
+      setStats({
+        users: usersRes.count || 0,
+        jobs: jobsRes.count || 0,
+        fillClicks: usage.length,
+        fieldsFilled: totalFields,
+        pending: pendingRes.count || 0,
+      });
+    } finally {
+      fetchInProgress.current = false;
+    }
   }, []);
 
-  const fetchStats = async () => {
-    const [usersRes, jobsRes, appsRes, usageRes, pendingRes] = await Promise.all([
-      supabase.from("profiles").select("id", { count: "exact", head: true }),
-      supabase.from("jobs").select("id", { count: "exact", head: true }),
-      supabase.from("job_applications").select("id", { count: "exact", head: true }),
-      supabase.from("extension_usage").select("email,fields,field_count").limit(1000),
-      supabase.from("profiles").select("id", { count: "exact", head: true }).eq("approval_status", "pending"),
-    ]);
-    const usage = usageRes.data || [];
-    const totalFields = usage.reduce((s, r: any) => s + (r.field_count || 0), 0);
-    const fieldMap: Record<string, number> = {};
-    const userMap: Record<string, { clicks: number; fields: number }> = {};
-    usage.forEach((r: any) => {
-      (r.fields || []).forEach((f: string) => { fieldMap[f] = (fieldMap[f] || 0) + 1; });
-      const e = r.email || "unknown";
-      if (!userMap[e]) userMap[e] = { clicks: 0, fields: 0 };
-      userMap[e].clicks += 1;
-      userMap[e].fields += r.field_count || 0;
-    });
-    setStats({
-      users: usersRes.count || 0,
-      jobs: jobsRes.count || 0,
-      applications: appsRes.count || 0,
-      fillClicks: usage.length,
-      fieldsFilled: totalFields,
-      pending: pendingRes.count || 0,
-    });
-    setFieldBreakdown(
-      Object.entries(fieldMap).map(([field, count]) => ({ field, count })).sort((a, b) => b.count - a.count)
-    );
-    setTopUsers(
-      Object.entries(userMap)
-        .map(([email, v]) => ({ email, ...v }))
-        .sort((a, b) => b.clicks - a.clicks)
-        .slice(0, 10)
-    );
-  };
+  useEffect(() => {
+    void fetchStats();
+
+    // Re-fetch immediately after database changes. The interval is a fallback
+    // for projects where Realtime replication has not been enabled for this table.
+    const channel = supabase
+      .channel("admin-dashboard-live-records")
+      .on("postgres_changes", { event: "*", schema: "public", table: "extension_usage" }, () => void fetchStats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => void fetchStats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, () => void fetchStats())
+      .subscribe();
+    const pollingId = window.setInterval(() => void fetchStats(), 15_000);
+
+    return () => {
+      window.clearInterval(pollingId);
+      void supabase.removeChannel(channel);
+    };
+  }, [fetchStats]);
 
   return (
     <DashboardLayout>
@@ -68,7 +86,7 @@ export default function AdminDashboard() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-3">
           <Card className="shadow-card hover:shadow-card-hover transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{t("admin.totalUsers")}</CardTitle>
@@ -101,15 +119,6 @@ export default function AdminDashboard() {
               <div className="text-3xl font-bold font-display">{stats.jobs}</div>
             </CardContent>
           </Card>
-          <Card className="shadow-card hover:shadow-card-hover transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{t("admin.applications")}</CardTitle>
-              <TrendingUp className="h-5 w-5 text-warning" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold font-display">{stats.applications}</div>
-            </CardContent>
-          </Card>
         </div>
 
         <div>
@@ -136,63 +145,6 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card className="shadow-card">
-            <CardHeader><CardTitle className="text-base">{t("admin.fieldsBreakdown")}</CardTitle></CardHeader>
-            <CardContent>
-              {fieldBreakdown.length === 0 ? (
-                <p className="text-sm text-muted-foreground"><MixedDir>{t("admin.noDataYet")}</MixedDir></p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("admin.colField")}</TableHead>
-                      <TableHead className="text-end">{t("admin.colTimesFilled")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {fieldBreakdown.map((r) => (
-                      <TableRow key={r.field}>
-                        <TableCell className="capitalize">{r.field.replace(/_/g, " ")}</TableCell>
-                        <TableCell className="text-end font-medium">{r.count}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card">
-            <CardHeader><CardTitle className="text-base">{t("admin.topUsers")}</CardTitle></CardHeader>
-            <CardContent>
-              {topUsers.length === 0 ? (
-                <p className="text-sm text-muted-foreground"><MixedDir>{t("admin.noDataYet")}</MixedDir></p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("admin.colUser")}</TableHead>
-                      <TableHead className="text-end">{t("admin.colClicks")}</TableHead>
-                      <TableHead className="text-end">{t("admin.colFields")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {topUsers.map((u) => (
-                      <TableRow key={u.email}>
-                        <TableCell className="truncate max-w-[200px]">
-                          <MixedDir>{u.email}</MixedDir>
-                        </TableCell>
-                        <TableCell className="text-end font-medium">{u.clicks}</TableCell>
-                        <TableCell className="text-end">{u.fields}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </DashboardLayout>
   );

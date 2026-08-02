@@ -4,13 +4,20 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocaleProvider } from "@/i18n/LocaleProvider";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
+import { AssistantWorkspaceShell } from "@/components/assistant/AssistantWorkspaceShell";
+
+function AssistantRouteShell({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  const isPortalRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/recruiter") || pathname.startsWith("/admin");
+  return isPortalRoute ? <AssistantWorkspaceShell>{children}</AssistantWorkspaceShell> : children;
+}
 
 function JobSeekerRoute({ children }: { children: React.ReactNode }) {
   return (
@@ -77,6 +84,7 @@ const App = () => (
           <ThemeProvider>
           <LocaleProvider>
           <CookieConsentBanner />
+          <AssistantRouteShell>
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Index />} />
@@ -116,6 +124,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+          </AssistantRouteShell>
           </LocaleProvider>
           </ThemeProvider>
         </AuthProvider>

@@ -1217,6 +1217,9 @@
     "showDetails": "درخواست دہندہ کی تفصیلات دکھائیں",
     "updateStatusAria": "{{name}} کی حیثیت اپ ڈیٹ کریں"
   },
+  "assistantShell": {
+    "controls": "JobAI Scout اسسٹنٹ کنٹرولز", "open": "اسسٹنٹ کھولیں", "microphone": "مائیکروفون", "history": "میموری اور تاریخ", "collapse": "اسسٹنٹ پینل چھوٹا کریں", "expand": "اسسٹنٹ پینل بڑا کریں", "stop": "اسسٹنٹ روکیں", "close": "اسسٹنٹ بند کریں", "liveSite": "لائیو JobAI Scout سائٹ", "resize": "اسسٹنٹ پینل کا سائز بدلیں", "panel": "JobAI Scout اسسٹنٹ", "title": "JobAI Scout اسسٹنٹ", "ready": "آپ کے لیے تیار", "state_idle": "آپ کے لیے تیار", "state_listening": "سن رہا ہے...", "state_processing": "سوچ رہا ہے...", "state_speaking": "بول رہا ہے...", "historyTitle": "گفتگو کی تاریخ", "historyEmpty": "آپ کی اسسٹنٹ گفتگو یہاں نظر آئے گی۔", "emptyTitle": "میں کیسے مدد کر سکتا ہوں؟", "emptyBody": "نوکریوں کے بارے میں پوچھیں یا لائیو سائٹ استعمال کرتے ہوئے مدد لیں۔", "messageLabel": "JobAI Scout اسسٹنٹ کو پیغام", "messagePlaceholder": "پیغام لکھیں...", "useMicrophone": "مائیکروفون استعمال کریں", "send": "پیغام بھیجیں", "thinking": "سوچ رہا ہوں...", "listening": "سن رہا ہے...", "interrupted": "مداخلت ہوئی", "voiceUnsupported": "یہ براؤزر آواز کی شناخت کو سپورٹ نہیں کرتا۔", "error": "کچھ غلط ہوا۔ براہ کرم دوبارہ کوشش کریں۔"
+  },
   "errors": {
     "generic": "کچھ غلط ہو گیا۔ براہ کرم دوبارہ کوشش کریں۔",
     "network": "Network error. Check your connection and try again.",
