@@ -2,6 +2,8 @@ export type AssistantVoiceState = "idle" | "listening" | "processing" | "speakin
 export type AssistantInteractionMode = "text" | "voice";
 
 export const shouldSpeakAssistantResponse = (mode: AssistantInteractionMode) => mode === "voice";
+export const canSpeakAssistantResponse = (turnMode: AssistantInteractionMode, activeMode: AssistantInteractionMode) =>
+  shouldSpeakAssistantResponse(turnMode) && activeMode === "voice";
 
 export const isStopCommand = (transcript: string) => transcript.trim().toLocaleLowerCase().replace(/[.!?,;:]+$/g, "") === "stop";
 

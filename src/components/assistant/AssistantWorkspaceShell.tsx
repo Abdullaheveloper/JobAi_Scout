@@ -9,7 +9,7 @@ import { runAssistantTurn, type AssistantMessage } from "@/lib/assistant/agent";
 import { VoiceRecognition } from "@/lib/voice/recognition";
 import { voiceSynthesis } from "@/lib/voice/synthesis";
 import { VoiceActivityDetector } from "@/lib/voice/vad";
-import { isStopCommand, shouldSpeakAssistantResponse, speechText, type AssistantVoiceState } from "@/lib/assistant/voice-state";
+import { canSpeakAssistantResponse, isStopCommand, shouldSpeakAssistantResponse, speechText, type AssistantInteractionMode, type AssistantVoiceState } from "@/lib/assistant/voice-state";
 import type { ConfirmationDecision, ConfirmationRequest } from "@/lib/assistant/tools";
 import { appendAssistantMessage, compactMemoryContext, createAssistantSession, loadAssistantMemory, type AssistantSession, type MemoryBootstrap } from "@/lib/assistant/memory";
 
@@ -71,6 +71,7 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
   const runningRef = useRef(false);
   const voiceStateRef = useRef<AssistantVoiceState>("idle");
   const confirmationResolverRef = useRef<((decision: ConfirmationDecision) => void) | null>(null);
+  const interactionModeRef = useRef<AssistantInteractionMode>("text");
   const messageListRef = useRef<HTMLDivElement>(null);
   const messageEndRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -263,7 +264,8 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
     setScopeAcknowledgement("");
   };
 
-  const speakAnswer = async (content: string, messageId: string) => {
+  const speakAnswer = async (content: string, messageId: string, mode: AssistantInteractionMode) => {
+    if (!canSpeakAssistantResponse(mode, interactionModeRef.current)) return;
     const speakable = speechText(content);
     if (!speakable || !("speechSynthesis" in window)) {
       setVoice("idle");
@@ -304,6 +306,7 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
   };
 
   const interruptVoiceForText = () => {
+    interactionModeRef.current = "text";
     if (voiceStateRef.current !== "speaking") return;
     markSpokenResponseInterrupted();
     vadRef.current?.stop();
@@ -314,6 +317,7 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
 
   const submitMessage = async (content: string, mode: "text" | "voice", existingUserId?: string) => {
     const trimmed = content.trim();
+    interactionModeRef.current = mode;
     if (mode === "text") interruptVoiceForText();
     if (!trimmed || runningRef.current) return;
     if (!session) {
@@ -375,7 +379,7 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
       if (shouldSpeakAssistantResponse(mode) && voiceStateRef.current === "processing") {
         setRunning(false);
         if (abortRef.current === controller) abortRef.current = null;
-        await speakAnswer(response, assistantId);
+        await speakAnswer(response, assistantId, mode);
       }
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
@@ -385,7 +389,7 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
         if ((error as Error & { code?: string })?.code === "SESSION_LIMIT") setUsageNearLimit(true);
         updateMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: errorMessage } : message));
         setVoice("idle");
-        if (shouldSpeakAssistantResponse(mode)) await speakAnswer(errorMessage, assistantId);
+        if (shouldSpeakAssistantResponse(mode)) await speakAnswer(errorMessage, assistantId, mode);
       }
     } finally {
       if (abortRef.current === controller) {
@@ -407,7 +411,7 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
       const noSpeech = t("assistantShell.noSpeech", { defaultValue: "I couldn't recognize any speech. Please try again." });
       if (messageId) updateMessages((current) => current.map((message) => message.id === messageId ? { ...message, role: "assistant", content: noSpeech, live: false } : message));
       setVoice("idle");
-      if (messageId) void speakAnswer(noSpeech, messageId);
+      if (messageId) void speakAnswer(noSpeech, messageId, "voice");
       return;
     }
     if (isStopCommand(transcript)) {
@@ -420,6 +424,7 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
   };
 
   async function startListening(bargeIn = false) {
+    interactionModeRef.current = "voice";
     if (bargeIn || voiceStateRef.current === "speaking") {
       markSpokenResponseInterrupted();
       voiceSynthesis.stop();
@@ -458,13 +463,13 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
       onError: (error) => {
         updateMessages((current) => current.map((message) => message.id === messageId ? { ...message, role: "assistant", content: error, live: false } : message));
         setVoice("idle");
-        void speakAnswer(error, messageId);
+        void speakAnswer(error, messageId, "voice");
       },
     });
     if (!started) {
       updateMessages((current) => current.map((message) => message.id === messageId ? { ...message, role: "assistant", content: t("assistantShell.voiceUnsupported"), live: false } : message));
       setVoice("idle");
-      void speakAnswer(t("assistantShell.voiceUnsupported"), messageId);
+      void speakAnswer(t("assistantShell.voiceUnsupported"), messageId, "voice");
     }
   }
 

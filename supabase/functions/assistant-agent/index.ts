@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { assistantSessionLimitState } from "../_shared/assistant-session-limits.ts";
+import { normalizeAssistantToolSchema } from "../_shared/assistant-tool-schema.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
         function: {
           name: tool.name,
           description: tool.description,
-          parameters: tool.parameters,
+          parameters: normalizeAssistantToolSchema(tool.parameters),
         },
       }));
 
@@ -91,7 +92,16 @@ When the user states a durable preference about desired role, skills, experience
     if (!response.ok) {
       const detail = await response.text();
       console.error("assistant-agent OpenRouter error", response.status, detail.slice(0, 500));
-      return json({ error: response.status === 429 ? "AI rate limit reached. Please try again shortly." : "AI service error" }, response.status === 429 ? 429 : 502);
+      const providerError = response.status === 429
+        ? "AI rate limit reached. Please try again shortly."
+        : response.status === 401 || response.status === 403
+          ? "AI provider authentication failed. Please contact support."
+          : response.status === 402
+            ? "AI provider credits are unavailable. Please contact support."
+            : response.status >= 500
+              ? "The AI provider is temporarily unavailable. Please try again shortly."
+              : "The assistant request was rejected. Please refresh and try again.";
+      return json({ error: providerError }, response.status === 429 ? 429 : 502);
     }
 
     const completion = await response.json();
