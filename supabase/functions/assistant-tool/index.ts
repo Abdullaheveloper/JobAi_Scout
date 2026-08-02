@@ -23,6 +23,22 @@ const destinations: Record<string, { route: string; label: string; roles: Role[]
 const text = (value: unknown, max = 200) => typeof value === "string" ? value.trim().slice(0, max) : "";
 const number = (value: unknown, fallback: number, min: number, max: number) => Math.min(max, Math.max(min, Number(value) || fallback));
 
+function validTimezone(value: unknown) {
+  const timezone = text(value, 80);
+  if (!timezone) return "";
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: timezone }).format();
+    return timezone;
+  } catch {
+    return "";
+  }
+}
+
+function automationParamsForContext(params: Params, context: Params): Params {
+  const timezone = validTimezone(context.timezone) || "Asia/Karachi";
+  return { ...params, schedule: { ...((params.schedule as Params) || {}), timezone } };
+}
+
 function scopeSummary(tool: string, params: Params) {
   if (tool === "apply_to_job") return `Submit and record an application for job ${text(params.job_id, 50) || "currently visible"}`;
   if (tool === "generate_cover_letter") return `Generate a tailored cover letter for job ${text(params.job_id, 50) || "currently visible"}`;
@@ -160,7 +176,7 @@ async function executeTool(tool: string, params: Params, context: Params, userId
   }
   if (tool === "upload_cv") return { result: { ready: true, message: "Choose a CV file in Upload CV." }, ui_update: "Upload CV opened", ui_effect: { type: "file_picker", route: "/dashboard/cv?assistantUpload=1" } };
   if (tool === "create_automation") {
-    const schedule = (params.schedule as Params) || {}; const cron = text(schedule.cron, 80); const parsed = cronToSchedule(cron); const timezone = text(schedule.timezone, 80) || "UTC"; const startsAt = text(schedule.starts_at, 80) || null;
+    const schedule = (params.schedule as Params) || {}; const cron = text(schedule.cron, 80); const parsed = cronToSchedule(cron); const timezone = validTimezone(schedule.timezone) || validTimezone(context.timezone) || "Asia/Karachi"; const startsAt = text(schedule.starts_at, 80) || null;
     const { data, error } = await admin.from("job_scrape_schedules").insert({ user_id: userId, name: text((params.action as Params)?.query, 80) || "Assistant job search", timezone, is_active: true, cron_expression: cron, action: params.action || { type: "scrape_jobs" }, starts_at: startsAt, ...parsed }).select("*").single(); if (error) throw error;
     return { result: { created: true, automation: data }, ui_update: "Automation created" };
   }
@@ -218,9 +234,10 @@ Deno.serve(async (req) => {
       const outcome = await executeAndAudit(pending.tool_name, pending.parameters, body.context || {}, user.id, role, userClient, admin, authorization); await admin.from("assistant_pending_actions").update({ status: "executed", executed_at: new Date().toISOString() }).eq("id", pending.id); return json(outcome);
     }
 
-    const tool = text(body.tool, 80); const params = body.params && typeof body.params === "object" ? body.params as Params : {}; const context = body.context && typeof body.context === "object" ? body.context as Params : {}; const policy = toolPolicy[tool];
+    const tool = text(body.tool, 80); let params = body.params && typeof body.params === "object" ? body.params as Params : {}; const context = body.context && typeof body.context === "object" ? body.context as Params : {}; const policy = toolPolicy[tool];
     if (!policy) return json({ error: "Unknown assistant tool" }, 400);
     if (!policy.roles.includes(role)) return json({ result: { refused: true, message: "That request belongs to a different account role, so I did not run it." }, ui_update: "Action refused" });
+    if (tool === "create_automation") params = automationParamsForContext(params, context);
     if (policy.tier !== "safe") {
       const scope = scopeSummary(tool, params); const { data, error } = await admin.from("assistant_pending_actions").insert({ user_id: user.id, tool_name: tool, parameters: params, permission_tier: policy.tier, scope_summary: scope }).select("id").single(); if (error) throw error;
       return json({ confirmation_required: true, confirmation: { action_id: data.id, tool, permission_tier: policy.tier, scope, acknowledgement: policy.tier === "strong_confirm" ? `I confirm: ${scope}` : undefined, ...uiSummary(tool, scope, params) } });

@@ -70,34 +70,48 @@ Use the provided tools whenever an action or live database information is requir
 Current screen state:
 ${JSON.stringify(screenState)}
 
+The user's selected language is ${JSON.stringify(screenState.language || "en")} and their IANA timezone is ${JSON.stringify(screenState.timezone || "UTC")}.
+Always reply in that selected language. Supported languages are English (en), French (fr), German (de), Hindi (hi), Urdu (ur), and Arabic (ar).
+For schedules, interpret the user's clock time in their IANA timezone and always pass that timezone to create_automation. Never silently convert a displayed time to UTC.
+
 Durable user memory and compact cross-session context:
 ${JSON.stringify(body.memory_context || {})}
 
 When the user states a durable preference about desired role, skills, experience level, location, or automation behavior, call remember_user_preference. Do not infer sensitive facts or store temporary requests.`,
     };
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [systemMessage, ...messages],
-        tools,
-        tool_choice: "auto",
-        temperature: 0.2,
-        max_tokens: 1200,
-      }),
-    });
+    let response: Response | null = null;
+    let responseDetail = "";
+    // Free-tier credit availability can vary. Keep normal replies concise and
+    // retry once with a smaller reservation instead of failing the whole turn.
+    for (const maxTokens of [700, 350]) {
+      response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [systemMessage, ...messages],
+          tools,
+          tool_choice: "auto",
+          temperature: 0.2,
+          max_tokens: maxTokens,
+        }),
+      });
+      if (response.status !== 402) break;
+      responseDetail = await response.text();
+    }
+
+    if (!response) return json({ error: "The AI provider did not respond." }, 502);
 
     if (!response.ok) {
-      const detail = await response.text();
+      const detail = responseDetail || await response.text();
       console.error("assistant-agent OpenRouter error", response.status, detail.slice(0, 500));
       const providerError = response.status === 429
         ? "AI rate limit reached. Please try again shortly."
         : response.status === 401 || response.status === 403
           ? "AI provider authentication failed. Please contact support."
           : response.status === 402
-            ? "AI provider credits are unavailable. Please contact support."
+            ? "The AI provider cannot fund even a short reply. Add OpenRouter credits or configure a paid provider."
             : response.status >= 500
               ? "The AI provider is temporarily unavailable. Please try again shortly."
               : "The assistant request was rejected. Please refresh and try again.";

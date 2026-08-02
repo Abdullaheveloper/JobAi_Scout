@@ -2,7 +2,14 @@ import type { NavigateFunction } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 export type PermissionTier = "safe" | "confirm" | "strong_confirm";
-export type AssistantScreenContext = { route: string; visible_job_id: string | null; role: "admin" | "user" | "recruiter" | null; session_id?: string };
+export type AssistantScreenContext = {
+  route: string;
+  visible_job_id: string | null;
+  role: "admin" | "user" | "recruiter" | null;
+  session_id?: string;
+  language?: string;
+  timezone?: string;
+};
 export type ConfirmationRequest = { action_id: string; tool: string; permission_tier: PermissionTier; scope: string; title: string; details: string[]; acknowledgement?: string };
 export type ConfirmationDecision = { decision: "confirm" | "cancel"; acknowledgement?: string };
 export type ToolExecutionResult = { result: Record<string, unknown>; ui_update: string; linked_tool_call?: { name: string; params: Record<string, unknown> } };
@@ -68,10 +75,11 @@ function applyUiEffect(effect: { type?: string; route?: string; url?: string } |
 }
 
 async function executeOnServer(name: string, params: Record<string, unknown>, ctx: AssistantToolContext): Promise<ToolExecutionResult> {
-  let data = await invoke({ tool: name, params, context: { route: ctx.route, visible_job_id: ctx.visible_job_id, session_id: ctx.session_id } }, ctx.signal);
+  const context = { route: ctx.route, visible_job_id: ctx.visible_job_id, session_id: ctx.session_id, language: ctx.language, timezone: ctx.timezone };
+  let data = await invoke({ tool: name, params, context }, ctx.signal);
   if (data.confirmation_required) {
     const decision = await ctx.requestConfirmation(data.confirmation as ConfirmationRequest);
-    data = await invoke({ action_id: data.confirmation.action_id, decision: decision.decision, acknowledgement: decision.acknowledgement, context: { route: ctx.route, visible_job_id: ctx.visible_job_id, session_id: ctx.session_id } }, ctx.signal);
+    data = await invoke({ action_id: data.confirmation.action_id, decision: decision.decision, acknowledgement: decision.acknowledgement, context }, ctx.signal);
   }
   applyUiEffect(data.ui_effect, ctx);
   return { result: data.result || { ok: true }, ui_update: data.ui_update || `${name.replaceAll("_", " ")} completed` };

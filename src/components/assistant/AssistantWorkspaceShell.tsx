@@ -354,6 +354,8 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
           route: `${location.pathname}${location.search}`,
           visible_job_id: getVisibleJobId(),
           role,
+          language: i18n.resolvedLanguage || i18n.language || "en",
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Karachi",
         },
         navigate,
         signal: controller.signal,
