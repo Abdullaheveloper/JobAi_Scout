@@ -52,6 +52,14 @@ describe("AssistantWorkspaceShell", () => {
     expect(screen.queryByRole("complementary", { name: "assistantShell.panel" })).not.toBeInTheDocument();
   });
 
+  it("keeps the composer sticky while only the message list scrolls", () => {
+    render(<MemoryRouter><AssistantWorkspaceShell><div /></AssistantWorkspaceShell></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "assistantShell.open" }));
+    expect(screen.getByTestId("assistant-message-list")).toHaveClass("flex-1", "overflow-y-auto", "pb-6");
+    expect(screen.getByTestId("assistant-composer")).toHaveClass("sticky", "bottom-0", "shrink-0");
+    expect(screen.getByRole("complementary", { name: "assistantShell.panel" })).toHaveClass("overflow-hidden");
+  });
+
   it("resizes within desktop bounds and persists the selected ratio", () => {
     render(<MemoryRouter><AssistantWorkspaceShell><div data-testid="live-site" /></AssistantWorkspaceShell></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "assistantShell.open" }));

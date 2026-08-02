@@ -71,6 +71,8 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
   const runningRef = useRef(false);
   const voiceStateRef = useRef<AssistantVoiceState>("idle");
   const confirmationResolverRef = useRef<((decision: ConfirmationDecision) => void) | null>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
+  const messageEndRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -89,6 +91,11 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
   const [memoryError, setMemoryError] = useState("");
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => {
+    if (historyOpen) return;
+    const frame = window.requestAnimationFrame(() => messageEndRef.current?.scrollIntoView({ block: "nearest" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [messages, pendingConfirmation, usageNearLimit, memoryError, historyOpen]);
 
   useEffect(() => {
     if (!user) return;
@@ -471,6 +478,9 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
   const toolbar = (
     <div
       className="fixed bottom-4 end-4 z-[70] flex items-center gap-0.5 rounded-xl border border-border/70 bg-card/95 p-1.5 shadow-2xl backdrop-blur-xl"
+      style={open ? (isMobile
+        ? { bottom: `calc(${ratio}% + 0.75rem)` }
+        : { insetInlineEnd: `calc(${ratio}% + 0.75rem)` }) : undefined}
       aria-label={t("assistantShell.controls")}
     >
       <IconButton label={t("assistantShell.open")} active={open} onClick={() => setOpen(true)}>
@@ -495,11 +505,11 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
   );
 
   if (!open) {
-    return <div className="relative flex h-screen min-h-0 w-full flex-col">{children}{toolbar}</div>;
+    return <div className="relative flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">{children}{toolbar}</div>;
   }
 
   return (
-    <div ref={shellRef} className="relative flex h-screen min-h-0 w-full flex-col overflow-hidden md:flex-row">
+    <div ref={shellRef} className="relative flex h-[100dvh] max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden md:flex-row">
       <section
         aria-label={t("assistantShell.liveSite")}
         className="order-1 min-h-0 min-w-0 overflow-auto md:order-1"
@@ -528,7 +538,7 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
 
       <aside
         aria-label={t("assistantShell.panel")}
-        className="order-3 flex min-h-0 min-w-0 flex-col bg-card md:order-3"
+        className="order-3 flex min-h-0 min-w-0 flex-col overflow-hidden bg-card md:order-3"
         style={isMobile ? { height: `${ratio}%` } : { width: `${ratio}%` }}
       >
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4">
@@ -549,7 +559,7 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-auto p-4" aria-live="polite">
+        <div ref={messageListRef} data-testid="assistant-message-list" className="min-h-0 flex-1 overscroll-contain overflow-y-auto overflow-x-hidden px-4 pb-6 pt-4 scroll-pb-6" aria-live="polite">
           {historyOpen ? (
             <div className="space-y-5">
               <section>
@@ -619,11 +629,12 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
                   </div>
                 </section>
               )}
+              <div ref={messageEndRef} className="h-px" aria-hidden="true" />
             </div>
           )}
         </div>
 
-        <form className="shrink-0 border-t border-border p-3" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
+        <form data-testid="assistant-composer" className="sticky bottom-0 z-30 mt-auto shrink-0 border-t border-border bg-card/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_-18px_hsl(var(--foreground)/0.35)] backdrop-blur-xl" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
           <div className="flex items-end gap-2 rounded-xl border border-border bg-background p-2 focus-within:ring-2 focus-within:ring-primary/30">
             <textarea
               aria-label={t("assistantShell.messageLabel")}
