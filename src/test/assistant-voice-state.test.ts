@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { isStopCommand, speechText } from "@/lib/assistant/voice-state";
+import { isStopCommand, shouldSpeakAssistantResponse, speechText } from "@/lib/assistant/voice-state";
 
 describe("assistant voice state helpers", () => {
+  it("matches output mode to each individual input turn", () => {
+    expect(shouldSpeakAssistantResponse("text")).toBe(false);
+    expect(shouldSpeakAssistantResponse("voice")).toBe(true);
+  });
   it("catches stop locally despite casing or terminal punctuation", () => {
     expect(isStopCommand("stop")).toBe(true);
     expect(isStopCommand(" STOP! ")).toBe(true);

@@ -9,7 +9,7 @@ import { runAssistantTurn, type AssistantMessage } from "@/lib/assistant/agent";
 import { VoiceRecognition } from "@/lib/voice/recognition";
 import { voiceSynthesis } from "@/lib/voice/synthesis";
 import { VoiceActivityDetector } from "@/lib/voice/vad";
-import { isStopCommand, speechText, type AssistantVoiceState } from "@/lib/assistant/voice-state";
+import { isStopCommand, shouldSpeakAssistantResponse, speechText, type AssistantVoiceState } from "@/lib/assistant/voice-state";
 import type { ConfirmationDecision, ConfirmationRequest } from "@/lib/assistant/tools";
 import { appendAssistantMessage, compactMemoryContext, createAssistantSession, loadAssistantMemory, type AssistantSession, type MemoryBootstrap } from "@/lib/assistant/memory";
 
@@ -303,8 +303,18 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
     });
   };
 
+  const interruptVoiceForText = () => {
+    if (voiceStateRef.current !== "speaking") return;
+    markSpokenResponseInterrupted();
+    vadRef.current?.stop();
+    vadRef.current = null;
+    voiceSynthesis.stop();
+    setVoice("idle");
+  };
+
   const submitMessage = async (content: string, mode: "text" | "voice", existingUserId?: string) => {
     const trimmed = content.trim();
+    if (mode === "text") interruptVoiceForText();
     if (!trimmed || runningRef.current) return;
     if (!session) {
       setMemoryError("Assistant memory is still loading. Please try again in a moment.");
@@ -329,8 +339,8 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
     setDraft("");
     setRunning(true);
     if (mode === "voice") setVoice("processing");
-    abortRef.current = new AbortController();
-    let toolFailed = false;
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       await appendAssistantMessage(session.id, "user", trimmed);
@@ -342,7 +352,7 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
           role,
         },
         navigate,
-        signal: abortRef.current.signal,
+        signal: controller.signal,
         requestConfirmation,
         sessionId: session.id,
         memoryContext: compactMemoryContext(memory, session.id),
@@ -350,7 +360,6 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
           setSession((current) => current ? { ...current, input_tokens: usage.input_tokens, output_tokens: usage.output_tokens } : current);
           setUsageNearLimit(usage.near_limit);
         },
-        onToolError: () => { toolFailed = true; },
         onToolResult: ({ ui_update, result, linked_tool_call }) => {
           updateMessages((current) => current.map((message) => message.id === assistantId
             ? { ...message, statuses: [...(message.statuses || []), ui_update] }
@@ -359,9 +368,15 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
         },
       });
       updateMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: response } : message));
-      await appendAssistantMessage(session.id, "assistant", response);
-      setMemory(await loadAssistantMemory());
-      if ((mode === "voice" && voiceStateRef.current === "processing") || toolFailed) await speakAnswer(response, assistantId);
+      void appendAssistantMessage(session.id, "assistant", response)
+        .then(() => loadAssistantMemory())
+        .then(setMemory)
+        .catch((error) => setMemoryError(error instanceof Error ? error.message : "Assistant history could not be saved."));
+      if (shouldSpeakAssistantResponse(mode) && voiceStateRef.current === "processing") {
+        setRunning(false);
+        if (abortRef.current === controller) abortRef.current = null;
+        await speakAnswer(response, assistantId);
+      }
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
         updateMessages((current) => current.filter((message) => message.id !== assistantId));
@@ -370,11 +385,13 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
         if ((error as Error & { code?: string })?.code === "SESSION_LIMIT") setUsageNearLimit(true);
         updateMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: errorMessage } : message));
         setVoice("idle");
-        await speakAnswer(errorMessage, assistantId);
+        if (shouldSpeakAssistantResponse(mode)) await speakAnswer(errorMessage, assistantId);
       }
     } finally {
-      setRunning(false);
-      abortRef.current = null;
+      if (abortRef.current === controller) {
+        setRunning(false);
+        abortRef.current = null;
+      }
     }
   };
 
@@ -452,7 +469,10 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
   }
 
   const onMicClick = () => {
-    if (voiceStateRef.current === "idle") void startListening();
+    if (voiceStateRef.current === "idle" && runningRef.current) {
+      stop();
+      void startListening();
+    } else if (voiceStateRef.current === "idle") void startListening();
     else if (voiceStateRef.current === "listening") finalizeListening();
     else if (voiceStateRef.current === "speaking") void startListening(true);
   };
@@ -641,8 +661,9 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
               placeholder={t("assistantShell.messagePlaceholder")}
               rows={1}
               value={draft}
-              disabled={isRunning || voiceState !== "idle"}
-              onChange={(event) => setDraft(event.target.value)}
+              disabled={isRunning || voiceState === "listening" || voiceState === "processing"}
+              onFocus={interruptVoiceForText}
+              onChange={(event) => { interruptVoiceForText(); setDraft(event.target.value); }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
@@ -654,7 +675,7 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
             <button type="button" onClick={onMicClick} aria-label={t("assistantShell.useMicrophone")} className={cn("rounded-lg p-2 text-muted-foreground hover:bg-muted", (voiceState === "listening" || voiceState === "speaking") && "bg-primary/10 text-primary")}>
               <Mic className="h-4 w-4" />
             </button>
-            <button type="submit" disabled={isRunning || voiceState !== "idle" || !draft.trim()} aria-label={t("assistantShell.send")} className="rounded-lg bg-primary p-2 text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50">
+            <button type="submit" disabled={isRunning || voiceState === "listening" || voiceState === "processing" || !draft.trim()} aria-label={t("assistantShell.send")} className="rounded-lg bg-primary p-2 text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50">
               {isRunning ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </button>
           </div>
