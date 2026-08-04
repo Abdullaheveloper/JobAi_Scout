@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { runScrapeOrchestration } from "../_shared/scrape-orchestrator.ts";
 import { runUsageGuardedScrape } from "../_shared/scrape-usage-guard.ts";
+import { selectJobAdapters } from "../_shared/job-scrape-plan.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,6 +47,7 @@ Deno.serve(async (req) => {
       ? String(input.workMode).toLowerCase()
       : "all";
     const maxItems = Math.min(Math.max(Number(input.maxItems) || 25, 1), 25);
+    const adapters = selectJobAdapters(input.adapters || input.sources || input.source);
 
     const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -55,7 +57,7 @@ Deno.serve(async (req) => {
       userId: user.id,
       feature: "job_scraping",
       run: () => runScrapeOrchestration({
-        admin, userId: user.id, query, location: requestedLocation || null, jobType, workMode, maxItems,
+        admin, userId: user.id, query, location: requestedLocation || null, jobType, workMode, maxItems, adapters,
       }),
     });
 

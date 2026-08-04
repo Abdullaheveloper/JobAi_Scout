@@ -5,6 +5,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -13,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Search, MapPin, DollarSign, Bookmark, BookmarkCheck, ExternalLink, Building2, Clock, RefreshCw, Filter, Sparkles, Briefcase, ChevronDown, ChevronUp, ArrowUpRight, X, Copy, Check, LoaderCircle, CheckCircle2, AlertCircle, Square } from "lucide-react";
 import type { Database, Tables } from "@/integrations/supabase/types";
 import { PORTAL_COLORS } from "@/lib/constants";
-import { JOB_ADAPTER_STEPS, isScrapeSessionActive, isVisibleJobMatch, parseAdapterStatuses, runningAdapterPosition, scrapeCompletionMessage, type JobScrapeSession } from "@/lib/job-scrape";
+import { JOB_ADAPTER_STEPS, isScrapeSessionActive, isVisibleJobMatch, parseAdapterStatuses, runningAdapterPosition, scrapeCompletionMessage, type JobAdapterKey, type JobScrapeSession } from "@/lib/job-scrape";
 import { FuzzyAutocompleteInput, jobTaxonomy, locationTaxonomy } from "@/lib/fuzzy-taxonomy";
 import { useTranslation } from "react-i18next";
 import { MixedDir } from "@/components/MixedDir";
@@ -26,6 +27,14 @@ type RecommendedJob = Tables<"recommended_jobs">;
 type Job = Tables<"jobs">;
 type CollectedJob = Database["public"]["Functions"]["search_scrape_session_jobs"]["Returns"][number];
 type CoverLetterJob = Pick<Job, "id" | "title" | "company">;
+type JobInteraction = {
+  job_id: string | null;
+  recommended_job_id: string | null;
+  first_viewed_at: string | null;
+  opened_at: string | null;
+  first_saved_at: string | null;
+  applied_at: string | null;
+};
 type MatchExplanationData = {
   skillsMatch?: { matched?: string[] };
   roleMatch?: { matched?: boolean; detail?: string };
@@ -34,11 +43,6 @@ type MatchExplanationData = {
   salaryMatch?: { score?: number; detail?: string };
 };
 const COLLECTED_PAGE_SIZE = 30;
-
-function isNewJob(dateStr?: string | null): boolean {
-  if (!dateStr) return false;
-  return Date.now() - new Date(dateStr).getTime() < 24 * 60 * 60 * 1000;
-}
 
 function MatchExplanation({ explanation }: { explanation: MatchExplanationData | null }) {
   const { t } = useTranslation();
@@ -77,7 +81,7 @@ function MatchExplanation({ explanation }: { explanation: MatchExplanationData |
 
 export default function JobBoard() {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const { toast } = useToast();
   const { gateOverlay, minMatchThreshold } = useMatchPreferencesGate();
   const { showUsageLimit, usageLimitNotice } = useUsageLimitGate();
@@ -86,16 +90,25 @@ export default function JobBoard() {
   const [collectedTotal, setCollectedTotal] = useState(0);
   const [savedRecIds, setSavedRecIds] = useState<Set<string>>(new Set());
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
-  const [visitedJobIds, setVisitedJobIds] = useState<Set<string>>(new Set());
+  const [jobInteractions, setJobInteractions] = useState<Map<string, JobInteraction>>(new Map());
   const [loading, setLoading] = useState(true);
   const [scraping, setScraping] = useState(false);
   const [scrapeSession, setScrapeSession] = useState<JobScrapeSession | null>(null);
   const [search, setSearch] = useState("");
+  const [titleFilter, setTitleFilter] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [jobTypeFilter, setJobTypeFilter] = useState("all");
+  const [experienceFilter, setExperienceFilter] = useState("all");
+  const [salaryMinFilter, setSalaryMinFilter] = useState("");
+  const [salaryMaxFilter, setSalaryMaxFilter] = useState("");
+  const [sourceTypeFilter, setSourceTypeFilter] = useState("all");
+  const [postedDateFilter, setPostedDateFilter] = useState("all");
+  const [selectedMinScore, setSelectedMinScore] = useState(minMatchThreshold);
   const [scoreFilter, setScoreFilter] = useState("all");
   const [remoteFilter, setRemoteFilter] = useState("all");
   const [includeRemoteLocations, setIncludeRemoteLocations] = useState(true);
+  const [selectedAdapters, setSelectedAdapters] = useState<Set<JobAdapterKey>>(() => new Set(JOB_ADAPTER_STEPS.map((adapter) => adapter.key)));
   const [showFilters, setShowFilters] = useState(false);
   const [collectedPage, setCollectedPage] = useState(1);
   const [coverLetterJob, setCoverLetterJob] = useState<CoverLetterJob | null>(null);
@@ -108,31 +121,34 @@ export default function JobBoard() {
   const hydratedSessionRef = useRef<string | null>(null);
   const announcedSessionRef = useRef<string | null>(null);
 
+  useEffect(() => setSelectedMinScore(minMatchThreshold), [minMatchThreshold]);
+  useEffect(() => {
+    if (!user || selectedMinScore === minMatchThreshold) return;
+    const timer = window.setTimeout(async () => {
+      const { error } = await supabase.from("profiles").update({ min_match_threshold: selectedMinScore }).eq("user_id", user.id);
+      if (!error) await refreshProfile();
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [minMatchThreshold, refreshProfile, selectedMinScore, user]);
+
   useEffect(() => () => setVisibleJobId(null), []);
 
-  useEffect(() => {
-    if (!user) {
-      setVisitedJobIds(new Set());
-      return;
-    }
-    try {
-      const stored = JSON.parse(localStorage.getItem(`jobai:visited-jobs:${user.id}`) || "[]");
-      setVisitedJobIds(new Set(Array.isArray(stored) ? stored.filter((id): id is string => typeof id === "string") : []));
-    } catch {
-      setVisitedJobIds(new Set());
-    }
-  }, [user]);
-
-  const markJobVisited = useCallback((jobId: string) => {
+  const markJobInteraction = useCallback(async (jobId: string, action: "viewed" | "opened" | "applied", recommended = false) => {
     if (!user) return;
-    setVisitedJobIds((previous) => {
-      const next = new Set(previous).add(jobId);
-      localStorage.setItem(`jobai:visited-jobs:${user.id}`, JSON.stringify([...next]));
+    const now = new Date().toISOString();
+    const key = `${recommended ? "recommended" : "job"}:${jobId}`;
+    setJobInteractions((previous) => {
+      const next = new Map(previous);
+      const current = next.get(key) || { job_id: recommended ? null : jobId, recommended_job_id: recommended ? jobId : null, first_viewed_at: null, opened_at: null, first_saved_at: null, applied_at: null };
+      next.set(key, { ...current, first_viewed_at: current.first_viewed_at || now, opened_at: action !== "viewed" ? current.opened_at || now : current.opened_at, applied_at: action === "applied" ? current.applied_at || now : current.applied_at });
       return next;
     });
+    const { error } = await (supabase.rpc as unknown as (name: string, params: Record<string, unknown>) => Promise<{ error: { message: string } | null }>)
+      ("mark_job_interaction", { p_job_id: jobId, p_action: action, p_recommended: recommended });
+    if (error) console.error("[jobs] interaction tracking failed", error.message);
   }, [user]);
 
-  const fetchCollectedJobs = useCallback(async (page: number, sessionId?: string | null, silent = false) => {
+  const fetchCollectedJobs = useCallback(async (page: number, requestedSessionId?: string | null, silent = false) => {
     if (!user) {
       if (!silent) {
         setCollectedJobs([]);
@@ -141,46 +157,60 @@ export default function JobBoard() {
       }
       return;
     }
+    // While a new scrape session is being created there is deliberately no
+    // database fallback. Scraper mode must contain only this session's jobs.
+    const activeSessionId = requestedSessionId || scrapeSession?.id || null;
+    if (scraping && !activeSessionId) {
+      setCollectedJobs([]);
+      setCollectedTotal(0);
+      if (!silent) setLoading(false);
+      return;
+    }
     if (!silent) setLoading(true);
     const pageStart = (page - 1) * COLLECTED_PAGE_SIZE;
-    const terms = [...new Set(search.trim()
-      .replace(/[^a-zA-Z0-9 .+#-]/g, " ")
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((word) => word.length >= 2))].slice(0, 8);
-    const rpcParams = {
-      p_session_id: sessionId || null,
-      p_terms: terms,
+    const unifiedParams = {
+      p_query: search.trim() || null,
+      p_title: titleFilter.trim() || null,
+      p_company: companyFilter.trim() || null,
+      p_location: locationFilter.trim() || null,
+      p_job_type: jobTypeFilter === "all" ? null : jobTypeFilter,
+      p_experience_level: experienceFilter === "all" ? null : experienceFilter,
+      p_salary_min: salaryMinFilter ? Number(salaryMinFilter) : null,
+      p_salary_max: salaryMaxFilter ? Number(salaryMaxFilter) : null,
+      p_work_mode: remoteFilter === "all" ? null : remoteFilter,
+      p_source_type: sourceTypeFilter === "all" ? null : sourceTypeFilter,
+      p_posted_days: postedDateFilter === "all" ? null : Number(postedDateFilter),
+      p_min_match_score: selectedMinScore,
+      p_limit: COLLECTED_PAGE_SIZE,
+      p_offset: pageStart,
+    };
+    const sessionParams = {
+      p_session_id: activeSessionId,
+      p_terms: search.trim().toLowerCase().split(/\s+/).filter((term) => term.length >= 2).slice(0, 8),
       p_source: null,
       p_location: locationFilter.trim() || null,
       p_job_type: jobTypeFilter === "all" ? null : jobTypeFilter,
       p_work_mode: remoteFilter === "all" ? null : remoteFilter,
       p_include_remote: includeRemoteLocations && Boolean(locationFilter.trim()),
-      p_min_match_score: minMatchThreshold,
+      p_min_match_score: selectedMinScore,
       p_limit: COLLECTED_PAGE_SIZE,
       p_offset: pageStart,
     };
-    let { data, error } = await supabase.rpc("search_scrape_session_jobs", rpcParams);
-    // Allow the page to work while a hosted project is still applying newer
-    // RPC arguments (remote-location / min-match-score).
-    if (error && /p_min_match_score|p_include_remote|search_scrape_session_jobs/i.test(error.message)) {
-      const { p_min_match_score: _score, ...withoutScore } = rpcParams;
-      ({ data, error } = await supabase.rpc("search_scrape_session_jobs", withoutScore));
-      if (error && /p_include_remote|search_scrape_session_jobs/i.test(error.message)) {
-        const { p_include_remote: _ignored, ...legacyParams } = withoutScore;
-        ({ data, error } = await supabase.rpc("search_scrape_session_jobs", legacyParams));
-      }
-    }
+    const rpcName = scraping && activeSessionId ? "search_scrape_session_jobs" : "search_jobs_unified";
+    const rpcParams = rpcName === "search_scrape_session_jobs" ? sessionParams : unifiedParams;
+    const { data, error } = await (supabase.rpc as unknown as (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<{ data: CollectedJob[] | null; error: { message: string } | null }>)(rpcName, rpcParams);
 
     if (error) {
       if (!silent) toast({ title: t("jobs.toastLoadFailed"), description: error.message || t("jobs.toastLoadFailedBody"), variant: "destructive" });
     } else {
-      const visibleJobs = (data || []).filter((job) => isVisibleJobMatch(job.match_score, minMatchThreshold) && Boolean(job.recruiter_id || job.source_url));
-      setCollectedJobs(visibleJobs);
+      setCollectedJobs(data || []);
       setCollectedTotal(Number(data?.[0]?.total_count || 0));
     }
     if (!silent) setLoading(false);
-  }, [includeRemoteLocations, jobTypeFilter, locationFilter, minMatchThreshold, remoteFilter, search, toast, user]);
+  }, [companyFilter, experienceFilter, includeRemoteLocations, jobTypeFilter, locationFilter, postedDateFilter, remoteFilter, salaryMaxFilter, salaryMinFilter, scrapeSession?.id, scraping, search, selectedMinScore, sourceTypeFilter, titleFilter, toast, user]);
 
   const fetchLatestSession = useCallback(async (hydrateInputs = false): Promise<JobScrapeSession | null> => {
     if (!user) return null;
@@ -232,6 +262,14 @@ export default function JobBoard() {
       if (saved) setSavedRecIds(new Set(saved.map(s => s.recommended_job_id!).filter(Boolean)));
       const { data: savedRegular } = await supabase.from("saved_jobs").select("job_id").eq("user_id", user.id).not("job_id", "is", null);
       if (savedRegular) setSavedJobIds(new Set(savedRegular.map(s => s.job_id!).filter(Boolean)));
+      const { data: interactions } = await supabase
+        .from("job_user_interactions")
+        .select("job_id,recommended_job_id,first_viewed_at,opened_at,first_saved_at,applied_at")
+        .eq("user_id", user.id);
+      if (interactions) {
+        const rows = interactions as unknown as JobInteraction[];
+        setJobInteractions(new Map(rows.map((row) => [row.job_id ? `job:${row.job_id}` : `recommended:${row.recommended_job_id}`, row])));
+      }
     };
     fetchProfileData();
 
@@ -257,7 +295,7 @@ export default function JobBoard() {
 
   useEffect(() => {
     if (!user) return;
-    void fetchLatestSession(true);
+    void fetchLatestSession(false);
   }, [fetchLatestSession, user]);
 
   useEffect(() => {
@@ -308,6 +346,9 @@ export default function JobBoard() {
     startingSessionRef.current = true;
     scrapeLockRef.current = true;
     setScraping(true);
+    setScrapeSession(null);
+    setCollectedJobs([]);
+    setCollectedTotal(0);
     try {
       const query = search.trim();
       const { data, error } = await supabase.functions.invoke("collect-jobs", {
@@ -317,6 +358,7 @@ export default function JobBoard() {
           jobType: jobTypeFilter,
           workMode: remoteFilter,
           maxItems: 25,
+          adapters: [...selectedAdapters],
         },
       });
       if (error) {
@@ -343,7 +385,6 @@ export default function JobBoard() {
       startingSessionRef.current = false;
       if (session) setScrapeSession(session);
       setCollectedPage(1);
-      await fetchCollectedJobs(1, session?.id, true);
       const active = isScrapeSessionActive(session);
       setScraping(active);
       scrapeLockRef.current = active;
@@ -416,6 +457,7 @@ export default function JobBoard() {
     } else {
       await supabase.from("saved_jobs").insert({ user_id: user.id, job_id: jobId });
       setSavedJobIds(prev => new Set(prev).add(jobId));
+      void markJobInteraction(jobId, "viewed");
     }
   };
 
@@ -424,12 +466,20 @@ export default function JobBoard() {
     if (job.recruiter_id) {
       const { error } = await supabase.from("job_applications").insert({ user_id: user.id, job_id: job.id });
       if (error && !error.message.toLowerCase().includes("duplicate")) return toast({ title: t("jobs.toastApplyFailed"), description: error.message, variant: "destructive" });
-      markJobVisited(job.id);
+      const now = new Date().toISOString();
+      setJobInteractions((previous) => {
+        const next = new Map(previous);
+        const key = `job:${job.id}`;
+        const current = next.get(key) || { job_id: job.id, recommended_job_id: null, first_viewed_at: null, opened_at: null, first_saved_at: null, applied_at: null };
+        next.set(key, { ...current, first_viewed_at: current.first_viewed_at || now, opened_at: current.opened_at || now, applied_at: current.applied_at || now });
+        return next;
+      });
+      void markJobInteraction(job.id, "applied");
       toast({ title: t("jobs.toastApplySubmitted") });
       return;
     }
     if (job.source_url) {
-      markJobVisited(job.id);
+      void markJobInteraction(job.id, "applied");
       window.open(job.source_url, "_blank", "noopener,noreferrer");
       return;
     }
@@ -478,7 +528,7 @@ export default function JobBoard() {
   };
 
   const collectedTotalPages = Math.max(1, Math.ceil(collectedTotal / COLLECTED_PAGE_SIZE));
-  useEffect(() => { setCollectedPage(1); }, [search, locationFilter, jobTypeFilter, remoteFilter]);
+  useEffect(() => { setCollectedPage(1); }, [search, titleFilter, companyFilter, locationFilter, jobTypeFilter, experienceFilter, salaryMinFilter, salaryMaxFilter, remoteFilter, sourceTypeFilter, postedDateFilter, selectedMinScore]);
 
   const toggleSaveRec = async (recJobId: string) => {
     if (!user) return;
@@ -489,43 +539,29 @@ export default function JobBoard() {
     } else {
       await supabase.from("saved_jobs").insert({ user_id: user.id, recommended_job_id: recJobId });
       setSavedRecIds(prev => new Set(prev).add(recJobId));
+      void markJobInteraction(recJobId, "viewed", true);
       toast({ title: t("jobs.toastJobSaved") });
     }
   };
 
-  const filtered = useMemo(() => {
-    return recJobs.filter(j => {
-      // The Browse Jobs experience has one recommendation quality floor for
-      // both newly scraped and existing recommended records.
-      if (!isVisibleJobMatch(j.match_score, minMatchThreshold)) return false;
-      if (search) {
-        const s = search.toLowerCase();
-        if (!j.title.toLowerCase().includes(s) && !j.company.toLowerCase().includes(s)) return false;
-      }
-      if (locationFilter) {
-        if (!j.location?.toLowerCase().includes(locationFilter.toLowerCase())) return false;
-      }
-      if (jobTypeFilter !== "all") {
-        const emp = (j.employment_type || "").toLowerCase();
-        if (jobTypeFilter === "remote" && !emp.includes("remote")) return false;
-        if (jobTypeFilter !== "remote" && emp !== jobTypeFilter) return false;
-      }
-      if (scoreFilter !== "all") {
-        const score = j.match_score || 0;
-        if (scoreFilter === "80+" && score < 80) return false;
-        if (scoreFilter === "60-79" && (score < 60 || score >= 80)) return false;
-      }
-      if (remoteFilter === "remote" && !(j.location || "").toLowerCase().includes("remote")) return false;
-      if (remoteFilter === "hybrid" && !(j.location || "").toLowerCase().includes("hybrid")) return false;
-      return true;
-    });
-  }, [recJobs, search, locationFilter, jobTypeFilter, scoreFilter, remoteFilter, minMatchThreshold]);
+  // The unified module renders jobs from `jobs` + per-user scrape results.
+  // Legacy recommended_jobs cards are intentionally excluded to avoid mixing
+  // a second result source into either database mode or active scraper mode.
+  const filtered = useMemo(() => [] as RecommendedJob[], []);
 
-  const hasActiveFilters = Boolean(search || locationFilter || jobTypeFilter !== "all" || remoteFilter !== "all");
+  const hasActiveFilters = Boolean(search || titleFilter || companyFilter || locationFilter || jobTypeFilter !== "all" || experienceFilter !== "all" || salaryMinFilter || salaryMaxFilter || remoteFilter !== "all" || sourceTypeFilter !== "all" || postedDateFilter !== "all" || selectedMinScore !== minMatchThreshold);
   const clearFilters = () => {
     setSearch("");
+    setTitleFilter("");
+    setCompanyFilter("");
     setLocationFilter("");
     setJobTypeFilter("all");
+    setExperienceFilter("all");
+    setSalaryMinFilter("");
+    setSalaryMaxFilter("");
+    setSourceTypeFilter("all");
+    setPostedDateFilter("all");
+    setSelectedMinScore(minMatchThreshold);
     setScoreFilter("all");
     setRemoteFilter("all");
   };
@@ -542,6 +578,13 @@ export default function JobBoard() {
     if (days === 1) return "1 day ago";
     return `${days} days ago`;
   };
+  const interactionFor = (jobId: string, recommended = false) => jobInteractions.get(`${recommended ? "recommended" : "job"}:${jobId}`);
+  const hasVisited = (jobId: string, recommended = false) => {
+    const interaction = interactionFor(jobId, recommended);
+    return Boolean(interaction?.first_viewed_at || interaction?.opened_at || interaction?.first_saved_at || interaction?.applied_at);
+  };
+  const wasOpened = (jobId: string, recommended = false) => Boolean(interactionFor(jobId, recommended)?.opened_at);
+  const wasApplied = (jobId: string, recommended = false) => Boolean(interactionFor(jobId, recommended)?.applied_at);
 
   return (
     <DashboardLayout>
@@ -552,8 +595,8 @@ export default function JobBoard() {
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary"><Sparkles className="h-3.5 w-3.5" /> {t("jobs.discoveryEyebrow")}</div>
-              <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">{t("jobs.title")}</h1>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground md:text-base">{t("jobs.subtitleLive")}</p>
+              <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">{t("nav.searchJob", { defaultValue: "Search Job" })}</h1>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground md:text-base">Search recruiter-posted and previously scraped jobs instantly. Fresh scraping starts only when you explicitly click Find Jobs.</p>
               <div className="mt-5 flex flex-wrap gap-2">
                 {JOB_ADAPTER_STEPS.map((adapter) => {
                   const status = adapterStatuses[adapter.key];
@@ -616,9 +659,9 @@ export default function JobBoard() {
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-end">
               {usageLimitNotice}
-              <Button onClick={scraping ? handleStopScraping : handleScrapeJobs} disabled={!scraping && !search.trim()} className={`min-w-48 gap-2 border-0 shadow-lg ${scraping ? "bg-rose-600 hover:bg-rose-500 shadow-rose-500/20" : "gradient-primary shadow-primary/20"}`}>
+              <Button onClick={scraping ? handleStopScraping : handleScrapeJobs} disabled={!scraping && (!search.trim() || selectedAdapters.size === 0)} className={`min-w-48 gap-2 border-0 shadow-lg ${scraping ? "bg-rose-600 hover:bg-rose-500 shadow-rose-500/20" : "gradient-primary shadow-primary/20"}`}>
                 {scraping ? <Square className="h-4 w-4 fill-current" /> : <RefreshCw className="h-4 w-4" />}
-                {scraping ? t("jobs.stopScraping") : t("jobs.scrapeButton")}
+                {scraping ? t("jobs.stopScraping") : "Find Jobs"}
               </Button>
               <p className="max-w-56 text-end text-xs text-muted-foreground">{t("jobs.scrapeHint")}</p>
               <p className="text-xs text-muted-foreground">{t("jobs.matchingRolesCount", { count: collectedTotal })}</p>
@@ -634,14 +677,10 @@ export default function JobBoard() {
                 <FuzzyAutocompleteInput
                   taxonomy={jobTaxonomy}
                   value={search}
-                  disabled={scraping}
                   aria-required="true"
                   aria-label={t("jobs.searchPlaceholder")}
                   placeholder={t("jobs.searchPlaceholder")}
                   onChange={setSearch}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && search.trim() && !scraping) void handleScrapeJobs();
-                  }}
                   inputClassName="h-11 border-border/80 bg-background/60 ps-11"
                 />
               </div>
@@ -650,13 +689,9 @@ export default function JobBoard() {
                 <FuzzyAutocompleteInput
                   taxonomy={locationTaxonomy}
                   value={locationFilter}
-                  disabled={scraping}
                   aria-label={t("jobs.locationAria")}
                   placeholder={t("jobs.locationPlaceholder")}
                   onChange={setLocationFilter}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && search.trim() && !scraping) void handleScrapeJobs();
-                  }}
                   inputClassName="h-11 border-border/80 bg-background/60 ps-11"
                 />
               </div>
@@ -667,12 +702,26 @@ export default function JobBoard() {
             </div>
             {showFilters && (
               <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border/70 pt-4">
+                <Input value={titleFilter} onChange={(event) => setTitleFilter(event.target.value)} placeholder="Job title" className="w-[180px] bg-background/60" />
+                <Input value={companyFilter} onChange={(event) => setCompanyFilter(event.target.value)} placeholder="Company" className="w-[180px] bg-background/60" />
                 <Select value={jobTypeFilter} onValueChange={setJobTypeFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder={t("jobs.jobTypePlaceholder")} /></SelectTrigger><SelectContent><SelectItem value="all">{t("jobs.anyJobType")}</SelectItem><SelectItem value="full-time">{t("jobs.fullTime")}</SelectItem><SelectItem value="part-time">{t("jobs.partTime")}</SelectItem><SelectItem value="contract">{t("jobs.contract")}</SelectItem><SelectItem value="internship">{t("jobs.internship")}</SelectItem></SelectContent></Select>
+                <Select value={experienceFilter} onValueChange={setExperienceFilter}><SelectTrigger className="w-[165px] bg-background/60"><SelectValue placeholder="Experience level" /></SelectTrigger><SelectContent><SelectItem value="all">All experience</SelectItem><SelectItem value="entry">Entry level</SelectItem><SelectItem value="mid">Mid level</SelectItem><SelectItem value="senior">Senior</SelectItem><SelectItem value="lead">Lead</SelectItem></SelectContent></Select>
+                <Input type="number" min="0" value={salaryMinFilter} onChange={(event) => setSalaryMinFilter(event.target.value)} placeholder="Minimum salary" className="w-[160px] bg-background/60" />
+                <Input type="number" min="0" value={salaryMaxFilter} onChange={(event) => setSalaryMaxFilter(event.target.value)} placeholder="Maximum salary" className="w-[160px] bg-background/60" />
                 <Select value={remoteFilter} onValueChange={setRemoteFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder={t("jobs.workModePlaceholder")} /></SelectTrigger><SelectContent><SelectItem value="all">{t("jobs.anyWorkMode")}</SelectItem><SelectItem value="remote">{t("jobs.remote")}</SelectItem><SelectItem value="hybrid">{t("jobs.hybrid")}</SelectItem></SelectContent></Select>
+                <Select value={sourceTypeFilter} onValueChange={setSourceTypeFilter}><SelectTrigger className="w-[175px] bg-background/60"><SelectValue placeholder="Job source" /></SelectTrigger><SelectContent><SelectItem value="all">All sources</SelectItem><SelectItem value="recruiter">Recruiter posted</SelectItem><SelectItem value="scraped">Scraped jobs</SelectItem></SelectContent></Select>
+                <Select value={postedDateFilter} onValueChange={setPostedDateFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder="Date posted" /></SelectTrigger><SelectContent><SelectItem value="all">Any time</SelectItem><SelectItem value="1">Past 24 hours</SelectItem><SelectItem value="7">Past 7 days</SelectItem><SelectItem value="30">Past 30 days</SelectItem></SelectContent></Select>
+                <label className="flex h-10 items-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 text-sm text-muted-foreground">Match ≥ <input aria-label="Minimum match score" type="range" min="0" max="100" step="5" value={selectedMinScore} onChange={(event) => setSelectedMinScore(Number(event.target.value))} /><span className="w-9 font-medium text-foreground">{selectedMinScore}%</span></label>
                 <label className="flex h-10 items-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 text-sm text-muted-foreground">
                   <Checkbox checked={includeRemoteLocations} onCheckedChange={(checked) => setIncludeRemoteLocations(checked === true)} />
                   {t("jobs.includeRemote")}
                 </label>
+                <div className="flex flex-wrap items-center gap-2" aria-label="Scraping sources">
+                  {JOB_ADAPTER_STEPS.map((adapter) => <label key={adapter.key} className="flex h-10 items-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 text-sm text-muted-foreground">
+                    <Checkbox checked={selectedAdapters.has(adapter.key)} disabled={scraping} onCheckedChange={(checked) => setSelectedAdapters((current) => { const next = new Set(current); if (checked === true) next.add(adapter.key); else next.delete(adapter.key); return next; })} />
+                    {adapter.key === "linkedin" ? t("jobs.adapterLinkedin") : adapter.key === "indeed" ? t("jobs.adapterIndeed") : adapter.key === "rss" ? t("jobs.adapterRss") : t("jobs.adapterCompanyCareer")}
+                  </label>)}
+                </div>
                 {hasActiveFilters && <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={clearFilters}><X className="h-3.5 w-3.5" /> {t("jobs.clearFilters")}</Button>}
               </div>
             )}
@@ -736,9 +785,10 @@ export default function JobBoard() {
               <Card
                 key={`modern-${job.id}`}
                 tabIndex={0}
+                onClick={() => void markJobInteraction(job.id, "viewed")}
                 onPointerEnter={() => setVisibleJobId(job.id)}
                 onFocusCapture={() => setVisibleJobId(job.id)}
-                className="group overflow-hidden border-border/80 bg-card shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-card-hover"
+                className={`group overflow-hidden border-border/80 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-card-hover ${hasVisited(job.id) ? "bg-muted/35" : "bg-card"}`}
               >
                 <CardContent className="p-0">
                   <div className="flex gap-4 p-5 md:gap-5 md:p-6">
@@ -746,8 +796,11 @@ export default function JobBoard() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline" className="border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">{sourceLabel(job.source)}</Badge>
-                        <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-500">Match {Math.round(Number(job.match_score || 0))}%</Badge>
-                        {isNewJob(job.posted_at || job.created_at) && <Badge className="bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 hover:bg-emerald-500/15">New</Badge>}
+                        {job.match_score !== null && <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-500">Match {Math.round(Number(job.match_score))}%</Badge>}
+                        {!hasVisited(job.id) && <Badge className="bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-600 hover:bg-blue-500/15">New</Badge>}
+                        {hasVisited(job.id) && <Badge variant="outline" className="px-2 py-0.5 text-[10px] font-semibold">Viewed</Badge>}
+                        {savedJobIds.has(job.id) && <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600">Saved</Badge>}
+                        {wasApplied(job.id) && <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">Applied</Badge>}
                       </div>
                       <h3 className="mt-2 font-display text-lg font-semibold leading-snug text-foreground transition-colors group-hover:text-primary md:text-xl"><MixedDir>{job.title}</MixedDir></h3>
                       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
@@ -771,12 +824,12 @@ export default function JobBoard() {
                       </Button>
                       <Button
                         size="sm"
-                        variant={visitedJobIds.has(job.id) ? "outline" : "default"}
+                        variant={wasOpened(job.id) ? "outline" : "default"}
                         onClick={() => applyToCollectedJob(job)}
-                        className={`hidden gap-1.5 sm:inline-flex ${visitedJobIds.has(job.id) ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15 hover:text-emerald-300" : ""}`}
+                        className={`hidden gap-1.5 sm:inline-flex ${wasOpened(job.id) ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15" : ""}`}
                       >
-                        {visitedJobIds.has(job.id) ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}
-                        {visitedJobIds.has(job.id) ? "Visited" : "Apply"}
+                        {wasOpened(job.id) ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}
+                        {wasApplied(job.id) ? "Applied" : wasOpened(job.id) ? "Opened" : "Apply"}
                       </Button>
                     </div>
                   </div>
@@ -787,12 +840,12 @@ export default function JobBoard() {
                     </Button>
                     <Button
                       size="sm"
-                      variant={visitedJobIds.has(job.id) ? "outline" : "default"}
-                      className={`gap-1.5 ${visitedJobIds.has(job.id) ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : ""}`}
+                      variant={wasOpened(job.id) ? "outline" : "default"}
+                      className={`gap-1.5 ${wasOpened(job.id) ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600" : ""}`}
                       onClick={() => applyToCollectedJob(job)}
                     >
-                      {visitedJobIds.has(job.id) ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}
-                      {visitedJobIds.has(job.id) ? "Visited" : "Apply"}
+                      {wasOpened(job.id) ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}
+                      {wasApplied(job.id) ? "Applied" : wasOpened(job.id) ? "Opened" : "Apply"}
                     </Button>
                   </div>
                 </CardContent>
@@ -843,7 +896,7 @@ export default function JobBoard() {
             {filtered.map((job) => {
               const score = job.match_score || 0;
               const isSaved = savedRecIds.has(job.id);
-              const isNew = isNewJob(job.synced_at || job.created_at);
+              const isNew = !hasVisited(job.id, true);
               const portalColor = PORTAL_COLORS[job.source_portal] || "bg-gray-200 text-gray-700";
               return (
                 <Card
@@ -904,13 +957,13 @@ export default function JobBoard() {
                         {job.source_url && (
                           <Button
                             size="sm"
-                            variant={visitedJobIds.has(job.id) ? "outline" : "default"}
-                            className={visitedJobIds.has(job.id) ? "gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15 hover:text-emerald-300" : "gradient-primary border-0 gap-1"}
+                            variant={wasOpened(job.id, true) ? "outline" : "default"}
+                            className={wasOpened(job.id, true) ? "gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15" : "gradient-primary border-0 gap-1"}
                             asChild
                           >
-                            <a href={job.source_url} target="_blank" rel="noopener noreferrer" onClick={() => markJobVisited(job.id)}>
-                              {visitedJobIds.has(job.id) ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ExternalLink className="h-3.5 w-3.5" />}
-                              {visitedJobIds.has(job.id) ? "Visited" : "Apply"}
+                            <a href={job.source_url} target="_blank" rel="noopener noreferrer" onClick={() => void markJobInteraction(job.id, "applied", true)}>
+                              {wasOpened(job.id, true) ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                              {wasOpened(job.id, true) ? "Opened" : "Apply"}
                             </a>
                           </Button>
                         )}

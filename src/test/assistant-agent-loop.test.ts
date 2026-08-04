@@ -30,7 +30,10 @@ describe("assistant agent tool loop", () => {
     const statuses: string[] = [];
 
     const reply = await runAssistantTurn({
-      history: [{ id: "user-1", role: "user", content: "open upload cv" }],
+      history: [
+        { id: "error-1", role: "assistant", content: "Provider failed", transientError: true },
+        { id: "user-1", role: "user", content: "open upload cv" },
+      ],
       screen: { route: "/dashboard", visible_job_id: null, role: "user" },
       navigate,
       signal: new AbortController().signal,
@@ -45,6 +48,8 @@ describe("assistant agent tool loop", () => {
     expect(navigate).toHaveBeenCalledWith("/dashboard/cv");
     expect(statuses).toEqual(["Upload CV opened"]);
     expect(reply).toBe("Upload CV is open.");
+    const firstRequest = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(firstRequest.messages).toEqual([{ role: "user", content: "open upload cv" }]);
     const thirdRequest = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
     expect(thirdRequest.messages.at(-1)).toMatchObject({ role: "tool", tool_call_id: "call-1" });
   });

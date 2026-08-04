@@ -1,8 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { compactMemoryContext, type MemoryBootstrap } from "@/lib/assistant/memory";
+import { compactMemoryContext, conversationFromStoredMessages, type MemoryBootstrap } from "@/lib/assistant/memory";
 import { assistantSessionLimitState } from "../../supabase/functions/_shared/assistant-session-limits";
 
 describe("assistant persistent memory", () => {
+  it("restores one chat in chronological order without internal tool messages", () => {
+    const restored = conversationFromStoredMessages([
+      { id: "2", session_id: "chat", role: "assistant", content: "Second", linked_tool_call: null, created_at: "2026-01-02" },
+      { id: "tool", session_id: "chat", role: "tool", content: "internal", linked_tool_call: null, created_at: "2026-01-01T12:00:00Z" },
+      { id: "1", session_id: "chat", role: "user", content: "First", linked_tool_call: null, created_at: "2026-01-01" },
+    ]);
+    expect(restored.map(({ role, content }) => ({ role, content }))).toEqual([
+      { role: "user", content: "First" },
+      { role: "assistant", content: "Second" },
+    ]);
+  });
+
   it("builds compact cross-session context without replaying the current session", () => {
     const memory = {
       sessions: [], active_session: null,

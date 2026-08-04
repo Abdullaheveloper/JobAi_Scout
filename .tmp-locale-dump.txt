@@ -1,0 +1,38 @@
+=== Top-level keys related to signup/register/signin ===
+en: signin, signup
+  en.signin keys: newHere, createAccount, eyebrow, sideTitle, sideCopy, sideNote, title, welcomeBack, confirmEmail, emailLabel, emailPlaceholder, passwordLabel, passwordPlaceholder, forgotPassword, submit, submitting, noAccount, createFree, errorInvalidEmail, errorEmptyPassword, errorCredentials, errorWaitingApproval, errorRejected, errorExpired, toastApprovalRequestedTitle, toastApprovalRequestedBody, toastApprovedTitle
+  en.signup keys: alreadyHave, eyebrow, sideTitle, sideCopy, benefit1, benefit2, benefit3, title, subtitle, accountType, jobSeeker, jobSeekerHint, recruiter, recruiterHint, companyName, companyPlaceholder, fullName, fullNamePlaceholder, emailLabel, emailPlaceholder, passwordLabel, passwordPlaceholder, passwordStrength, strengthStrong, strengthGood, strengthTooShort, submit, submitting, agreePrefix, errorFullName, errorEmail, errorPassword, errorCompany, errorAlreadyRegistered, toastCreatedTitle, toastCreatedBody
+ar: signin, signup
+  ar.signin keys: newHere, createAccount, eyebrow, sideTitle, sideCopy, sideNote, title, welcomeBack, confirmEmail, emailLabel, emailPlaceholder, passwordLabel, passwordPlaceholder, forgotPassword, submit, submitting, noAccount, createFree, errorInvalidEmail, errorEmptyPassword, errorCredentials, errorWaitingApproval, errorRejected, errorExpired, toastApprovalRequestedTitle, toastApprovalRequestedBody, toastApprovedTitle
+  ar.signup keys: alreadyHave, eyebrow, sideTitle, sideCopy, benefit1, benefit2, benefit3, title, subtitle, accountType, jobSeeker, jobSeekerHint, recruiter, recruiterHint, companyName, companyPlaceholder, fullName, fullNamePlaceholder, emailLabel, emailPlaceholder, passwordLabel, passwordPlaceholder, passwordStrength, strengthStrong, strengthGood, strengthTooShort, submit, submitting, agreePrefix, errorFullName, errorEmail, errorPassword, errorCompany, errorAlreadyRegistered, toastCreatedTitle, toastCreatedBody
+ur: signin, signup
+  ur.signin keys: newHere, createAccount, eyebrow, sideTitle, sideCopy, sideNote, title, welcomeBack, confirmEmail, emailLabel, emailPlaceholder, passwordLabel, passwordPlaceholder, forgotPassword, submit, submitting, noAccount, createFree, errorInvalidEmail, errorEmptyPassword, errorCredentials, errorWaitingApproval, errorRejected, errorExpired, toastApprovalRequestedTitle, toastApprovalRequestedBody, toastApprovedTitle
+  ur.signup keys: alreadyHave, eyebrow, sideTitle, sideCopy, benefit1, benefit2, benefit3, title, subtitle, accountType, jobSeeker, jobSeekerHint, recruiter, recruiterHint, companyName, companyPlaceholder, fullName, fullNamePlaceholder, emailLabel, emailPlaceholder, passwordLabel, passwordPlaceholder, passwordStrength, strengthStrong, strengthGood, strengthTooShort, submit, submitting, agreePrefix, errorFullName, errorEmail, errorPassword, errorCompany, errorAlreadyRegistered, toastCreatedTitle, toastCreatedBody
+
+=== Candidate signup/register side keys ===
+signup.alreadyHave
+signup.eyebrow
+signup.sideTitle
+signup.sideCopy
+signup.errorAlreadyRegistered
+
+=== ROWS ===
+{"key":"signin.newHere","en":"New here?","ar":"New here?","ur":"New here?","arSameAsEn":true,"urSameAsEn":true}
+{"key":"signin.sideTitle","en":"Find work that fits your life.","ar":"Find work that fits your life.","ur":"Find work that fits your life.","arSameAsEn":true,"urSameAsEn":true}
+{"key":"signin.sideCopy","en":"Search roles, keep your applications organised, and make smarter career decisions from one simple workspace.","ar":"Search roles, keep your applications organised, and make smarter career decisions from one simple workspace.","ur":"Search roles, keep your applications organised, and make smarter career decisions from one simple workspace.","arSameAsEn":true,"urSameAsEn":true}
+{"key":"signin.eyebrow","en":"Your career workspace","ar":"Your career workspace","ur":"Your career workspace","arSameAsEn":true,"urSameAsEn":true}
+{"key":"signin.sideNote","en":"Your account keeps your saved roles and application history in one place.","ar":"Your account keeps your saved roles and application history in one place.","ur":"Your account keeps your saved roles and application history in one place.","arSameAsEn":true,"urSameAsEn":true}
+{"key":"nav.features","en":"Features","ar":"Features","ur":"Features","arSameAsEn":true,"urSameAsEn":true}
+{"key":"nav.howItWorks","en":"How it works","ar":"How it works","ur":"How it works","arSameAsEn":true,"urSameAsEn":true}
+{"key":"nav.forRecruiters","en":"For recruiters","ar":"For recruiters","ur":"For recruiters","arSameAsEn":true,"urSameAsEn":true}
+{"key":"common.privacyPolicy","en":"Privacy Policy","ar":"Privacy Policy","ur":"Privacy Policy","arSameAsEn":true,"urSameAsEn":true}
+{"key":"signup.alreadyHave","en":"Already have an account?","ar":"لديك حساب بالفعل؟","ur":"پہلے سے اکاؤنٹ ہے؟","arSameAsEn":false,"urSameAsEn":false}
+{"key":"signup.eyebrow","en":"START YOUR SEARCH","ar":"START YOUR SEARCH","ur":"START YOUR SEARCH","arSameAsEn":true,"urSameAsEn":true}
+{"key":"signup.sideTitle","en":"Build a clearer path to your next opportunity.","ar":"Build a clearer path to your next opportunity.","ur":"Build a clearer path to your next opportunity.","arSameAsEn":true,"urSameAsEn":true}
+{"key":"signup.sideCopy","en":"Create your free workspace to organise the jobs that matter and take the next step with confidence.","ar":"Create your free workspace to organise the jobs that matter and take the next step with confidence.","ur":"Create your free workspace to organise the jobs that matter and take the next step with confidence.","arSameAsEn":true,"urSameAsEn":true}
+{"key":"signup.errorAlreadyRegistered","en":"This email is already registered — please log in with your password","ar":"This email is already registered — please log in with your password","ur":"This email is already registered — please log in with your password","arSameAsEn":true,"urSameAsEn":true}
+
+=== ar.signin.sideTitle === en.signin.sideTitle ===
+en: Find work that fits your life.
+ar: Find work that fits your life.
+equal: true

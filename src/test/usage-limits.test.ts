@@ -107,7 +107,7 @@ describe("resolveUsageLimit", () => {
 
   it("warns when falling through to unlimited", () => {
     const warn = vi.fn();
-    const resolved = resolveUsageLimit("voice_assistant", USER, [], warn);
+    const resolved = resolveUsageLimit("voice_bot", USER, [], warn);
     expect(resolved.source).toBe("unlimited");
     expect(Number.isFinite(resolved.maxCount)).toBe(false);
     expect(warn).toHaveBeenCalledOnce();
@@ -164,10 +164,10 @@ describe("enforceUsageLimit (server-side)", () => {
 
   it("blocks immediately when limit is 0", async () => {
     const { admin, inserts } = makeDb({
-      limits: [{ user_id: USER, feature: "voice_assistant", max_count: 0, period: "day" }],
+      limits: [{ user_id: USER, feature: "voice_bot", max_count: 0, period: "day" }],
       logs: [],
     });
-    const result = await enforceUsageLimit(admin, USER, "voice_assistant", { record: true });
+    const result = await enforceUsageLimit(admin, USER, "voice_bot", { record: true });
     expect(result.allowed).toBe(false);
     if (result.allowed) return;
     expect(result.body.limit).toBe(0);
@@ -235,21 +235,21 @@ describe("enforceUsageLimit (server-side)", () => {
 
   it("resolveUsageLimit returns distinct maxCount per user for the same feature", () => {
     const rows: UsageLimitRow[] = [
-      { user_id: null, feature: "voice_assistant", max_count: 100, period: "day" },
-      { user_id: USER, feature: "voice_assistant", max_count: 3, period: "day" },
-      { user_id: OTHER, feature: "voice_assistant", max_count: 50, period: "month" },
+      { user_id: null, feature: "voice_bot", max_count: 100, period: "day" },
+      { user_id: USER, feature: "voice_bot", max_count: 3, period: "day" },
+      { user_id: OTHER, feature: "voice_bot", max_count: 50, period: "month" },
     ];
-    expect(resolveUsageLimit("voice_assistant", USER, rows)).toEqual({
+    expect(resolveUsageLimit("voice_bot", USER, rows)).toEqual({
       maxCount: 3,
       period: "day",
       source: "user",
     });
-    expect(resolveUsageLimit("voice_assistant", OTHER, rows)).toEqual({
+    expect(resolveUsageLimit("voice_bot", OTHER, rows)).toEqual({
       maxCount: 50,
       period: "month",
       source: "user",
     });
-    expect(resolveUsageLimit("voice_assistant", "user-3", rows)).toEqual({
+    expect(resolveUsageLimit("voice_bot", "user-3", rows)).toEqual({
       maxCount: 100,
       period: "day",
       source: "global",

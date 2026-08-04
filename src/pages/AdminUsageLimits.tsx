@@ -20,6 +20,7 @@ import {
   type UsageFeature,
   type UsagePeriod,
 } from "@/lib/usage-limits-client";
+import { matchesUsageFilters, type UsageRatioFilters } from "@/lib/admin-usage-filters";
 
 type FeatureState = {
   feature: UsageFeature;
@@ -30,6 +31,7 @@ type FeatureState = {
   source: "user" | "global" | "unlimited";
   hasOverride: boolean;
   overrideId: string | null;
+  resetPeriod?: "fresh" | "none";
 };
 
 type UserRow = {
@@ -46,6 +48,7 @@ type GlobalDefault = {
   period: UsagePeriod;
   limitId: string | null;
   hasDefault: boolean;
+  resetPeriod?: "fresh" | "none";
 };
 
 type AuditRow = {
@@ -67,7 +70,7 @@ type EditTarget =
   | { kind: "global"; feature: UsageFeature }
   | { kind: "user"; userId: string; feature: UsageFeature; name: string };
 
-const PERIOD_KEYS: UsagePeriod[] = ["day", "month", "year"];
+const PERIOD_KEYS: UsagePeriod[] = ["day", "week"];
 
 function usageSummary(
   used: number,
@@ -90,6 +93,7 @@ export default function AdminUsageLimits() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [ratioFilters, setRatioFilters] = useState<UsageRatioFilters>({});
   const [users, setUsers] = useState<UserRow[]>([]);
   const [globals, setGlobals] = useState<GlobalDefault[]>([]);
   const [audit, setAudit] = useState<AuditRow[]>([]);
@@ -98,6 +102,8 @@ export default function AdminUsageLimits() {
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [editMax, setEditMax] = useState("10");
   const [editPeriod, setEditPeriod] = useState<UsagePeriod>("day");
+  const [editReset, setEditReset] = useState<"fresh" | "none">("fresh");
+  const [editUsed, setEditUsed] = useState("0");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -126,14 +132,8 @@ export default function AdminUsageLimits() {
   }, [load]);
 
   const filteredUsers = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((u) => {
-      const name = (u.fullName || "").toLowerCase();
-      const email = (u.email || "").toLowerCase();
-      return name.includes(q) || email.includes(q);
-    });
-  }, [users, search]);
+    return users.filter((user) => matchesUsageFilters(user, search, ratioFilters));
+  }, [users, search, ratioFilters]);
 
   const filteredAudit = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -147,10 +147,12 @@ export default function AdminUsageLimits() {
     });
   }, [audit, search]);
 
-  const openEdit = (target: EditTarget, currentMax: number | null, currentPeriod: UsagePeriod) => {
+  const openEdit = (target: EditTarget, currentMax: number | null, currentPeriod: UsagePeriod, resetPeriod: "fresh" | "none" = "fresh", used = 0) => {
     setEditTarget(target);
     setEditMax(currentMax == null ? "10" : String(currentMax));
     setEditPeriod(currentPeriod);
+    setEditReset(resetPeriod);
+    setEditUsed(String(used));
     setEditOpen(true);
   };
 
@@ -169,6 +171,7 @@ export default function AdminUsageLimits() {
           feature: editTarget.feature,
           maxCount,
           period: editPeriod,
+          resetPeriod: editReset,
           targetUserId: editTarget.kind === "user" ? editTarget.userId : null,
         },
       });
@@ -209,8 +212,43 @@ export default function AdminUsageLimits() {
     }
   };
 
+  const resetUsage = async (userId: string, feature: UsageFeature) => {
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-usage-limits", { body: { action: "reset_usage", targetUserId: userId, feature } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (editTarget.kind === "user") {
+        const used = Number(editUsed);
+        if (!Number.isInteger(used) || used < 0) throw new Error("Current usage must be zero or greater");
+        const usageResult = await supabase.functions.invoke("manage-usage-limits", { body: { action: "set_usage", targetUserId: editTarget.userId, feature: editTarget.feature, used } });
+        if (usageResult.error) throw usageResult.error;
+        if (usageResult.data?.error) throw new Error(usageResult.data.error);
+      }
+      toast({ title: "Usage reset to zero" });
+      await load();
+    } catch (err) {
+      toast({ title: "Could not reset usage", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally { setSaving(false); }
+  };
+
   const featureTitle = (feature: UsageFeature) =>
     t(`admin.usageFeature_${feature}`, { defaultValue: FEATURE_LABELS[feature] });
+
+  // The frontend and Edge Function can briefly be on different deployment
+  // versions. Never crash the whole admin route when a newly introduced meter
+  // is absent from an older API response.
+  const featureState = (user: UserRow, feature: UsageFeature): FeatureState =>
+    user.features.find((item) => item.feature === feature) ?? {
+      feature,
+      featureLabel: FEATURE_LABELS[feature],
+      used: 0,
+      maxCount: null,
+      period: "day",
+      source: "unlimited",
+      hasOverride: false,
+      overrideId: null,
+    };
 
   return (
     <DashboardLayout>
@@ -260,7 +298,7 @@ export default function AdminUsageLimits() {
                   <Button
                     size="sm"
                     variant="secondary"
-                    onClick={() => openEdit({ kind: "global", feature: g.feature }, g.maxCount, g.period)}
+                    onClick={() => openEdit({ kind: "global", feature: g.feature }, g.maxCount, g.period, g.resetPeriod)}
                   >
                     {t("admin.usageEditLimit")}
                   </Button>
@@ -270,16 +308,31 @@ export default function AdminUsageLimits() {
           </CardContent>
         </Card>
 
-        {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="ps-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("admin.searchUsers")}
-          />
-        </div>
+        {/* Real-time combined filters */}
+        <Card>
+          <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <label className="space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground">User</span>
+              <div className="relative">
+                <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input className="ps-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name or email" autoComplete="off" />
+              </div>
+            </label>
+            {USAGE_FEATURES.map((feature) => (
+              <label key={feature} className="space-y-1.5">
+                <span className="text-xs font-medium text-muted-foreground">{featureTitle(feature)}</span>
+                <Input
+                  value={ratioFilters[feature] || ""}
+                  onChange={(event) => setRatioFilters((current) => ({ ...current, [feature]: event.target.value }))}
+                  placeholder="e.g. 1/4"
+                  inputMode="text"
+                  autoComplete="off"
+                  aria-label={`${featureTitle(feature)} usage ratio`}
+                />
+              </label>
+            ))}
+          </CardContent>
+        </Card>
 
         {loading ? (
           <div className="flex justify-center py-16">
@@ -308,7 +361,7 @@ export default function AdminUsageLimits() {
                             <div className="text-xs text-muted-foreground">{user.email}</div>
                           </TableCell>
                           {USAGE_FEATURES.map((feature) => {
-                            const state = user.features.find((f) => f.feature === feature)!;
+                            const state = featureState(user, feature);
                             return (
                               <TableCell key={feature} className="align-top">
                                 <div className="space-y-2 min-w-[9rem]">
@@ -336,6 +389,8 @@ export default function AdminUsageLimits() {
                                           },
                                           state.maxCount,
                                           state.period,
+                                          state.resetPeriod,
+                                          state.used,
                                         )
                                       }
                                     >
@@ -351,6 +406,7 @@ export default function AdminUsageLimits() {
                                         <Undo2 className="h-3.5 w-3.5" />
                                       </Button>
                                     )}
+                                    <Button size="sm" variant="ghost" onClick={() => void resetUsage(user.userId, feature)} disabled={saving}>Reset usage</Button>
                                   </div>
                                 </div>
                               </TableCell>
@@ -381,7 +437,7 @@ export default function AdminUsageLimits() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {USAGE_FEATURES.map((feature) => {
-                      const state = user.features.find((f) => f.feature === feature)!;
+                      const state = featureState(user, feature);
                       return (
                         <div key={feature} className="rounded-md border border-border/50 p-3 space-y-2">
                           <div className="flex items-center justify-between gap-2">
@@ -410,6 +466,8 @@ export default function AdminUsageLimits() {
                                   },
                                   state.maxCount,
                                   state.period,
+                                  state.resetPeriod,
+                                  state.used,
                                 )
                               }
                             >
@@ -425,6 +483,7 @@ export default function AdminUsageLimits() {
                                 <Undo2 className="h-4 w-4" />
                               </Button>
                             )}
+                            <Button size="sm" variant="ghost" onClick={() => void resetUsage(user.userId, feature)} disabled={saving}>Reset usage</Button>
                           </div>
                         </div>
                       );
@@ -509,7 +568,23 @@ export default function AdminUsageLimits() {
               <p className="text-xs text-muted-foreground" dir="auto">{t("admin.usageMaxHint")}</p>
             </div>
             <div className="space-y-2">
-              <Label>{t("admin.usagePeriod")}</Label>
+              <Label>Reset policy</Label>
+              <Select value={editReset} onValueChange={(value) => setEditReset(value as "fresh" | "none")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fresh">Fresh — resets automatically</SelectItem>
+                  <SelectItem value="none">No Fresh — admin resets manually</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">No Fresh usage remains locked until an administrator resets it or raises the limit.</p>
+            </div>
+            {editTarget?.kind === "user" && <div className="space-y-2">
+              <Label htmlFor="usage-current">Current usage</Label>
+              <Input id="usage-current" type="number" min={0} step={1} value={editUsed} onChange={(event) => setEditUsed(event.target.value)} />
+              <p className="text-xs text-muted-foreground">Set 0 to reset completely, or enter another value such as 5 for 5/15.</p>
+            </div>}
+            {editReset === "fresh" && <div className="space-y-2">
+              <Label>Refresh interval</Label>
               <Select value={editPeriod} onValueChange={(v) => setEditPeriod(v as UsagePeriod)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -517,12 +592,12 @@ export default function AdminUsageLimits() {
                 <SelectContent>
                   {PERIOD_KEYS.map((p) => (
                     <SelectItem key={p} value={p}>
-                      {t(`admin.usagePeriod_${p}`)}
+                      {t(`admin.usagePeriod_${p}`, { defaultValue: p === "day" ? "Daily" : "Weekly" })}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </div>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>

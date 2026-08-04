@@ -20,6 +20,8 @@ const LANG_MAP: Record<string, string> = {
   de: 'de-DE',
 };
 
+export const toSpeechLocale = (language: string) => LANG_MAP[language.toLowerCase().split("-")[0]] || language;
+
 export class VoiceRecognition {
   private recognition: SpeechRecognition | null = null;
   private options: RecognitionOptions = {};
@@ -61,7 +63,7 @@ export class VoiceRecognition {
 
     this.recognition = new SpeechRec();
     const lang = this.options.language || 'en';
-    this.recognition.lang = LANG_MAP[lang] || lang;
+    this.recognition.lang = toSpeechLocale(lang);
     this.recognition.continuous = this.options.continuous ?? false;
     this.recognition.interimResults = this.options.interimResults ?? true;
     this.recognition.maxAlternatives = 1;

@@ -30,6 +30,9 @@
     "getStarted": "शुरू करें",
     "learnMore": "और जानें",
     "tryAgain": "कृपया पुनः प्रयास करें।",
+    "errorBoundaryTitle": "कुछ गलत हुआ",
+    "errorBoundaryDescription": "यह पृष्ठ प्रदर्शित नहीं किया जा सका। इसे पुनः लोड करें।",
+    "errorBoundaryReload": "पृष्ठ पुनः लोड करें",
     "required": "आवश्यक",
     "optional": "वैकल्पिक",
     "showPassword": "पासवर्ड दिखाएँ",
@@ -75,6 +78,8 @@
     "theme": "थीम"
   },
   "nav": {
+    "searchJob": "नौकरी खोजें",
+    "recruiterJobs": "रिक्रूटर नौकरियाँ",
     "features": "विशेषताएँ",
     "howItWorks": "यह कैसे काम करता है",
     "forRecruiters": "भर्तीकर्ताओं के लिए",
@@ -824,6 +829,7 @@
     "locationHint": "स्थान-आधारित जॉब मैचिंग के लिए उपयोग होता है",
     "salaryHint": "10,000 से अधिक होना चाहिए",
     "educationHint": "तैयारी के लिए उपयोग होता है। संरचित डिग्री पंक्तियाँ नीचे करियर पासपोर्ट में हैं",
+    "educationEntryCount": "({{count}} प्रविष्टियाँ)",
     "educationEntryCount_one": "({{count}} प्रविष्टि)",
     "educationEntryCount_other": "({{count}} प्रविष्टियाँ)",
     "phoneInvalid": "अमान्य फ़ोन प्रारूप",
@@ -1018,7 +1024,8 @@
     "usageLimitValue": "{{period}} में {{max}}",
     "usageFeature_job_scraping": "जॉब स्क्रेपिंग",
     "usageFeature_form_fill": "फ़ॉर्म भरना",
-    "usageFeature_voice_assistant": "वॉइस असिस्टेंट",
+    "usageFeature_chat_bot": "चैट बॉट",
+    "usageFeature_voice_bot": "वॉइस बॉट",
     "usageFeature_automation": "ऑटोमेशन",
     "openManageUsersPending": "उपयोगकर्ता प्रबंधन → लंबित खोलें",
     "extensionUsageSubtitle": "JobAI ब्राउज़र एक्सटेंशन से ऑटो-फ़िल गतिविधि",
@@ -1218,7 +1225,8 @@
     "updateStatusAria": "{{name}} की स्थिति अपडेट करें"
   },
   "assistantShell": {
-    "controls": "JobAI Scout सहायक नियंत्रण", "open": "सहायक खोलें", "microphone": "माइक्रोफ़ोन", "history": "मेमोरी और इतिहास", "collapse": "सहायक पैनल छोटा करें", "expand": "सहायक पैनल बड़ा करें", "stop": "सहायक रोकें", "close": "सहायक बंद करें", "liveSite": "लाइव JobAI Scout साइट", "resize": "सहायक पैनल का आकार बदलें", "panel": "JobAI Scout सहायक", "title": "JobAI Scout सहायक", "ready": "आपके लिए तैयार", "state_idle": "आपके लिए तैयार", "state_listening": "सुन रहा हूँ...", "state_processing": "सोच रहा हूँ...", "state_speaking": "बोल रहा हूँ...", "historyTitle": "बातचीत का इतिहास", "historyEmpty": "आपकी सहायक बातचीत यहाँ दिखाई देगी।", "emptyTitle": "मैं कैसे मदद कर सकता हूँ?", "emptyBody": "नौकरियों के बारे में पूछें या लाइव साइट उपयोग करते समय मदद लें।", "messageLabel": "JobAI Scout सहायक को संदेश", "messagePlaceholder": "संदेश लिखें...", "useMicrophone": "माइक्रोफ़ोन उपयोग करें", "send": "संदेश भेजें", "thinking": "सोच रहा हूँ...", "listening": "सुन रहा हूँ...", "interrupted": "बाधित", "voiceUnsupported": "यह ब्राउज़र वॉइस पहचान का समर्थन नहीं करता।", "error": "कुछ गलत हुआ। कृपया फिर प्रयास करें।"
+    "searchChats": "चैट खोजें", "noChatsFound": "कोई मेल खाती चैट नहीं", "today": "आज", "yesterday": "कल", "previous7Days": "पिछले 7 दिन",
+    "controls": "JobAI Scout सहायक नियंत्रण", "open": "सहायक खोलें", "microphone": "माइक्रोफ़ोन", "history": "मेमोरी और इतिहास", "collapse": "सहायक पैनल छोटा करें", "expand": "सहायक पैनल बड़ा करें", "stop": "सहायक रोकें", "close": "सहायक बंद करें", "liveSite": "लाइव JobAI Scout साइट", "resize": "सहायक पैनल का आकार बदलें", "panel": "JobAI Scout सहायक", "title": "JobAI Scout सहायक", "ready": "आपके लिए तैयार", "state_idle": "आपके लिए तैयार", "state_listening": "सुन रहा हूँ...", "state_processing": "सोच रहा हूँ...", "state_speaking": "बोल रहा हूँ...", "historyTitle": "बातचीत का इतिहास", "historyEmpty": "आपकी सहायक बातचीत यहाँ दिखाई देगी।", "emptyTitle": "मैं कैसे मदद कर सकता हूँ?", "emptyBody": "नौकरियों के बारे में पूछें या लाइव साइट उपयोग करते समय मदद लें।", "messageLabel": "JobAI Scout सहायक को संदेश", "messagePlaceholder": "संदेश लिखें...", "useMicrophone": "माइक्रोफ़ोन उपयोग करें", "send": "संदेश भेजें", "thinking": "सोच रहा हूँ...", "listening": "सुन रहा हूँ...", "interrupted": "बाधित", "voiceUnsupported": "यह ब्राउज़र वॉइस पहचान का समर्थन नहीं करता।", "newChat": "नई चैट", "chatSession": "सहायक चैट", "profileMemory": "प्रोफ़ाइल मेमोरी", "recentActions": "हाल की कार्रवाइयाँ", "noMemory": "अभी कोई पसंद सहेजी नहीं गई है।", "tokenWarning": "यह चैट अपनी टोकन सीमा के करीब है। जल्द नई चैट शुरू करें।", "confirmationLabel": "पुष्टि आवश्यक", "confirm": "पुष्टि करें", "cancel": "रद्द करें", "acknowledgeScope": "जारी रखने से पहले सटीक दायरे की पुष्टि करें।", "typeToConfirm": "पुष्टि कथन लिखें", "noSpeech": "मैं कोई आवाज़ पहचान नहीं सका। कृपया फिर प्रयास करें।", "error": "कुछ गलत हुआ। कृपया फिर प्रयास करें।"
   },
   "errors": {
     "generic": "कुछ गलत हो गया। कृपया पुनः प्रयास करें।",

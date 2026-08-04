@@ -1,6 +1,6 @@
 # i18n route coverage
 
-Generated: 2026-07-27T18:44:02.538Z
+Generated: 2026-08-03T05:57:54.549Z
 
 Source router: `src/App.tsx`
 Audit input: `scripts/i18n-untranslated-report.txt` (attr-aware scan)
@@ -17,7 +17,7 @@ Audit input: `scripts/i18n-untranslated-report.txt` (attr-aware scan)
 | `/contact` | yes | `src/pages/Contact.tsx` | 1 | 1 hardcoded attr(s) still open |
 | `/privacy` | yes | `src/pages/Privacy.tsx` | 1 | 1 hardcoded attr(s) still open |
 | `/dashboard` | yes | `src/pages/Dashboard.tsx` | 0 | scanned; no open attr findings |
-| `/dashboard/cv` | yes | `src/pages/CVUpload.tsx` | 27 | 27 hardcoded attr(s) still open |
+| `/dashboard/cv` | yes | `src/pages/CVUpload.tsx` | 1 | 1 hardcoded attr(s) still open |
 | `/dashboard/jobs` | yes | `src/pages/JobBoard.tsx` | 0 | scanned; no open attr findings |
 | `/dashboard/automation` | yes | `src/pages/Automation.tsx` | 0 | scanned; no open attr findings |
 | `/dashboard/saved` | yes | `src/pages/SavedJobs.tsx` | 0 | scanned; no open attr findings |
@@ -25,7 +25,7 @@ Audit input: `scripts/i18n-untranslated-report.txt` (attr-aware scan)
 | `/dashboard/auto-fill` | yes | `src/pages/AutoFormFill.tsx` | 1 | 1 hardcoded attr(s) still open |
 | `/dashboard/assistant` | yes | `src/pages/VoiceAssistant.tsx` | 1 | 1 hardcoded attr(s) still open |
 | `/dashboard/voice-agent` | yes | `src/pages/VoiceAgent.tsx` | 1 | 1 hardcoded attr(s) still open |
-| `/dashboard/settings` | yes | `src/pages/ProfileSettings.tsx` | 28 | 28 hardcoded attr(s) still open |
+| `/dashboard/settings` | yes | `src/pages/ProfileSettings.tsx` | 1 | 1 hardcoded attr(s) still open |
 | `/dashboard/extension` | n/a | — | 0 | Redirect → /dashboard/auto-fill |
 | `/recruiter` | n/a | — | 0 | Redirect → /recruiter/jobs |
 | `/recruiter/profile` | yes | `src/pages/recruiter/RecruiterProfile.tsx`, `src/pages/recruiter/RecruiterApplicationStatus.tsx`, `src/pages/recruiter/RecruiterCandidates.tsx` | 0 | 1 other literal(s) flagged |
@@ -36,13 +36,14 @@ Audit input: `scripts/i18n-untranslated-report.txt` (attr-aware scan)
 | `/admin/users` | yes | `src/pages/AdminUsers.tsx` | 0 | scanned; no open attr findings |
 | `/admin/jobs` | yes | `src/pages/AdminJobs.tsx` | 0 | scanned; no open attr findings |
 | `/admin/analytics` | yes | `src/pages/AdminAnalytics.tsx` | 0 | scanned; no open attr findings |
+| `/admin/usage-limits` | yes | `src/pages/AdminUsageLimits.tsx` | 0 | scanned; no open attr findings |
 | `/admin/voice` | yes | `src/pages/AdminVoice.tsx` | 1 | 1 hardcoded attr(s) still open |
 | `*` | yes | `src/pages/NotFound.tsx` | 0 | scanned; no open attr findings |
 
 ## Summary
 
-- Routes total: **31**
-- Page routes audited: **29**
+- Routes total: **32**
+- Page routes audited: **30**
 - Routes still with hardcoded attr findings: **9**
 
 Re-run: `node scripts/i18n-route-coverage.mjs`

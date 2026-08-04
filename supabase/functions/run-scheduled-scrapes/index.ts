@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { runScrapeOrchestration } from "../_shared/scrape-orchestrator.ts";
 import { runUsageGuardedScrape } from "../_shared/scrape-usage-guard.ts";
+import { selectJobAdapters } from "../_shared/job-scrape-plan.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +13,7 @@ const jsonResponse = (body: Record<string, unknown>, status = 200) => new Respon
   headers: { ...corsHeaders, "Content-Type": "application/json" },
 });
 
-type DueSchedule = { id: string; user_id: string };
+type DueSchedule = { id: string; user_id: string; action?: { source?: unknown; sources?: unknown; adapters?: unknown } | null };
 
 /**
  * System-triggered dispatcher, invoked once a minute by pg_cron/pg_net (see
@@ -65,6 +66,7 @@ Deno.serve(async (req) => {
         jobType: "all",
         workMode: "all",
         maxItems: 25,
+        adapters: selectJobAdapters(schedule.action?.adapters || schedule.action?.sources || schedule.action?.source),
         scheduleId: schedule.id,
       }),
     });

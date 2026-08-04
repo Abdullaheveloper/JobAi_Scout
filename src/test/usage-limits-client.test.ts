@@ -112,7 +112,7 @@ describe("showUsageLimitToast", () => {
   it("shows a medium auto-dismissible toast (~7s)", () => {
     showUsageLimitToast({
       code: "USAGE_LIMIT_REACHED",
-      feature: "voice_assistant",
+      feature: "voice_bot",
       limit: 1,
       period: "day",
       used: 1,
@@ -121,7 +121,7 @@ describe("showUsageLimitToast", () => {
     expect(vi.mocked(toast).mock.calls[0][0]).toMatchObject({
       duration: 7000,
       title: expect.any(String),
-      description: expect.stringMatching(/Voice Assistant/),
+      description: expect.stringMatching(/Voice Bot/),
     });
   });
 });

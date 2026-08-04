@@ -75,4 +75,19 @@ describe("calculateJobMatch", () => {
     expect(calculateJobMatch(adjacent, { query: "AI Engineer", profile }).score)
       .toBeLessThan(calculateJobMatch(exact, { query: "AI Engineer", profile }).score);
   });
+
+  it("treats remote RSS roles as available from the user's city", () => {
+    const result = calculateJobMatch(job({
+      title: "AI Engineer", location: "Worldwide", work_mode: "remote",
+      description: "Build Python AI systems", skills: ["Python"], source: "rss",
+    }), {
+      query: "AI Engineer",
+      profile: { skills: ["Python", "LangChain"], desired_roles: ["AI Engineer"], location: "Islamabad, Pakistan", experience_years: 1 },
+      matchWeights: { skills: 24, location: 32, experience: 10, desiredRole: 34 },
+      hasSetMatchPreferences: true,
+    });
+
+    expect(result.explanation.formula.location).toBe(32);
+    expect(result.score).toBeGreaterThanOrEqual(40);
+  });
 });

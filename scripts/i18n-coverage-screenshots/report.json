@@ -1,10 +1,49 @@
 {
-  "locale": "fr",
+  "locales": [
+    "fr",
+    "ar",
+    "ur"
+  ],
   "mode": "locale-render-proof",
-  "note": "Rendered from fr.json keys used by VoiceMode/AutoFormFill/Dashboard. Live portal screenshots need I18N_EMAIL/I18N_PASSWORD (see i18n-coverage-screenshots.mjs).",
+  "note": "Rendered from locale JSON keys used by VoiceMode/AutoFormFill/Dashboard. Live portal screenshots need I18N_EMAIL/I18N_PASSWORD (see i18n-coverage-screenshots.mjs).",
   "shots": [
     "fr-voice-desktop.png",
     "fr-formfill-desktop.png",
-    "fr-dashboard-desktop.png"
-  ]
+    "fr-dashboard-desktop.png",
+    "ar-voice-desktop.png",
+    "ar-formfill-desktop.png",
+    "ar-dashboard-desktop.png",
+    "ur-voice-desktop.png",
+    "ur-formfill-desktop.png",
+    "ur-dashboard-desktop.png"
+  ],
+  "partC": {
+    "generatedAt": "2026-07-27T19:26:33.864Z",
+    "verdict": "PARTIAL FAIL",
+    "localeProofShots": {
+      "count": 9,
+      "files": [
+        "fr-dashboard-desktop.png",
+        "fr-formfill-desktop.png",
+        "fr-voice-desktop.png",
+        "ar-dashboard-desktop.png",
+        "ar-formfill-desktop.png",
+        "ar-voice-desktop.png",
+        "ur-dashboard-desktop.png",
+        "ur-formfill-desktop.png",
+        "ur-voice-desktop.png"
+      ],
+      "note": "9 locale-proof shots (fr/ar/ur × voice/formfill/dashboard)"
+    },
+    "livePortal": "needs_auth",
+    "voiceFormFillArabic": {
+      "status": "PASS",
+      "files": [
+        "ar-voice-desktop.png",
+        "ar-formfill-desktop.png"
+      ],
+      "notes": "Arabic chrome translated; locale-render proof (not live authenticated portal)"
+    },
+    "overall": "Locale-proof coverage present for fr/ar/ur. Live portal screenshots blocked without credentials. Voice/formfill Arabic visual proof PASS."
+  }
 }

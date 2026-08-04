@@ -49,7 +49,8 @@ export function normalizeJob(raw: Partial<NormalizedJob>): NormalizedJob | null 
     work_mode: raw.work_mode || null, experience_level: raw.experience_level || null, salary_min: raw.salary_min ?? null,
     salary_max: raw.salary_max ?? null, salary_currency: raw.salary_currency || null, source: raw.source,
     source_job_id: raw.source_job_id || null, source_url: sourceUrl, recruiter_id: raw.recruiter_id || null,
-    posted_at: normalizeTimestamp(raw.posted_at) };
+    posted_at: normalizeTimestamp(raw.posted_at), match_score: raw.match_score ?? null,
+    match_explanation: raw.match_explanation ?? null };
 }
 
 export function deduplicateJobs(jobs: NormalizedJob[]): NormalizedJob[] {

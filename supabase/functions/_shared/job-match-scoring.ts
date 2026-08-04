@@ -189,9 +189,11 @@ export function calculateJobMatch(job: NormalizedJob, input: {
   if (preferredLocation) {
     const preferredParts = tokenize(preferredLocation);
     const locationParts = coverage(preferredParts, jobLocation);
-    const remoteMatch = preferredLocation.includes("remote") && jobLocation.includes("remote");
-    locationRatio = remoteMatch ? 1 : locationParts.ratio;
-    locationDetail = locationRatio >= 0.8 ? `Matches ${input.location || profile.location}` : `Job location is ${job.location || "not specified"}`;
+    const remoteJob = /\b(remote|worldwide|anywhere|global)\b/.test(jobLocation);
+    locationRatio = remoteJob ? 1 : locationParts.ratio;
+    locationDetail = remoteJob
+      ? "Remote/worldwide role is available from the preferred location"
+      : locationRatio >= 0.8 ? `Matches ${input.location || profile.location}` : `Job location is ${job.location || "not specified"}`;
   }
 
   const userExperience = Math.max(0, Number(profile.experience_years) || 0);

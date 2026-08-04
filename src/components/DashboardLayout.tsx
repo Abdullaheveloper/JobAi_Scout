@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, FileUp, Briefcase, Bookmark, BarChart3, Users, UserCog, LogOut,
-  Shield, Mic, Zap, Plus, CalendarClock, Bell, Gauge,
+  Shield, Zap, Plus, CalendarClock, Bell, Gauge,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
@@ -32,11 +32,10 @@ function AppSidebar() {
   const userNav = [
     { title: t("nav.dashboard"), url: "/dashboard", icon: LayoutDashboard },
     { title: t("nav.uploadCv"), url: "/dashboard/cv", icon: FileUp },
-    { title: t("nav.browseJobs"), url: "/dashboard/jobs", icon: Briefcase },
+    { title: t("nav.searchJob", { defaultValue: "Search Job" }), url: "/dashboard/jobs", icon: Briefcase },
     { title: t("nav.automation"), url: "/dashboard/automation", icon: CalendarClock },
     { title: t("nav.savedJobs"), url: "/dashboard/saved", icon: Bookmark },
     { title: t("nav.formFill"), url: "/dashboard/auto-fill", icon: Zap },
-    { title: t("nav.voiceAssistant"), url: "/dashboard/assistant", icon: Mic },
     { title: t("nav.profileSettings"), url: "/dashboard/settings", icon: UserCog },
   ];
 

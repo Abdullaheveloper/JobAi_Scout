@@ -25,8 +25,23 @@ Deno.serve(async (req) => {
       if (!sessionId || !["user", "assistant", "tool"].includes(role) || typeof body.content !== "string") return json({ error: "Invalid message" }, 400);
       const { error } = await client.from("conversation_messages").insert({ user_id: user.id, session_id: sessionId, role, content: body.content.slice(0, 50000), linked_tool_call: body.linked_tool_call || null });
       if (error) throw error;
+      if (role === "user") {
+        const title = body.content.trim().replace(/\s+/g, " ").slice(0, 60);
+        if (title) await client.from("assistant_sessions").update({ title }).eq("id", sessionId).eq("user_id", user.id).is("title", null);
+      }
       await client.from("assistant_sessions").update({ updated_at: new Date().toISOString() }).eq("id", sessionId).eq("user_id", user.id);
       return json({ saved: true });
+    }
+
+    if (body.operation === "session_messages") {
+      const sessionId = String(body.session_id || "");
+      if (!sessionId) return json({ error: "A session is required" }, 400);
+      const { data: ownedSession, error: sessionError } = await client.from("assistant_sessions").select("id").eq("id", sessionId).eq("user_id", user.id).maybeSingle();
+      if (sessionError) throw sessionError;
+      if (!ownedSession) return json({ error: "Chat not found" }, 404);
+      const { data: messages, error } = await client.from("conversation_messages").select("*").eq("session_id", sessionId).eq("user_id", user.id).order("created_at", { ascending: true }).limit(500);
+      if (error) throw error;
+      return json({ messages: messages || [] });
     }
 
     if (body.operation === "bootstrap") {

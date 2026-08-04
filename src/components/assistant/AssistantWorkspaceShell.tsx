@@ -1,5 +1,5 @@
 import { PointerEvent as ReactPointerEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Check, Expand, History, LoaderCircle, MessageSquare, Mic, Minimize2, PanelRightOpen, Plus, Send, Square, X } from "lucide-react";
+import { Bot, Check, Expand, History, LoaderCircle, MessageSquare, Mic, Minimize2, PanelRightOpen, Plus, Search, Send, Square, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -11,7 +11,7 @@ import { voiceSynthesis } from "@/lib/voice/synthesis";
 import { VoiceActivityDetector } from "@/lib/voice/vad";
 import { canSpeakAssistantResponse, isStopCommand, shouldSpeakAssistantResponse, speechText, type AssistantInteractionMode, type AssistantVoiceState } from "@/lib/assistant/voice-state";
 import type { ConfirmationDecision, ConfirmationRequest } from "@/lib/assistant/tools";
-import { appendAssistantMessage, compactMemoryContext, createAssistantSession, loadAssistantMemory, type AssistantSession, type MemoryBootstrap } from "@/lib/assistant/memory";
+import { appendAssistantMessage, compactMemoryContext, conversationFromStoredMessages, conversationForSession, createAssistantSession, loadAssistantMemory, loadAssistantSessionMessages, type AssistantSession, type MemoryBootstrap } from "@/lib/assistant/memory";
 
 const DESKTOP_RATIO_KEY = "jobai-assistant-desktop-ratio";
 const MOBILE_RATIO_KEY = "jobai-assistant-mobile-ratio";
@@ -90,6 +90,8 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AssistantSession | null>(null);
   const [usageNearLimit, setUsageNearLimit] = useState(false);
   const [memoryError, setMemoryError] = useState("");
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => {
@@ -104,8 +106,16 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
     void (async () => {
       try {
         const loaded = await loadAssistantMemory();
-        const created = await createAssistantSession();
-        if (!cancelled) { setMemory(loaded); setSession(created.session); }
+        const active = loaded.active_session;
+        const created = active ? null : await createAssistantSession();
+        if (!cancelled) {
+          const nextSession = active || created!.session;
+          const restored = conversationForSession(loaded, nextSession.id);
+          setMemory(loaded);
+          setSession(nextSession);
+          setMessages(restored);
+          messagesRef.current = restored;
+        }
       } catch (error) {
         if (!cancelled) setMemoryError(error instanceof Error ? error.message : "Assistant memory could not be loaded.");
       }
@@ -249,6 +259,25 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
     }
   };
 
+  const openHistorySession = async (nextSession: AssistantSession) => {
+    stop();
+    setHistoryLoadingId(nextSession.id);
+    try {
+      const loaded = await loadAssistantSessionMessages(nextSession.id);
+      const restored = conversationFromStoredMessages(loaded.messages);
+      setSession(nextSession);
+      setMessages(restored);
+      messagesRef.current = restored;
+      setUsageNearLimit(false);
+      setMemoryError("");
+      setHistoryOpen(false);
+    } catch (error) {
+      setMemoryError(error instanceof Error ? error.message : "This chat could not be opened.");
+    } finally {
+      setHistoryLoadingId(null);
+    }
+  };
+
   const requestConfirmation = (request: ConfirmationRequest) => new Promise<ConfirmationDecision>((resolve) => {
     confirmationResolverRef.current = resolve;
     setScopeAcknowledgement("");
@@ -389,7 +418,7 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
       } else {
         const errorMessage = error instanceof Error ? error.message : t("assistantShell.error");
         if ((error as Error & { code?: string })?.code === "SESSION_LIMIT") setUsageNearLimit(true);
-        updateMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: errorMessage } : message));
+        updateMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: errorMessage, transientError: true } : message));
         setVoice("idle");
         if (shouldSpeakAssistantResponse(mode)) await speakAnswer(errorMessage, assistantId, mode);
       }
@@ -487,12 +516,26 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
   const sendMessage = () => void submitMessage(draft, "text");
   const sessionGroups = useMemo(() => {
     const groups = new Map<string, AssistantSession[]>();
+    const query = historySearch.trim().toLocaleLowerCase(i18n.resolvedLanguage || "en");
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     for (const item of memory?.sessions || []) {
-      const day = new Intl.DateTimeFormat(i18n.resolvedLanguage || "en", { dateStyle: "medium" }).format(new Date(item.updated_at));
+      const title = item.title || t("assistantShell.chatSession", { defaultValue: "Assistant chat" });
+      if (query && !title.toLocaleLowerCase(i18n.resolvedLanguage || "en").includes(query)) continue;
+      const updated = new Date(item.updated_at);
+      const updatedDay = new Date(updated.getFullYear(), updated.getMonth(), updated.getDate()).getTime();
+      const age = Math.floor((today - updatedDay) / 86_400_000);
+      const day = age <= 0
+        ? t("assistantShell.today", { defaultValue: "Today" })
+        : age === 1
+          ? t("assistantShell.yesterday", { defaultValue: "Yesterday" })
+          : age < 7
+            ? t("assistantShell.previous7Days", { defaultValue: "Previous 7 days" })
+            : new Intl.DateTimeFormat(i18n.resolvedLanguage || "en", { month: "long", year: "numeric" }).format(updated);
       groups.set(day, [...(groups.get(day) || []), item]);
     }
     return [...groups.entries()];
-  }, [memory?.sessions, i18n.resolvedLanguage]);
+  }, [historySearch, memory?.sessions, i18n.resolvedLanguage, t]);
 
   useEffect(() => () => {
     recognitionRef.current?.stop();
@@ -578,26 +621,38 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
               <p className="truncate text-xs text-muted-foreground">{t(`assistantShell.state_${voiceState}`)}</p>
             </div>
           </div>
-          <button type="button" onClick={close} aria-label={t("assistantShell.close")} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
-            <X className="h-4 w-4" />
-          </button>
-          <button type="button" onClick={() => void startNewChat()} aria-label={t("assistantShell.newChat", { defaultValue: "New chat" })} title={t("assistantShell.newChat", { defaultValue: "New chat" })} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
-            <Plus className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => void startNewChat()} aria-label={t("assistantShell.newChat", { defaultValue: "New chat" })} title={t("assistantShell.newChat", { defaultValue: "New chat" })} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+              <Plus className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={close} aria-label={t("assistantShell.close")} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </header>
 
         <div ref={messageListRef} data-testid="assistant-message-list" className="min-h-0 flex-1 overscroll-contain overflow-y-auto overflow-x-hidden px-4 pb-6 pt-4 scroll-pb-6" aria-live="polite">
           {historyOpen ? (
-            <div className="space-y-5">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-base font-semibold text-foreground">{t("assistantShell.historyTitle")}</h3>
+                <button type="button" onClick={() => void startNewChat()} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-muted">
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("assistantShell.newChat", { defaultValue: "New chat" })}
+                </button>
+              </div>
+              <label className="relative block">
+                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder={t("assistantShell.searchChats", { defaultValue: "Search chats" })} className="h-10 w-full rounded-xl border border-border bg-background ps-9 pe-3 text-sm outline-none focus:ring-2 focus:ring-primary/40" />
+              </label>
+              <section aria-label={t("assistantShell.historyTitle")}>
+                {sessionGroups.length ? <div className="space-y-4">{sessionGroups.map(([day, items]) => <div key={day}><p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{day}</p>{items.map((item) => <button type="button" key={item.id} disabled={historyLoadingId !== null} onClick={() => void openHistorySession(item)} className={cn("mb-1 flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-start text-sm transition-colors hover:bg-muted", session?.id === item.id && "bg-muted font-medium")}><span className="min-w-0 flex-1 truncate">{item.title || t("assistantShell.chatSession", { defaultValue: "Assistant chat" })}</span>{historyLoadingId === item.id ? <LoaderCircle className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <span className="shrink-0 text-[11px] text-muted-foreground">{new Intl.DateTimeFormat(i18n.resolvedLanguage || "en", { timeStyle: "short" }).format(new Date(item.updated_at))}</span>}</button>)}</div>)}</div> : <p className="rounded-xl bg-muted p-3 text-xs text-muted-foreground">{historySearch ? t("assistantShell.noChatsFound", { defaultValue: "No matching chats" }) : t("assistantShell.historyEmpty")}</p>}
+              </section>
               <section>
                 <h3 className="text-sm font-semibold text-foreground">{t("assistantShell.profileMemory", { defaultValue: "Remembered preferences" })}</h3>
                 {memory?.profile_memory.length ? <dl className="mt-2 space-y-2 rounded-xl bg-muted p-3 text-xs">
                   {memory.profile_memory.map((item) => <div key={item.memory_key}><dt className="font-medium capitalize text-foreground">{item.memory_key.replaceAll("_", " ")}</dt><dd className="mt-0.5 break-words text-muted-foreground">{typeof item.memory_value === "string" ? item.memory_value : JSON.stringify(item.memory_value)}</dd></div>)}
                 </dl> : <p className="mt-2 text-xs text-muted-foreground">{t("assistantShell.noMemory", { defaultValue: "No durable preferences saved yet." })}</p>}
-              </section>
-              <section>
-                <h3 className="text-sm font-semibold text-foreground">{t("assistantShell.historyTitle")}</h3>
-                {sessionGroups.length ? <div className="mt-2 space-y-4">{sessionGroups.map(([day, items]) => <div key={day}><p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{day}</p>{items.map((item) => <div key={item.id} className="mb-1 rounded-lg border border-border p-2 text-xs"><p className="font-medium text-foreground">{item.title || t("assistantShell.chatSession", { defaultValue: "Assistant chat" })}</p><p className="text-muted-foreground">{new Intl.DateTimeFormat(i18n.resolvedLanguage || "en", { timeStyle: "short" }).format(new Date(item.updated_at))} · {item.input_tokens.toLocaleString()} in / {item.output_tokens.toLocaleString()} out</p></div>)}</div>)}</div> : <p className="mt-2 text-xs text-muted-foreground">{t("assistantShell.historyEmpty")}</p>}
               </section>
               <section>
                 <h3 className="text-sm font-semibold text-foreground">{t("assistantShell.recentActions", { defaultValue: "Recent actions" })}</h3>

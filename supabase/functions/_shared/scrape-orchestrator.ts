@@ -2,8 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { collectLinkedInJobs } from "./adapters/linkedin-apify.adapter.ts";
 import { collectIndeedJobs } from "./adapters/indeed-apify.adapter.ts";
 import { collectRssJobs } from "./adapters/rss.adapter.ts";
-import { collectCompanyCareerJobs } from "./adapters/company-career.adapter.ts";
-import { deduplicateJobs, upsertCollectedJobs, type NormalizedJob } from "./job-collection.ts";
+import { collectCompanyCareerJobs, collectCompanyCareerSources } from "./adapters/company-career.adapter.ts";
+import { deduplicateJobs, duplicateKey, upsertCollectedJobs, type NormalizedJob } from "./job-collection.ts";
 import { calculateJobMatch, type MatchProfile } from "./job-match-scoring.ts";
 import {
   DEFAULT_MIN_MATCH_THRESHOLD,
@@ -26,6 +26,7 @@ export type ScrapeOrchestrationParams = {
   jobType: string;              // "all" | "full-time" | "part-time" | "contract" | "internship"
   workMode: string;             // "all" | "remote" | "hybrid"
   maxItems: number;
+  adapters?: JobAdapterKey[];
   scheduleId?: string | null;   // stamped onto job_scrape_sessions.schedule_id when present
 };
 
@@ -44,10 +45,10 @@ function sanitizeInput(value: unknown, maxLength: number): string {
 
 function friendlyAdapterError(key: JobAdapterKey, error: Error): string {
   const message = error.message.toLowerCase();
+  if (message.includes("429") || message.includes("rate") || message.includes("credit")) return `${key} reached its provider limit.`;
   if (message.includes("apify")) return `${key} needs its Apify token and actor configuration checked.`;
   if (message.includes("firecrawl")) return "Company Careers needs its Firecrawl API token checked.";
   if (message.includes("missing")) return `${key} is not configured on the server.`;
-  if (message.includes("429") || message.includes("rate")) return `${key} reached its provider limit.`;
   if (message.includes("timeout") || message.includes("exceeded")) return `${key} took too long to respond.`;
   if (message.includes("no enabled")) return `No enabled ${key.replace(/_/g, " ")} sources are configured.`;
   return `${key.replace(/_/g, " ")} could not be collected.`;
@@ -64,6 +65,7 @@ async function collectConfiguredSources(
   sources: SourceRow[],
   sourceType: "rss" | "company_career",
   signal: AbortSignal,
+  context: { query: string; location: string; maxItems: number },
   onProgress?: (payload: AdapterPayload) => void,
 ): Promise<AdapterPayload> {
   const configured = sources.filter((source) => source.source_type === sourceType && source.url);
@@ -74,12 +76,28 @@ async function collectConfiguredSources(
     jobs: settled.flatMap((result) => result?.jobs || []),
     errors: settled.flatMap((result) => result?.error ? [result.error] : []),
   });
-  // Sources within one logical adapter are independent. They may run together,
-  // while the four top-level adapters remain strictly sequential.
-  const results = await Promise.all(configured.map(async (source, index) => {
+  if (sourceType === "company_career") {
+    const batchResults = await collectCompanyCareerSources(configured.map((source) => ({ id: source.id, name: source.name, url: source.url! })), signal, context);
+    for (let index = 0; index < batchResults.length; index += 1) {
+      const result = batchResults[index];
+      const detail = result.error;
+      await admin.from("job_sources").update({
+        last_collected_at: new Date().toISOString(),
+        last_result_count: result.jobs.length,
+        last_error: detail ? detail.slice(0, 500) : null,
+      }).eq("id", result.source.id);
+      settled[index] = { jobs: result.jobs, error: detail ? `${result.source.name}: ${detail.slice(0, 240)}` : null };
+      publishProgress();
+    }
+    const jobs = batchResults.flatMap((result) => result.jobs);
+    const errors = batchResults.flatMap((result) => result.error ? [`${result.source.name}: ${result.error.slice(0, 240)}`] : []);
+    if (!batchResults.some((result) => !result.error)) throw new Error(errors[0] || "All company career sources failed");
+    return { jobs, errors };
+  }
+  const collectOne = async (source: SourceRow, index: number) => {
     try {
       const collected = sourceType === "rss"
-        ? await collectRssJobs(source.url!, source.name, signal)
+        ? await collectRssJobs(source.url!, source.name, signal, context)
         : await collectCompanyCareerJobs(source.url!, source.name, signal);
       await admin.from("job_sources").update({
         last_collected_at: new Date().toISOString(),
@@ -98,12 +116,16 @@ async function collectConfiguredSources(
         last_result_count: 0,
         last_error: detail.slice(0, 500),
       }).eq("id", source.id);
-      const result = { jobs: [] as NormalizedJob[], error: `${source.name}: this source was temporarily unavailable.` };
+      const result = { jobs: [] as NormalizedJob[], error: `${source.name}: ${detail.slice(0, 240)}` };
       settled[index] = result;
       publishProgress();
       return result;
     }
-  }));
+  };
+  // RSS downloads are cheap and independent. Company sources are intentionally
+  // sequential because their Firecrawl fallback has a strict requests/minute
+  // quota; starting every company at once caused the observed 429 storm.
+  const results = await Promise.all(configured.map(collectOne));
   const jobs = results.flatMap((result) => result.jobs);
   const errors = results.flatMap((result) => result.error ? [result.error] : []);
   const successfulSources = results.filter((result) => !result.error).length;
@@ -118,6 +140,7 @@ async function collectConfiguredSources(
  */
 export async function runScrapeOrchestration(params: ScrapeOrchestrationParams): Promise<ScrapeOrchestrationResult> {
   const { admin, userId, jobType, workMode, maxItems, scheduleId = null } = params;
+  const selectedAdapters = params.adapters?.length ? JOB_ADAPTER_ORDER.filter((key) => params.adapters!.includes(key)) : [...JOB_ADAPTER_ORDER];
   let sessionId: string | null = null;
 
   try {
@@ -165,7 +188,7 @@ export async function runScrapeOrchestration(params: ScrapeOrchestrationParams):
     const requestedLocation = sanitizeInput(params.location, 120);
     const effectiveLocation = requestedLocation || sanitizeInput(profile.location, 120) || "Pakistan";
 
-    const initialStatuses = Object.fromEntries(JOB_ADAPTER_ORDER.map((key) => [key, "waiting"]));
+    const initialStatuses = Object.fromEntries(JOB_ADAPTER_ORDER.map((key) => [key, selectedAdapters.includes(key) ? "waiting" : "stopped"]));
     const { data: createdSession, error: createError } = await admin.from("job_scrape_sessions").insert({
       user_id: userId,
       search_query: query,
@@ -206,8 +229,67 @@ export async function runScrapeOrchestration(params: ScrapeOrchestrationParams):
       rss: { jobs: [], errors: [] },
       company_career: { jobs: [], errors: [] },
     };
+    const processedKeys = Object.fromEntries(JOB_ADAPTER_ORDER.map((key) => [key, new Set<string>()])) as Record<JobAdapterKey, Set<string>>;
+    const processingChains = Object.fromEntries(JOB_ADAPTER_ORDER.map((key) => [key, Promise.resolve()])) as Record<JobAdapterKey, Promise<void>>;
+
+    const processJobs = async (key: JobAdapterKey, incoming: NormalizedJob[], adapterIndex: number) => {
+      const filtered = incoming.filter((job) => matchesOptionalFilters(job, jobType, workMode));
+      exclusions.optional_filters += incoming.length - filtered.length;
+      const deduplicated = deduplicateJobs(filtered);
+      exclusions.invalid_or_duplicate += filtered.length - deduplicated.length;
+      const uniqueJobs = deduplicated.filter((job) => {
+        const identity = duplicateKey(job);
+        if (processedKeys[key].has(identity)) return false;
+        processedKeys[key].add(identity);
+        return true;
+      });
+      totalScraped += uniqueJobs.length;
+      if (!uniqueJobs.length) return;
+
+      const scoredJobs = uniqueJobs.map((job) => {
+        const match = calculateJobMatch(job, { query, location: requestedLocation || null, profile, matchWeights, hasSetMatchPreferences });
+        return { job: { ...job, match_score: match.score, match_explanation: match.explanation }, match };
+      });
+      exclusions.below_match_score += scoredJobs.filter(({ match }) => match.score < minMatchThreshold).length;
+      const acceptedJobs = scoredJobs.filter(({ match }) => match.score >= minMatchThreshold);
+      exclusions.display_eligible += acceptedJobs.length;
+      if (!acceptedJobs.length) return;
+
+      const saved = await upsertCollectedJobs(acceptedJobs.map(({ job }) => job));
+      const resultRows = saved.items.map((item, sourceResultOrder) => ({
+        session_id: sessionId,
+        user_id: userId,
+        job_id: item.jobId,
+        match_score: Number(item.job.match_score || 0),
+        match_explanation: item.job.match_explanation || {},
+        adapter_order: adapterIndex + 1,
+        source_result_order: sourceResultOrder,
+        published_at: item.job.posted_at,
+        scraped_at: new Date().toISOString(),
+      }));
+      const { data: mapped, error: mappingError } = await admin.from("job_scrape_results")
+        .upsert(resultRows, { onConflict: "session_id,job_id", ignoreDuplicates: true })
+        .select("id");
+      if (mappingError) throw new Error(`Could not save matched jobs: ${mappingError.message}`);
+      totalSaved += mapped?.length || 0;
+      const { count, error: countError } = await admin.from("job_scrape_results").select("id", { count: "exact", head: true }).eq("session_id", sessionId).gte("match_score", minMatchThreshold);
+      if (countError) throw new Error(`Could not count visible jobs: ${countError.message}`);
+      totalDisplayed = count || 0;
+      await admin.from("job_scrape_sessions").update({ total_jobs_scraped: totalScraped, total_jobs_saved: totalSaved, total_jobs_displayed: totalDisplayed, exclusion_summary: exclusions }).eq("id", sessionId);
+    };
+
+    const enqueueJobs = (key: JobAdapterKey, jobs: NormalizedJob[]) => {
+      const adapterIndex = selectedAdapters.indexOf(key);
+      processingChains[key] = processingChains[key].then(() => processJobs(key, jobs, adapterIndex));
+      return processingChains[key];
+    };
     const rememberPartial = (key: JobAdapterKey, payload: AdapterPayload) => {
       partialPayloads[key] = payload;
+      void enqueueJobs(key, payload.jobs).catch((error) => {
+        const technical = error instanceof Error ? error : new Error("Partial job processing failed");
+        console.error(`[scrape-orchestrator] ${key}:partial`, technical.message);
+        adapterErrors[key] = [...(adapterErrors[key] || []), friendlyAdapterError(key, technical)];
+      });
     };
 
     const isStopRequested = async () => {
@@ -239,15 +321,15 @@ export async function runScrapeOrchestration(params: ScrapeOrchestrationParams):
       },
       {
         key: "rss" as const,
-        run: (signal: AbortSignal) => collectConfiguredSources(admin, sources, "rss", signal, (payload) => rememberPartial("rss", payload)),
+        run: (signal: AbortSignal) => collectConfiguredSources(admin, sources, "rss", signal, { query, location: effectiveLocation, maxItems }, (payload) => rememberPartial("rss", payload)),
         getPartial: () => partialPayloads.rss,
       },
       {
         key: "company_career" as const,
-        run: (signal: AbortSignal) => collectConfiguredSources(admin, sources, "company_career", signal, (payload) => rememberPartial("company_career", payload)),
+        run: (signal: AbortSignal) => collectConfiguredSources(admin, sources, "company_career", signal, { query, location: effectiveLocation, maxItems }, (payload) => rememberPartial("company_career", payload)),
         getPartial: () => partialPayloads.company_career,
       },
-    ];
+    ].filter((adapter) => selectedAdapters.includes(adapter.key));
 
     await admin.from("job_scrape_sessions").update({ session_status: "running" }).eq("id", sessionId);
     await runSequentialAdapters(adapters, {
@@ -264,59 +346,15 @@ export async function runScrapeOrchestration(params: ScrapeOrchestrationParams):
         const key = result.key;
         try {
           const payload = result.value || partialPayloads[key];
-          totalScraped += payload.jobs.length;
-          const adapterHadErrors = payload.errors.length > 0;
           if (payload.errors.length) {
             adapterErrors[key] = payload.errors;
             hadFailure = true;
           }
 
-          const filtered = payload.jobs.filter((job) => matchesOptionalFilters(job, jobType, workMode));
-          exclusions.optional_filters += payload.jobs.length - filtered.length;
-          const deduplicated = deduplicateJobs(filtered);
-          exclusions.invalid_or_duplicate += filtered.length - deduplicated.length;
-          // Valid roles are retained even when their career level differs.
-          // Their match score determines whether and where they are shown.
-          const uniqueJobs = deduplicated;
-          const saved = await upsertCollectedJobs(uniqueJobs);
-          const resultRows = saved.items.map((item, sourceResultOrder) => {
-            const match = calculateJobMatch(item.job, {
-              query,
-              location: requestedLocation || null,
-              profile,
-              matchWeights,
-              hasSetMatchPreferences,
-            });
-            return {
-              session_id: sessionId,
-              user_id: userId,
-              job_id: item.jobId,
-              match_score: match.score,
-              match_explanation: match.explanation,
-              adapter_order: adapterIndex + 1,
-              source_result_order: sourceResultOrder,
-              published_at: item.job.posted_at,
-              scraped_at: new Date().toISOString(),
-            };
-          });
-          exclusions.below_match_score += resultRows.filter((row) => row.match_score < minMatchThreshold).length;
-          exclusions.display_eligible += resultRows.filter((row) => row.match_score >= minMatchThreshold).length;
-          if (resultRows.length) {
-            const { data: mapped, error: mappingError } = await admin.from("job_scrape_results")
-              .upsert(resultRows, { onConflict: "session_id,job_id", ignoreDuplicates: true })
-              .select("id");
-            if (mappingError) throw new Error(`Could not save matched jobs: ${mappingError.message}`);
-            totalSaved += mapped?.length || 0;
-          }
-          const { count, error: countError } = await admin.from("job_scrape_results")
-            .select("id", { count: "exact", head: true })
-            .eq("session_id", sessionId)
-            .gte("match_score", minMatchThreshold);
-          if (countError) throw new Error(`Could not count visible jobs: ${countError.message}`);
-          totalDisplayed = count || 0;
-          adapterStatuses[key] = result.status === "completed"
-            ? adapterHadErrors ? "failed" : "completed"
-            : result.status;
+          await enqueueJobs(key, payload.jobs);
+          // A configured-source adapter can partially succeed. Keep its useful
+          // jobs and report source warnings without falsely marking it failed.
+          adapterStatuses[key] = result.status;
           if (result.status === "timed_out" || result.status === "failed") {
             hadFailure = true;
             const technical = result.error || new Error(`Adapter ${result.status}`);
@@ -353,7 +391,7 @@ export async function runScrapeOrchestration(params: ScrapeOrchestrationParams):
     const timedOutCount = Object.values(adapterStatuses).filter((status) => status === "timed_out").length;
     const finalStatus = stopRequested
       ? "stopped"
-      : failedCount === JOB_ADAPTER_ORDER.length
+      : failedCount === selectedAdapters.length
       ? "failed"
       : hadFailure || failedCount > 0 || timedOutCount > 0
         ? "partially_completed"

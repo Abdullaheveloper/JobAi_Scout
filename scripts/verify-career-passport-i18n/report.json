@@ -1,0 +1,191 @@
+{
+  "mode": "locale-proof-only",
+  "base": "http://localhost:8080",
+  "authConfigured": false,
+  "locales": {
+    "hi": {
+      "contactEnglishChrome": [],
+      "passportEnglishChrome": [
+        {
+          "key": "careerPassport.fields.linkedinUrl",
+          "value": "LinkedIn URL"
+        },
+        {
+          "key": "careerPassport.fields.githubUrl",
+          "value": "GitHub URL"
+        }
+      ],
+      "missing": [],
+      "placeholderEnglish": [
+        {
+          "key": "settings.placeholderCompany",
+          "value": "Acme Inc."
+        },
+        {
+          "key": "settings.placeholderCerts",
+          "value": "AWS Certified, PMP, Google Analytics..."
+        }
+      ],
+      "live": null,
+      "proofShots": [
+        "hi-contact-proof.png",
+        "hi-career-passport-proof.png",
+        "hi-profile-settings-proof-full.png"
+      ],
+      "pass": false,
+      "hardEnglishCount": 2
+    },
+    "ur": {
+      "contactEnglishChrome": [
+        {
+          "key": "settings.saveChanges",
+          "value": "Save changes"
+        }
+      ],
+      "passportEnglishChrome": [
+        {
+          "key": "careerPassport.fields.linkedinUrl",
+          "value": "LinkedIn URL"
+        },
+        {
+          "key": "careerPassport.fields.githubUrl",
+          "value": "GitHub URL"
+        },
+        {
+          "key": "settings.desiredRoles",
+          "value": "Desired roles"
+        }
+      ],
+      "missing": [],
+      "placeholderEnglish": [
+        {
+          "key": "settings.placeholderName",
+          "value": "John Doe"
+        },
+        {
+          "key": "settings.placeholderLocation",
+          "value": "City, country, or remote"
+        },
+        {
+          "key": "settings.placeholderCompany",
+          "value": "Acme Inc."
+        },
+        {
+          "key": "settings.placeholderEducation",
+          "value": "BSc Computer Science, MIT 2022"
+        },
+        {
+          "key": "settings.placeholderBio",
+          "value": "Tell us about yourself..."
+        },
+        {
+          "key": "settings.placeholderSkills",
+          "value": "Type a skill and press Enter…"
+        },
+        {
+          "key": "settings.placeholderRoles",
+          "value": "Frontend Developer, Full Stack Engineer..."
+        },
+        {
+          "key": "settings.placeholderCerts",
+          "value": "AWS Certified, PMP, Google Analytics..."
+        },
+        {
+          "key": "settings.placeholderLanguages",
+          "value": "English, Spanish, French"
+        }
+      ],
+      "live": null,
+      "proofShots": [
+        "ur-contact-proof.png",
+        "ur-career-passport-proof.png",
+        "ur-profile-settings-proof-full.png"
+      ],
+      "pass": false,
+      "hardEnglishCount": 4
+    },
+    "ar": {
+      "contactEnglishChrome": [
+        {
+          "key": "settings.saveChanges",
+          "value": "Save changes"
+        }
+      ],
+      "passportEnglishChrome": [
+        {
+          "key": "careerPassport.fields.linkedinUrl",
+          "value": "رابط LinkedIn"
+        },
+        {
+          "key": "careerPassport.fields.githubUrl",
+          "value": "رابط GitHub"
+        },
+        {
+          "key": "settings.desiredRoles",
+          "value": "Desired roles"
+        }
+      ],
+      "missing": [],
+      "placeholderEnglish": [
+        {
+          "key": "settings.placeholderName",
+          "value": "John Doe"
+        },
+        {
+          "key": "settings.placeholderLocation",
+          "value": "City, country, or remote"
+        },
+        {
+          "key": "settings.placeholderCompany",
+          "value": "Acme Inc."
+        },
+        {
+          "key": "settings.placeholderEducation",
+          "value": "BSc Computer Science, MIT 2022"
+        },
+        {
+          "key": "settings.placeholderBio",
+          "value": "Tell us about yourself..."
+        },
+        {
+          "key": "settings.placeholderSkills",
+          "value": "Type a skill and press Enter…"
+        },
+        {
+          "key": "settings.placeholderRoles",
+          "value": "Frontend Developer, Full Stack Engineer..."
+        },
+        {
+          "key": "settings.placeholderCerts",
+          "value": "AWS Certified, PMP, Google Analytics..."
+        },
+        {
+          "key": "settings.placeholderLanguages",
+          "value": "English, Spanish, French"
+        }
+      ],
+      "live": null,
+      "proofShots": [
+        "ar-contact-proof.png",
+        "ar-career-passport-proof.png",
+        "ar-profile-settings-proof-full.png"
+      ],
+      "pass": false,
+      "hardEnglishCount": 4
+    }
+  },
+  "shots": [
+    "hi-contact-proof.png",
+    "hi-career-passport-proof.png",
+    "hi-profile-settings-proof-full.png",
+    "ur-contact-proof.png",
+    "ur-career-passport-proof.png",
+    "ur-profile-settings-proof-full.png",
+    "ar-contact-proof.png",
+    "ar-career-passport-proof.png",
+    "ar-profile-settings-proof-full.png"
+  ],
+  "gaps": [
+    "No I18N_EMAIL/I18N_PASSWORD (or RTL_*) — live Profile Settings screenshots skipped"
+  ]
+}

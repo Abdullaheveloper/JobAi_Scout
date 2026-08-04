@@ -30,6 +30,9 @@
     "getStarted": "شروع کریں",
     "learnMore": "مزید جانیں",
     "tryAgain": "براہ کرم دوبارہ کوشش کریں۔",
+    "errorBoundaryTitle": "کچھ غلط ہو گیا",
+    "errorBoundaryDescription": "یہ صفحہ دکھایا نہیں جا سکا۔ اسے دوبارہ لوڈ کریں۔",
+    "errorBoundaryReload": "صفحہ دوبارہ لوڈ کریں",
     "required": "یہ خانہ درکار ہے",
     "optional": "اختیاری",
     "showPassword": "پاس ورڈ دکھائیں",
@@ -75,6 +78,8 @@
     "theme": "تھیم"
   },
   "nav": {
+    "searchJob": "نوکری تلاش کریں",
+    "recruiterJobs": "ریکروٹر نوکریاں",
     "features": "خصوصیات",
     "howItWorks": "یہ کیسے کام کرتا ہے",
     "forRecruiters": "ریکروٹرز کے لیے",
@@ -824,6 +829,7 @@
     "locationHint": "مقام کی بنیاد پر جاب میچنگ کے لیے استعمال ہوتا ہے",
     "salaryHint": "10,000 سے زیادہ ہونا چاہیے",
     "educationHint": "تیاری کے لیے استعمال ہوتا ہے۔ ساختہ ڈگری قطاریں نیچے کیریئر پاسپورٹ میں ہیں",
+    "educationEntryCount": "({{count}} اندراجات)",
     "educationEntryCount_one": "({{count}} اندراج)",
     "educationEntryCount_other": "({{count}} اندراجات)",
     "phoneInvalid": "فون فارمیٹ غلط ہے",
@@ -1020,7 +1026,8 @@
     "usageLimitValue": "{{period}} میں {{max}}",
     "usageFeature_job_scraping": "جاب اسکریپنگ",
     "usageFeature_form_fill": "فارم بھرنا",
-    "usageFeature_voice_assistant": "وائس اسسٹنٹ",
+    "usageFeature_chat_bot": "چیٹ بوٹ",
+    "usageFeature_voice_bot": "وائس بوٹ",
     "usageFeature_automation": "آٹومیشن",
     "openManageUsersPending": "صارفین کا انتظام ← زیر التوا کھولیں",
     "extensionUsageSubtitle": "JobAI براؤزر ایکسٹینشن سے آٹو فل سرگرمی",
@@ -1218,7 +1225,8 @@
     "updateStatusAria": "{{name}} کی حیثیت اپ ڈیٹ کریں"
   },
   "assistantShell": {
-    "controls": "JobAI Scout اسسٹنٹ کنٹرولز", "open": "اسسٹنٹ کھولیں", "microphone": "مائیکروفون", "history": "میموری اور تاریخ", "collapse": "اسسٹنٹ پینل چھوٹا کریں", "expand": "اسسٹنٹ پینل بڑا کریں", "stop": "اسسٹنٹ روکیں", "close": "اسسٹنٹ بند کریں", "liveSite": "لائیو JobAI Scout سائٹ", "resize": "اسسٹنٹ پینل کا سائز بدلیں", "panel": "JobAI Scout اسسٹنٹ", "title": "JobAI Scout اسسٹنٹ", "ready": "آپ کے لیے تیار", "state_idle": "آپ کے لیے تیار", "state_listening": "سن رہا ہے...", "state_processing": "سوچ رہا ہے...", "state_speaking": "بول رہا ہے...", "historyTitle": "گفتگو کی تاریخ", "historyEmpty": "آپ کی اسسٹنٹ گفتگو یہاں نظر آئے گی۔", "emptyTitle": "میں کیسے مدد کر سکتا ہوں؟", "emptyBody": "نوکریوں کے بارے میں پوچھیں یا لائیو سائٹ استعمال کرتے ہوئے مدد لیں۔", "messageLabel": "JobAI Scout اسسٹنٹ کو پیغام", "messagePlaceholder": "پیغام لکھیں...", "useMicrophone": "مائیکروفون استعمال کریں", "send": "پیغام بھیجیں", "thinking": "سوچ رہا ہوں...", "listening": "سن رہا ہے...", "interrupted": "مداخلت ہوئی", "voiceUnsupported": "یہ براؤزر آواز کی شناخت کو سپورٹ نہیں کرتا۔", "error": "کچھ غلط ہوا۔ براہ کرم دوبارہ کوشش کریں۔"
+    "searchChats": "چیٹس تلاش کریں", "noChatsFound": "کوئی مماثل چیٹ نہیں", "today": "آج", "yesterday": "کل", "previous7Days": "گزشتہ 7 دن",
+    "controls": "JobAI Scout اسسٹنٹ کنٹرولز", "open": "اسسٹنٹ کھولیں", "microphone": "مائیکروفون", "history": "میموری اور تاریخ", "collapse": "اسسٹنٹ پینل چھوٹا کریں", "expand": "اسسٹنٹ پینل بڑا کریں", "stop": "اسسٹنٹ روکیں", "close": "اسسٹنٹ بند کریں", "liveSite": "لائیو JobAI Scout سائٹ", "resize": "اسسٹنٹ پینل کا سائز بدلیں", "panel": "JobAI Scout اسسٹنٹ", "title": "JobAI Scout اسسٹنٹ", "ready": "آپ کے لیے تیار", "state_idle": "آپ کے لیے تیار", "state_listening": "سن رہا ہے...", "state_processing": "سوچ رہا ہے...", "state_speaking": "بول رہا ہے...", "historyTitle": "گفتگو کی تاریخ", "historyEmpty": "آپ کی اسسٹنٹ گفتگو یہاں نظر آئے گی۔", "emptyTitle": "میں کیسے مدد کر سکتا ہوں؟", "emptyBody": "نوکریوں کے بارے میں پوچھیں یا لائیو سائٹ استعمال کرتے ہوئے مدد لیں۔", "messageLabel": "JobAI Scout اسسٹنٹ کو پیغام", "messagePlaceholder": "پیغام لکھیں...", "useMicrophone": "مائیکروفون استعمال کریں", "send": "پیغام بھیجیں", "thinking": "سوچ رہا ہوں...", "listening": "سن رہا ہے...", "interrupted": "مداخلت ہوئی", "voiceUnsupported": "یہ براؤزر آواز کی شناخت کو سپورٹ نہیں کرتا۔", "newChat": "نئی چیٹ", "chatSession": "اسسٹنٹ چیٹ", "profileMemory": "پروفائل میموری", "recentActions": "حالیہ کارروائیاں", "noMemory": "ابھی کوئی ترجیح محفوظ نہیں ہے۔", "tokenWarning": "یہ چیٹ ٹوکن کی حد کے قریب ہے۔ جلد نئی چیٹ شروع کریں۔", "confirmationLabel": "تصدیق درکار ہے", "confirm": "تصدیق کریں", "cancel": "منسوخ کریں", "acknowledgeScope": "آگے بڑھنے سے پہلے مکمل دائرۂ کار کی تصدیق کریں۔", "typeToConfirm": "تصدیقی بیان لکھیں", "noSpeech": "میں کوئی آواز شناخت نہیں کر سکا۔ براہ کرم دوبارہ کوشش کریں۔", "error": "کچھ غلط ہوا۔ براہ کرم دوبارہ کوشش کریں۔"
   },
   "errors": {
     "generic": "کچھ غلط ہو گیا۔ براہ کرم دوبارہ کوشش کریں۔",

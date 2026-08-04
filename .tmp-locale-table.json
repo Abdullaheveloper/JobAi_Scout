@@ -1,0 +1,119 @@
+[
+  {
+    "key": "signin.newHere",
+    "en": "New here?",
+    "ar": "New here?",
+    "ur": "New here?",
+    "sameAsEn": true,
+    "arSameAsEn": true,
+    "urSameAsEn": true
+  },
+  {
+    "key": "signin.sideTitle",
+    "en": "Find work that fits your life.",
+    "ar": "Find work that fits your life.",
+    "ur": "Find work that fits your life.",
+    "sameAsEn": true,
+    "arSameAsEn": true,
+    "urSameAsEn": true
+  },
+  {
+    "key": "signin.sideCopy",
+    "en": "Search roles, keep your applications organised, and make smarter career decisions from one simple workspace.",
+    "ar": "Search roles, keep your applications organised, and make smarter career decisions from one simple workspace.",
+    "ur": "Search roles, keep your applications organised, and make smarter career decisions from one simple workspace.",
+    "sameAsEn": true,
+    "arSameAsEn": true,
+    "urSameAsEn": true
+  },
+  {
+    "key": "signin.eyebrow",
+    "en": "Your career workspace",
+    "ar": "Your career workspace",
+    "ur": "Your career workspace",
+    "sameAsEn": true,
+    "arSameAsEn": true,
+    "urSameAsEn": true
+  },
+  {
+    "key": "signin.sideNote",
+    "en": "Your account keeps your saved roles and application history in one place.",
+    "ar": "Your account keeps your saved roles and application history in one place.",
+    "ur": "Your account keeps your saved roles and application history in one place.",
+    "sameAsEn": true,
+    "arSameAsEn": true,
+    "urSameAsEn": true
+  },
+  {
+    "key": "nav.features",
+    "en": "Features",
+    "ar": "Features",
+    "ur": "Features",
+    "sameAsEn": true,
+    "arSameAsEn": true,
+    "urSameAsEn": true
+  },
+  {
+    "key": "nav.howItWorks",
+    "en": "How it works",
+    "ar": "How it works",
+    "ur": "How it works",
+    "sameAsEn": true,
+    "arSameAsEn": true,
+    "urSameAsEn": true
+  },
+  {
+    "key": "nav.forRecruiters",
+    "en": "For recruiters",
+    "ar": "For recruiters",
+    "ur": "For recruiters",
+    "sameAsEn": true,
+    "arSameAsEn": true,
+    "urSameAsEn": true
+  },
+  {
+    "key": "signup.alreadyHave",
+    "en": "Already have an account?",
+    "ar": "لديك حساب بالفعل؟",
+    "ur": "پہلے سے اکاؤنٹ ہے؟",
+    "sameAsEn": false,
+    "arSameAsEn": false,
+    "urSameAsEn": false
+  },
+  {
+    "key": "signup.eyebrow",
+    "en": "START YOUR SEARCH",
+    "ar": "START YOUR SEARCH",
+    "ur": "START YOUR SEARCH",
+    "sameAsEn": true,
+    "arSameAsEn": true,
+    "urSameAsEn": true
+  },
+  {
+    "key": "signup.sideTitle",
+    "en": "Build a clearer path to your next opportunity.",
+    "ar": "Build a clearer path to your next opportunity.",
+    "ur": "Build a clearer path to your next opportunity.",
+    "sameAsEn": true,
+    "arSameAsEn": true,
+    "urSameAsEn": true
+  },
+  {
+    "key": "signup.sideCopy",
+    "en": "Create your free workspace to organise the jobs that matter and take the next step with confidence.",
+    "ar": "Create your free workspace to organise the jobs that matter and take the next step with confidence.",
+    "ur": "Create your free workspace to organise the jobs that matter and take the next step with confidence.",
+    "sameAsEn": true,
+    "arSameAsEn": true,
+    "urSameAsEn": true
+  },
+  {
+    "key": "common.privacyPolicy",
+    "en": "Privacy Policy",
+    "ar": "Privacy Policy",
+    "ur": "Privacy Policy",
+    "sameAsEn": true,
+    "arSameAsEn": true,
+    "urSameAsEn": true
+  }
+]

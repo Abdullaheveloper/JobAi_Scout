@@ -1,9 +1,9 @@
 {
-  "generated": "2026-07-27T18:44:02.538Z",
+  "generated": "2026-08-03T05:57:54.549Z",
   "source": "src/App.tsx",
   "auditReport": "scripts/i18n-untranslated-report.txt",
-  "routeCount": 31,
-  "auditedPages": 29,
+  "routeCount": 32,
+  "auditedPages": 30,
   "routesWithAttrFindings": 9,
   "routes": [
     {
@@ -128,7 +128,7 @@
         "src/pages/Privacy.tsx"
       ],
       "audited": "yes",
-      "findingCount": 12,
+      "findingCount": 11,
       "attrFindingCount": 1,
       "notes": "1 hardcoded attr(s) still open"
     },
@@ -160,9 +160,9 @@
         "src/components/profile/ResumeQualityAlertExample.tsx"
       ],
       "audited": "yes",
-      "findingCount": 29,
-      "attrFindingCount": 27,
-      "notes": "27 hardcoded attr(s) still open"
+      "findingCount": 3,
+      "attrFindingCount": 1,
+      "notes": "1 hardcoded attr(s) still open"
     },
     {
       "path": "/dashboard/jobs",
@@ -291,9 +291,9 @@
         "src/components/profile/ResumeQualityAlertExample.tsx"
       ],
       "audited": "yes",
-      "findingCount": 30,
-      "attrFindingCount": 28,
-      "notes": "28 hardcoded attr(s) still open"
+      "findingCount": 3,
+      "attrFindingCount": 1,
+      "notes": "1 hardcoded attr(s) still open"
     },
     {
       "path": "/dashboard/extension",
@@ -435,6 +435,20 @@
       ],
       "scannedFiles": [
         "src/pages/AdminAnalytics.tsx"
+      ],
+      "audited": "yes",
+      "findingCount": 0,
+      "attrFindingCount": 0,
+      "notes": "scanned; no open attr findings"
+    },
+    {
+      "path": "/admin/usage-limits",
+      "kind": "page",
+      "components": [
+        "AdminUsageLimits"
+      ],
+      "scannedFiles": [
+        "src/pages/AdminUsageLimits.tsx"
       ],
       "audited": "yes",
       "findingCount": 0,

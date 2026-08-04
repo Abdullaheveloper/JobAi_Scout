@@ -30,6 +30,9 @@
     "getStarted": "ابدأ الآن",
     "learnMore": "اعرف المزيد",
     "tryAgain": "يرجى المحاولة مرة أخرى.",
+    "errorBoundaryTitle": "حدث خطأ ما",
+    "errorBoundaryDescription": "تعذر عرض هذه الصفحة. حاول إعادة تحميلها.",
+    "errorBoundaryReload": "إعادة تحميل الصفحة",
     "required": "هذا الحقل مطلوب",
     "optional": "اختياري",
     "showPassword": "إظهار كلمة المرور",
@@ -75,12 +78,14 @@
     "theme": "المظهر"
   },
   "nav": {
+    "searchJob": "البحث عن وظيفة",
     "features": "الميزات",
     "howItWorks": "كيف يعمل",
     "forRecruiters": "للموظِّفين",
     "dashboard": "لوحة التحكم",
     "uploadCv": "تحميل السيرة الذاتية",
     "browseJobs": "تصفح الوظائف",
+    "recruiterJobs": "وظائف مسؤولي التوظيف",
     "automation": "الأتمتة",
     "savedJobs": "الوظائف المحفوظة",
     "formFill": "تعبئة النماذج",
@@ -824,6 +829,7 @@
     "locationHint": "يُستخدم لمطابقة الوظائف حسب الموقع",
     "salaryHint": "يجب أن يكون أكبر من 10,000",
     "educationHint": "يُستخدم للاكتمال. صفوف الدرجات المنظمة موجودة في جواز المسيرة المهنية أدناه",
+    "educationEntryCount": "({{count}} إدخالات)",
     "educationEntryCount_one": "({{count}} إدخال)",
     "educationEntryCount_other": "({{count}} إدخالات)",
     "phoneInvalid": "تنسيق الهاتف غير صالح",
@@ -1020,7 +1026,8 @@
     "usageLimitValue": "{{max}} لكل {{period}}",
     "usageFeature_job_scraping": "جمع الوظائف",
     "usageFeature_form_fill": "ملء النماذج",
-    "usageFeature_voice_assistant": "المساعد الصوتي",
+    "usageFeature_chat_bot": "روبوت المحادثة",
+    "usageFeature_voice_bot": "الروبوت الصوتي",
     "usageFeature_automation": "الأتمتة",
     "openManageUsersPending": "افتح إدارة المستخدمين ← قيد الانتظار",
     "extensionUsageSubtitle": "نشاط التعبئة التلقائية من إضافة JobAI للمتصفح",
@@ -1218,7 +1225,8 @@
     "updateStatusAria": "تحديث الحالة لـ {{name}}"
   },
   "assistantShell": {
-    "controls": "عناصر تحكم مساعد JobAI Scout", "open": "فتح المساعد", "microphone": "الميكروفون", "history": "الذاكرة والسجل", "collapse": "تصغير لوحة المساعد", "expand": "توسيع لوحة المساعد", "stop": "إيقاف المساعد", "close": "إغلاق المساعد", "liveSite": "موقع JobAI Scout المباشر", "resize": "تغيير حجم لوحة المساعد", "panel": "مساعد JobAI Scout", "title": "مساعد JobAI Scout", "ready": "جاهز عندما تكون مستعدًا", "state_idle": "جاهز عندما تكون مستعدًا", "state_listening": "جارٍ الاستماع...", "state_processing": "جارٍ التفكير...", "state_speaking": "جارٍ التحدث...", "historyTitle": "سجل المحادثات", "historyEmpty": "ستظهر محادثاتك مع المساعد هنا.", "emptyTitle": "كيف يمكنني مساعدتك؟", "emptyBody": "اسأل عن الوظائف أو احصل على المساعدة أثناء استخدام الموقع المباشر.", "messageLabel": "مراسلة مساعد JobAI Scout", "messagePlaceholder": "اكتب رسالة...", "useMicrophone": "استخدام الميكروفون", "send": "إرسال الرسالة", "thinking": "جارٍ التفكير...", "listening": "جارٍ الاستماع...", "interrupted": "تمت المقاطعة", "voiceUnsupported": "التعرف الصوتي غير مدعوم في هذا المتصفح.", "error": "حدث خطأ. يرجى المحاولة مرة أخرى."
+    "searchChats": "البحث في المحادثات", "noChatsFound": "لا توجد محادثات مطابقة", "today": "اليوم", "yesterday": "أمس", "previous7Days": "آخر 7 أيام",
+    "controls": "عناصر تحكم مساعد JobAI Scout", "open": "فتح المساعد", "microphone": "الميكروفون", "history": "الذاكرة والسجل", "collapse": "تصغير لوحة المساعد", "expand": "توسيع لوحة المساعد", "stop": "إيقاف المساعد", "close": "إغلاق المساعد", "liveSite": "موقع JobAI Scout المباشر", "resize": "تغيير حجم لوحة المساعد", "panel": "مساعد JobAI Scout", "title": "مساعد JobAI Scout", "ready": "جاهز عندما تكون مستعدًا", "state_idle": "جاهز عندما تكون مستعدًا", "state_listening": "جارٍ الاستماع...", "state_processing": "جارٍ التفكير...", "state_speaking": "جارٍ التحدث...", "historyTitle": "سجل المحادثات", "historyEmpty": "ستظهر محادثاتك مع المساعد هنا.", "emptyTitle": "كيف يمكنني مساعدتك؟", "emptyBody": "اسأل عن الوظائف أو احصل على المساعدة أثناء استخدام الموقع المباشر.", "messageLabel": "مراسلة مساعد JobAI Scout", "messagePlaceholder": "اكتب رسالة...", "useMicrophone": "استخدام الميكروفون", "send": "إرسال الرسالة", "thinking": "جارٍ التفكير...", "listening": "جارٍ الاستماع...", "interrupted": "تمت المقاطعة", "voiceUnsupported": "التعرف الصوتي غير مدعوم في هذا المتصفح.", "newChat": "محادثة جديدة", "chatSession": "محادثة المساعد", "profileMemory": "ذاكرة الملف الشخصي", "recentActions": "الإجراءات الأخيرة", "noMemory": "لا توجد تفضيلات محفوظة بعد.", "tokenWarning": "تقترب هذه المحادثة من حد الرموز. ابدأ محادثة جديدة قريبًا.", "confirmationLabel": "التأكيد مطلوب", "confirm": "تأكيد", "cancel": "إلغاء", "acknowledgeScope": "أكد النطاق الدقيق قبل المتابعة.", "typeToConfirm": "اكتب عبارة التأكيد", "noSpeech": "لم أتمكن من التعرف على أي كلام. يرجى المحاولة مرة أخرى.", "error": "حدث خطأ. يرجى المحاولة مرة أخرى."
   },
   "errors": {
     "generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",

@@ -3,17 +3,19 @@ import { toast } from "@/hooks/use-toast";
 export const USAGE_FEATURES = [
   "job_scraping",
   "form_fill",
-  "voice_assistant",
+  "chat_bot",
+  "voice_bot",
   "automation",
 ] as const;
 
 export type UsageFeature = (typeof USAGE_FEATURES)[number];
-export type UsagePeriod = "day" | "month" | "year";
+export type UsagePeriod = "day" | "week" | "month" | "year";
 
 export const FEATURE_LABELS: Record<UsageFeature, string> = {
   job_scraping: "Job Scraping",
   form_fill: "Form Fill",
-  voice_assistant: "Voice Assistant",
+  chat_bot: "Chat Bot",
+  voice_bot: "Voice Bot",
   automation: "Automation",
 };
 
@@ -90,7 +92,7 @@ export function buildUsageLimitViewModel(
 function periodScopeLabel(period: UsagePeriod, t?: TranslateFn): string {
   if (t) {
     return t(`usageLimits.periodLabel_${period}`, {
-      defaultValue: period === "day" ? "today" : period === "month" ? "this month" : "this year",
+      defaultValue: period === "day" ? "today" : period === "week" ? "this week" : period === "month" ? "this month" : "this year",
     });
   }
   return period === "day" ? "today" : period === "month" ? "this month" : "this year";
@@ -227,7 +229,7 @@ export function usageLimitToastMessage(
       });
     } else {
       const periodLabel = t(`usageLimits.period_${period}`, {
-        defaultValue: period === "day" ? "daily" : period === "month" ? "monthly" : "yearly",
+        defaultValue: period === "day" ? "daily" : period === "week" ? "weekly" : period === "month" ? "monthly" : "yearly",
       });
       const reset = t(`usageLimits.reset_${period}`, {
         defaultValue: defaultResetHint(period),
@@ -244,7 +246,7 @@ export function usageLimitToastMessage(
   } else if (payload.limit === 0) {
     description = `${featureLabel} is disabled for your account.`;
   } else {
-    const periodWord = period === "day" ? "daily" : period === "month" ? "monthly" : "yearly";
+    const periodWord = period === "day" ? "daily" : period === "week" ? "weekly" : period === "month" ? "monthly" : "yearly";
     description = `You've reached your ${periodWord} limit for ${featureLabel}. ${defaultResetHint(period)}`;
   }
 

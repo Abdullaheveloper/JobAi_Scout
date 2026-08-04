@@ -16,9 +16,18 @@ export type SequentialAdapterResult<T> = {
 };
 
 export const ADAPTER_MAX_COLLECTION_MS = 90_000;
+export const COMPANY_CAREER_MAX_COLLECTION_MS = 58_000;
 
-export function adapterCollectionTimeout(_key: JobAdapterKey): number {
-  return ADAPTER_MAX_COLLECTION_MS;
+export function selectJobAdapters(value: unknown): JobAdapterKey[] {
+  const requested = (Array.isArray(value) ? value : value ? [value] : [])
+    .map((item) => String(item).trim().toLowerCase().replace(/[\s-]+/g, "_"))
+    .map((item) => item === "company" || item === "career" || item === "company_careers" ? "company_career" : item === "xml" || item === "feed" || item === "feeds" ? "rss" : item)
+    .filter((item): item is JobAdapterKey => JOB_ADAPTER_ORDER.includes(item as JobAdapterKey));
+  return requested.length ? JOB_ADAPTER_ORDER.filter((key) => requested.includes(key)) : [...JOB_ADAPTER_ORDER];
+}
+
+export function adapterCollectionTimeout(key: JobAdapterKey): number {
+  return key === "company_career" ? COMPANY_CAREER_MAX_COLLECTION_MS : ADAPTER_MAX_COLLECTION_MS;
 }
 
 async function runWithDeadline<T>(
@@ -85,7 +94,7 @@ export async function runSequentialAdapters<T>(
     const adapter = adapters[index];
     if (await callbacks.shouldStop?.()) break;
     await callbacks.onStart?.(adapter.key, index);
-    const result = await runWithDeadline(adapter, callbacks.shouldStop, callbacks.timeoutMs);
+    const result = await runWithDeadline(adapter, callbacks.shouldStop, callbacks.timeoutMs ?? adapterCollectionTimeout(adapter.key));
     results.push(result);
     await callbacks.onFinish?.(result, index);
     if (result.status === "stopped") break;

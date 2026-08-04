@@ -30,6 +30,9 @@
     "getStarted": "Commencer",
     "learnMore": "En savoir plus",
     "tryAgain": "Veuillez réessayer.",
+    "errorBoundaryTitle": "Une erreur est survenue",
+    "errorBoundaryDescription": "Cette page ne peut pas être affichée. Essayez de la recharger.",
+    "errorBoundaryReload": "Recharger la page",
     "required": "Obligatoire",
     "optional": "Facultatif",
     "showPassword": "Afficher le mot de passe",
@@ -75,6 +78,8 @@
     "theme": "Thème"
   },
   "nav": {
+    "searchJob": "Rechercher un emploi",
+    "recruiterJobs": "Offres des recruteurs",
     "features": "Fonctionnalités",
     "howItWorks": "Comment ça marche",
     "forRecruiters": "Pour les recruteurs",
@@ -824,6 +829,7 @@
     "locationHint": "Utilisé pour le matching d'emplois par localisation",
     "salaryHint": "Doit être supérieur à 10 000",
     "educationHint": "Utilisé pour la complétude. Les diplômes structurés sont dans le Passeport carrière ci-dessous",
+    "educationEntryCount": "({{count}} entrées)",
     "educationEntryCount_one": "({{count}} entrée)",
     "educationEntryCount_other": "({{count}} entrées)",
     "phoneInvalid": "Format de téléphone invalide",
@@ -1018,7 +1024,8 @@
     "usageLimitValue": "{{max}} par {{period}}",
     "usageFeature_job_scraping": "Collecte d'offres",
     "usageFeature_form_fill": "Remplissage de formulaires",
-    "usageFeature_voice_assistant": "Assistant vocal",
+    "usageFeature_chat_bot": "Chatbot",
+    "usageFeature_voice_bot": "Robot vocal",
     "usageFeature_automation": "Automatisation",
     "openManageUsersPending": "Ouvrir Gérer les utilisateurs → En attente",
     "extensionUsageSubtitle": "Activité de remplissage auto depuis l'extension JobAI",
@@ -1218,7 +1225,8 @@
     "updateStatusAria": "Mettre à jour le statut pour {{name}}"
   },
   "assistantShell": {
-    "controls": "Commandes de l’assistant JobAI Scout", "open": "Ouvrir l’assistant", "microphone": "Microphone", "history": "Mémoire et historique", "collapse": "Réduire le panneau assistant", "expand": "Agrandir le panneau assistant", "stop": "Arrêter l’assistant", "close": "Fermer l’assistant", "liveSite": "Site JobAI Scout en direct", "resize": "Redimensionner le panneau assistant", "panel": "Assistant JobAI Scout", "title": "Assistant JobAI Scout", "ready": "Prêt quand vous l’êtes", "state_idle": "Prêt quand vous l’êtes", "state_listening": "Écoute...", "state_processing": "Réflexion...", "state_speaking": "Parle...", "historyTitle": "Historique des conversations", "historyEmpty": "Vos conversations avec l’assistant apparaîtront ici.", "emptyTitle": "Comment puis-je vous aider ?", "emptyBody": "Posez des questions sur les emplois ou obtenez de l’aide pendant votre navigation.", "messageLabel": "Message à l’assistant JobAI Scout", "messagePlaceholder": "Écrivez un message...", "useMicrophone": "Utiliser le microphone", "send": "Envoyer le message", "thinking": "Réflexion...", "listening": "Écoute...", "interrupted": "Interrompu", "voiceUnsupported": "La reconnaissance vocale n’est pas prise en charge par ce navigateur.", "error": "Une erreur est survenue. Veuillez réessayer."
+    "searchChats": "Rechercher des conversations", "noChatsFound": "Aucune conversation correspondante", "today": "Aujourd’hui", "yesterday": "Hier", "previous7Days": "7 derniers jours",
+    "controls": "Commandes de l’assistant JobAI Scout", "open": "Ouvrir l’assistant", "microphone": "Microphone", "history": "Mémoire et historique", "collapse": "Réduire le panneau assistant", "expand": "Agrandir le panneau assistant", "stop": "Arrêter l’assistant", "close": "Fermer l’assistant", "liveSite": "Site JobAI Scout en direct", "resize": "Redimensionner le panneau assistant", "panel": "Assistant JobAI Scout", "title": "Assistant JobAI Scout", "ready": "Prêt quand vous l’êtes", "state_idle": "Prêt quand vous l’êtes", "state_listening": "Écoute...", "state_processing": "Réflexion...", "state_speaking": "Parle...", "historyTitle": "Historique des conversations", "historyEmpty": "Vos conversations avec l’assistant apparaîtront ici.", "emptyTitle": "Comment puis-je vous aider ?", "emptyBody": "Posez des questions sur les emplois ou obtenez de l’aide pendant votre navigation.", "messageLabel": "Message à l’assistant JobAI Scout", "messagePlaceholder": "Écrivez un message...", "useMicrophone": "Utiliser le microphone", "send": "Envoyer le message", "thinking": "Réflexion...", "listening": "Écoute...", "interrupted": "Interrompu", "voiceUnsupported": "La reconnaissance vocale n’est pas prise en charge par ce navigateur.", "newChat": "Nouvelle conversation", "chatSession": "Conversation avec l’assistant", "profileMemory": "Mémoire du profil", "recentActions": "Actions récentes", "noMemory": "Aucune préférence enregistrée.", "tokenWarning": "Cette conversation approche de sa limite. Commencez bientôt une nouvelle conversation.", "confirmationLabel": "Confirmation requise", "confirm": "Confirmer", "cancel": "Annuler", "acknowledgeScope": "Confirmez la portée exacte avant de continuer.", "typeToConfirm": "Saisissez la déclaration de confirmation", "noSpeech": "Je n’ai reconnu aucune parole. Veuillez réessayer.", "error": "Une erreur est survenue. Veuillez réessayer."
   },
   "errors": {
     "generic": "Une erreur s'est produite. Veuillez réessayer.",

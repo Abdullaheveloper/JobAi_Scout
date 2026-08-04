@@ -100,6 +100,7 @@ const App = () => (
               <Route path="/dashboard" element={<JobSeekerRoute><Dashboard /></JobSeekerRoute>} />
               <Route path="/dashboard/cv" element={<JobSeekerRoute><CVUpload /></JobSeekerRoute>} />
               <Route path="/dashboard/jobs" element={<JobSeekerRoute><JobBoard /></JobSeekerRoute>} />
+              <Route path="/dashboard/recruiter-jobs" element={<Navigate to="/dashboard/jobs" replace />} />
               <Route path="/dashboard/automation" element={<JobSeekerRoute><Automation /></JobSeekerRoute>} />
               <Route path="/dashboard/saved" element={<JobSeekerRoute><SavedJobs /></JobSeekerRoute>} />
               <Route path="/dashboard/applications" element={<JobSeekerRoute><Applications /></JobSeekerRoute>} />

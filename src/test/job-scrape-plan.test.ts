@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { ADAPTER_MAX_COLLECTION_MS, JOB_ADAPTER_ORDER, adapterCollectionTimeout, runSequentialAdapters } from "../../supabase/functions/_shared/job-scrape-plan.ts";
+import { ADAPTER_MAX_COLLECTION_MS, COMPANY_CAREER_MAX_COLLECTION_MS, JOB_ADAPTER_ORDER, adapterCollectionTimeout, runSequentialAdapters, selectJobAdapters } from "../../supabase/functions/_shared/job-scrape-plan.ts";
 
 describe("runSequentialAdapters", () => {
-  it("gives every adapter the same 90-second hard limit", () => {
-    for (const key of JOB_ADAPTER_ORDER) expect(adapterCollectionTimeout(key)).toBe(ADAPTER_MAX_COLLECTION_MS);
+  it("supports one or multiple selected adapters in canonical order", () => {
+    expect(selectJobAdapters("indeed")).toEqual(["indeed"]);
+    expect(selectJobAdapters(["company careers", "linkedin"])).toEqual(["linkedin", "company_career"]);
+    expect(selectJobAdapters(undefined)).toEqual([...JOB_ADAPTER_ORDER]);
+  });
+  it("limits company careers to 58 seconds while retaining 90 seconds elsewhere", () => {
+    for (const key of JOB_ADAPTER_ORDER.filter((key) => key !== "company_career")) expect(adapterCollectionTimeout(key)).toBe(ADAPTER_MAX_COLLECTION_MS);
+    expect(adapterCollectionTimeout("company_career")).toBe(COMPANY_CAREER_MAX_COLLECTION_MS);
+    expect(COMPANY_CAREER_MAX_COLLECTION_MS).toBe(58_000);
     expect(ADAPTER_MAX_COLLECTION_MS).toBe(90_000);
   });
 

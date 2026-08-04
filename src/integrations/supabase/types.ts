@@ -569,6 +569,63 @@ export type Database = {
           },
         ]
       }
+      job_user_interactions: {
+        Row: {
+          applied_at: string | null
+          created_at: string
+          first_saved_at: string | null
+          first_viewed_at: string | null
+          id: string
+          job_id: string | null
+          last_viewed_at: string | null
+          opened_at: string | null
+          recommended_job_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          created_at?: string
+          first_saved_at?: string | null
+          first_viewed_at?: string | null
+          id?: string
+          job_id?: string | null
+          last_viewed_at?: string | null
+          opened_at?: string | null
+          recommended_job_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          created_at?: string
+          first_saved_at?: string | null
+          first_viewed_at?: string | null
+          id?: string
+          job_id?: string | null
+          last_viewed_at?: string | null
+          opened_at?: string | null
+          recommended_job_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_user_interactions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_user_interactions_recommended_job_id_fkey"
+            columns: ["recommended_job_id"]
+            isOneToOne: false
+            referencedRelation: "recommended_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           collected_at: string | null
@@ -583,6 +640,8 @@ export type Database = {
           expires_at: string | null
           id: string
           is_active: boolean | null
+          is_archived: boolean
+          archived_at: string | null
           job_type: string | null
           job_url: string | null
           last_seen_at: string | null
@@ -618,6 +677,8 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_archived?: boolean
+          archived_at?: string | null
           job_type?: string | null
           job_url?: string | null
           last_seen_at?: string | null
@@ -653,6 +714,8 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_archived?: boolean
+          archived_at?: string | null
           job_type?: string | null
           job_url?: string | null
           last_seen_at?: string | null
@@ -1438,7 +1501,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user" | "recruiter"
-      usage_feature: "job_scraping" | "form_fill" | "voice_assistant" | "automation"
+      usage_feature: "job_scraping" | "form_fill" | "chat_bot" | "voice_bot" | "automation"
       usage_period: "day" | "month" | "year"
     }
     CompositeTypes: {
@@ -1568,7 +1631,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user", "recruiter"],
-      usage_feature: ["job_scraping", "form_fill", "voice_assistant", "automation"],
+      usage_feature: ["job_scraping", "form_fill", "chat_bot", "voice_bot", "automation"],
       usage_period: ["day", "month", "year"],
     },
   },

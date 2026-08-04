@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
     }
     const userId = u.user.id;
 
-    const usageGate = await enforceUsageLimit(adminSupabase, userId, "voice_assistant", { record: false });
+    const usageGate = await enforceUsageLimit(adminSupabase, userId, "voice_bot", { record: false });
     if (!usageGate.allowed) {
       return new Response(JSON.stringify(usageGate.body), {
         status: usageGate.status,
@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    await recordUsageLog(adminSupabase, userId, "voice_assistant");
+    await recordUsageLog(adminSupabase, userId, "voice_bot");
 
     if (cached) {
       const latencyMs = Date.now() - startTime;

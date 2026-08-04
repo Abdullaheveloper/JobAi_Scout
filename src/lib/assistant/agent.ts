@@ -9,6 +9,7 @@ export type AssistantMessage = {
   statuses?: string[];
   live?: boolean;
   interrupted?: boolean;
+  transientError?: boolean;
 };
 
 type LlmMessage = {
@@ -51,7 +52,7 @@ export async function runAssistantTurn(args: {
   onUsage: (usage: { input_tokens: number; output_tokens: number; near_limit: boolean }) => void;
   onToolError?: (message: string) => void;
 }) {
-  const messages: LlmMessage[] = args.history.slice(-12).map((message) => ({ role: message.role, content: message.content }));
+  const messages: LlmMessage[] = args.history.filter((message) => !message.transientError).slice(-12).map((message) => ({ role: message.role, content: message.content }));
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
     const { data: { session } } = await supabase.auth.getSession();

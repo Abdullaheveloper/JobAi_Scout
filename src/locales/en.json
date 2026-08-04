@@ -78,12 +78,14 @@
     "theme": "Theme"
   },
   "nav": {
+    "searchJob": "Search Job",
     "features": "Features",
     "howItWorks": "How it works",
     "forRecruiters": "For recruiters",
     "dashboard": "Dashboard",
     "uploadCv": "Upload CV",
     "browseJobs": "Browse Jobs",
+    "recruiterJobs": "Recruiter Jobs",
     "automation": "Automation",
     "savedJobs": "Saved Jobs",
     "formFill": "Form Fill",
@@ -863,6 +865,7 @@
     "locationHint": "Used for location-based job matching",
     "salaryHint": "Must be greater than 10,000",
     "educationHint": "Used for readiness. Structured degree rows live in Career Passport below",
+    "educationEntryCount": "({{count}} entries)",
     "educationEntryCount_one": "({{count}} entry)",
     "educationEntryCount_other": "({{count}} entries)",
     "phoneInvalid": "Invalid phone format",
@@ -1061,7 +1064,8 @@
     "usageLimitValue": "{{max}} per {{period}}",
     "usageFeature_job_scraping": "Job Scraping",
     "usageFeature_form_fill": "Form Fill",
-    "usageFeature_voice_assistant": "Voice Assistant",
+    "usageFeature_chat_bot": "Chat Bot",
+    "usageFeature_voice_bot": "Voice Bot",
     "usageFeature_automation": "Automation",
     "openManageUsersPending": "Open Manage Users → Pending",
     "extensionUsageSubtitle": "Auto-fill activity from the JobAI browser extension",
@@ -1439,7 +1443,8 @@
     }
   },
   "assistantShell": {
-    "controls": "JobAI Scout assistant controls", "open": "Open assistant", "microphone": "Microphone", "history": "Memory and history", "collapse": "Collapse assistant panel", "expand": "Expand assistant panel", "stop": "Stop assistant", "close": "Close assistant", "liveSite": "Live JobAI Scout site", "resize": "Resize assistant panel", "panel": "JobAI Scout assistant", "title": "JobAI Scout Assistant", "ready": "Ready when you are", "state_idle": "Ready when you are", "state_listening": "Listening...", "state_processing": "Thinking...", "state_speaking": "Speaking...", "historyTitle": "Conversation history", "historyEmpty": "Your assistant conversations will appear here.", "emptyTitle": "How can I help?", "emptyBody": "Ask about jobs or get help while you use the live site.", "messageLabel": "Message JobAI Scout Assistant", "messagePlaceholder": "Type a message...", "useMicrophone": "Use microphone", "send": "Send message", "thinking": "Thinking...", "listening": "Listening...", "interrupted": "Interrupted", "voiceUnsupported": "Voice recognition is not supported in this browser.", "error": "Something went wrong. Please try again."
+    "searchChats": "Search chats", "noChatsFound": "No matching chats", "today": "Today", "yesterday": "Yesterday", "previous7Days": "Previous 7 days",
+    "controls": "JobAI Scout assistant controls", "open": "Open assistant", "microphone": "Microphone", "history": "Memory and history", "collapse": "Collapse assistant panel", "expand": "Expand assistant panel", "stop": "Stop assistant", "close": "Close assistant", "liveSite": "Live JobAI Scout site", "resize": "Resize assistant panel", "panel": "JobAI Scout assistant", "title": "JobAI Scout Assistant", "ready": "Ready when you are", "state_idle": "Ready when you are", "state_listening": "Listening...", "state_processing": "Thinking...", "state_speaking": "Speaking...", "historyTitle": "Conversation history", "historyEmpty": "Your assistant conversations will appear here.", "emptyTitle": "How can I help?", "emptyBody": "Ask about jobs or get help while you use the live site.", "messageLabel": "Message JobAI Scout Assistant", "messagePlaceholder": "Type a message...", "useMicrophone": "Use microphone", "send": "Send message", "thinking": "Thinking...", "listening": "Listening...", "interrupted": "Interrupted", "voiceUnsupported": "Voice recognition is not supported in this browser.", "newChat": "New chat", "chatSession": "Assistant chat", "profileMemory": "Profile memory", "recentActions": "Recent actions", "noMemory": "No saved preferences yet.", "tokenWarning": "This chat is nearing its token limit. Start a new chat soon.", "confirmationLabel": "Confirmation required", "confirm": "Confirm", "cancel": "Cancel", "acknowledgeScope": "Acknowledge the exact scope before continuing.", "typeToConfirm": "Type the confirmation statement", "noSpeech": "I couldn't recognize any speech. Please try again.", "error": "Something went wrong. Please try again."
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",

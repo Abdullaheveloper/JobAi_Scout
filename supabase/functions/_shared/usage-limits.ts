@@ -6,17 +6,19 @@
 export const USAGE_FEATURES = [
   "job_scraping",
   "form_fill",
-  "voice_assistant",
+  "chat_bot",
+  "voice_bot",
   "automation",
 ] as const;
 
 export type UsageFeature = (typeof USAGE_FEATURES)[number];
-export type UsagePeriod = "day" | "month" | "year";
+export type UsagePeriod = "day" | "week" | "month" | "year";
 
 export const FEATURE_LABELS: Record<UsageFeature, string> = {
   job_scraping: "Job Scraping",
   form_fill: "Form Fill",
-  voice_assistant: "Voice Assistant",
+  chat_bot: "Chat Bot",
+  voice_bot: "Voice Bot",
   automation: "Automation",
 };
 
@@ -49,7 +51,7 @@ export function isUsageFeature(value: unknown): value is UsageFeature {
 }
 
 export function isUsagePeriod(value: unknown): value is UsagePeriod {
-  return value === "day" || value === "month" || value === "year";
+  return value === "day" || value === "week" || value === "month" || value === "year";
 }
 
 /** Rolling window lengths (not calendar boundaries). */
@@ -57,6 +59,8 @@ export function periodDurationMs(period: UsagePeriod): number {
   switch (period) {
     case "day":
       return 24 * 60 * 60 * 1000;
+    case "week":
+      return 7 * 24 * 60 * 60 * 1000;
     case "month":
       return 30 * 24 * 60 * 60 * 1000;
     case "year":
@@ -137,6 +141,8 @@ export function periodResetPhrase(period: UsagePeriod, resetsAt: Date | null): s
   switch (period) {
     case "day":
       return "Try again tomorrow.";
+    case "week":
+      return `Try again after ${resetsAt.toISOString()}.`;
     case "month":
       return `Try again after ${resetsAt.toISOString()}.`;
     case "year":
@@ -152,8 +158,7 @@ export function buildUsageLimitError(args: {
   resetsAt: Date | null;
 }): UsageLimitErrorBody {
   const featureLabel = FEATURE_LABELS[args.feature];
-  const periodWord =
-    args.period === "day" ? "daily" : args.period === "month" ? "monthly" : "yearly";
+  const periodWord = args.period === "day" ? "daily" : args.period === "week" ? "weekly" : args.period === "month" ? "monthly" : "yearly";
   const resetPhrase = periodResetPhrase(args.period, args.resetsAt);
   const message =
     args.limit === 0
@@ -350,5 +355,10 @@ export async function recordUsageLog(
   userId: string,
   feature: UsageFeature,
 ): Promise<void> {
+  if (typeof admin.rpc === "function") {
+    const { data, error } = await admin.rpc("consume_metered_usage", { p_user: userId, p_feature: feature, p_amount: 1 });
+    if (error) throw new Error(`Failed to record usage: ${error.message}`);
+    if (!(data as { allowed?: boolean } | null)?.allowed) throw new Error((data as { message?: string } | null)?.message || "Usage limit reached");
+  }
   await insertUsageLogRow(admin, userId, feature);
 }

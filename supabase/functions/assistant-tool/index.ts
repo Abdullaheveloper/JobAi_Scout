@@ -136,7 +136,8 @@ async function executeTool(tool: string, params: Params, context: Params, userId
   }
   if (tool === "search_jobs") {
     const filters = (params.filters as Params) || params; const query = text(filters.query, 100); const location = text(filters.location, 100); const limit = number(filters.limit, 10, 1, 25);
-    let db = admin.from("jobs").select("id,title,company,location,description,skills,job_type,work_mode,salary_min,salary_max,salary_currency,source_url").eq("status", "active").limit(limit);
+    const retentionCutoff = new Date(Date.now() - (20 * 24 * 60 * 60 * 1000)).toISOString();
+    let db = admin.from("jobs").select("id,title,company,location,description,skills,job_type,work_mode,salary_min,salary_max,salary_currency,source_url").eq("status", "active").eq("is_archived", false).gte("created_at", retentionCutoff).limit(limit);
     if (query) db = db.or(`title.ilike.%${query.replace(/[%_,()]/g, " ")}%,company.ilike.%${query.replace(/[%_,()]/g, " ")}%,description.ilike.%${query.replace(/[%_,()]/g, " ")}%`);
     if (location) db = db.ilike("location", `%${location.replace(/[%_]/g, " ")}%`); if (text(filters.job_type, 30)) db = db.eq("job_type", text(filters.job_type, 30));
     const { data, error } = await db; if (error) throw error; return { result: { jobs: data || [], count: data?.length || 0, filters }, ui_update: `${data?.length || 0} jobs found` };

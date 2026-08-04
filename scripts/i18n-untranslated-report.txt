@@ -1,8 +1,8 @@
 i18n untranslated string audit
-Generated: 2026-07-27T18:44:01.500Z
-Files scanned: 75
+Generated: 2026-08-03T05:57:54.501Z
+Files scanned: 84
 Files with findings: 16
-Attribute findings (placeholder/alt/title/aria-*): 61
+Attribute findings (placeholder/alt/title/aria-*): 34
 Critical-page findings (Automation / Voice / CV / Form Fill): 0 hits in 0 files
 Mode: text + attrs + object labels
 
@@ -14,6 +14,13 @@ Intentional exceptions (do not translate):
 
 ========================================================================
 
+## src/components/assistant/AssistantWorkspaceShell.tsx (5)
+  L110 [object]: "Assistant memory could not be loaded."
+  L248 [object]: "A new chat could not be started."
+  L252 [text]: "new Promise"
+  L373 [object]: "Tool history could not be saved."
+  L380 [object]: "Assistant history could not be saved."
+
 ## src/components/brand/JobAILogo.tsx (1)
   L29 [attr:aria-label]: "JobAI Scout"
 
@@ -21,33 +28,8 @@ Intentional exceptions (do not translate):
   L17 [attr:title]: "Extracted CV Data"
   L18 [attr:description]: "Data automatically extracted from your resume by AI"
 
-## src/components/profile/CareerProfileWorkspace.tsx (26)
-  L167 [attr:title]: "Work experience"
-  L167 [attr:description]: "Add each role once. The extension can map them to repeatable ATS work-history sections."
-  L167 [attr:label]: "Add role"
-  L168 [attr:title]: "work experience"
-  L168 [attr:description]: "Your verified work history helps the extension complete repeated employer and role sections accurately."
-  L168 [attr:label]: "Add first role"
-  L172 [attr:description]: "Degree, institution, start/end year and Completed/Ongoing status — kept in sync with the Education readiness field."
-  L172 [attr:label]: "Add education"
-  L173 [attr:title]: "education entries"
-  L173 [attr:description]: "Add each degree separately so applications with multiple education blocks can be completed correctly."
-  L173 [attr:label]: "Add education"
-  L177 [attr:description]: "Show real work, outcomes and the tools you used. The AI selects relevant facts; it does not create new claims."
-  L177 [attr:label]: "Add project"
-  L178 [attr:description]: "Add portfolio projects that are safe to mention in applications and cover letters."
-  L178 [attr:label]: "Add project"
-  L183 [attr:title]: "Credentials & recognition"
-  L183 [attr:description]: "Certifications, awards and publications."
-  L183 [attr:label]: "Add item"
-  L184 [attr:description]: "Add achievements that you are comfortable sharing with employers."
-  L184 [attr:label]: "Add item"
-  L187 [attr:description]: "Private by default. They are never filled without permission."
-  L187 [attr:label]: "Add reference"
-  L188 [attr:description]: "Only add a reference after you have permission to share their contact details."
-  L188 [attr:label]: "Add reference"
-  L212 [attr:aria-label]: "Edit entry"
-  L212 [attr:aria-label]: "Remove entry"
+## src/components/match/MatchPreferencesForm.tsx (1)
+  L29 [text]: "void | Promise"
 
 ## src/components/profile/ResumeQualityAlert.tsx (1)
   L50 [attr:aria-label]: "Dismiss notification"
@@ -63,25 +45,25 @@ Intentional exceptions (do not translate):
   L31 [attr:aria-label]: "All resume suggestions"
 
 ## src/components/VoiceWidget.tsx (5)
-  L272 [object]: "Microphone error"
-  L272 [object]: "Please allow microphone access."
-  L311 [attr:aria-label]: "Open voice assistant"
-  L357 [text]: "Tap the mic and ask anything."
-  L435 [text]: "Voice Assistant"
+  L285 [object]: "Microphone error"
+  L285 [object]: "Please allow microphone access."
+  L324 [attr:aria-label]: "Open voice assistant"
+  L370 [text]: "Tap the mic and ask anything."
+  L449 [text]: "Voice Assistant"
 
 ## src/pages/About.tsx (12)
-  L31 [object]: "Active Users"
-  L32 [object]: "Jobs Matched"
-  L33 [object]: "Companies Trust Us"
-  L34 [object]: "Success Rate"
-  L38 [object]: "The Idea"
-  L39 [object]: "First Prototype"
-  L40 [object]: "Beta Launch"
-  L41 [object]: "Scale & Growth"
-  L112 [attr:aria-label]: "JobAI Scout home"
-  L187 [object]: "Our Mission"
-  L194 [object]: "Our Vision"
-  L201 [object]: "Our Values"
+  L30 [object]: "Active Users"
+  L31 [object]: "Jobs Matched"
+  L32 [object]: "Companies Trust Us"
+  L33 [object]: "Success Rate"
+  L37 [object]: "The Idea"
+  L38 [object]: "First Prototype"
+  L39 [object]: "Beta Launch"
+  L40 [object]: "Scale & Growth"
+  L113 [attr:aria-label]: "JobAI Scout home"
+  L192 [object]: "Our Mission"
+  L199 [object]: "Our Vision"
+  L206 [object]: "Our Values"
 
 ## src/pages/AdminVoice.tsx (10)
   L150 [object]: "Failed to load admin panel"
@@ -125,32 +107,28 @@ Intentional exceptions (do not translate):
   L518 [object]: "Offers Extended"
 
 ## src/pages/Contact.tsx (9)
-  L13 [object]: "Email Us"
-  L13 [object]: "support@jobai.com"
-  L14 [object]: "Call Us"
-  L15 [object]: "Our Office"
-  L15 [object]: "IIU Islamabad"
-  L16 [object]: "Business Hours"
-  L16 [object]: "Mon - Fri"
-  L51 [object]: "Message sent! 🎉"
-  L62 [attr:aria-label]: "JobAI Scout home"
+  L12 [object]: "Email Us"
+  L12 [object]: "support@jobai.com"
+  L13 [object]: "Call Us"
+  L14 [object]: "Our Office"
+  L14 [object]: "IIU Islamabad"
+  L15 [object]: "Business Hours"
+  L15 [object]: "Mon - Fri"
+  L50 [object]: "Message sent! 🎉"
+  L61 [attr:aria-label]: "JobAI Scout home"
 
-## src/pages/Privacy.tsx (12)
-  L13 [object]: "1. Information We Collect"
-  L17 [object]: "2. How We Use Your Information"
-  L21 [object]: "3. AI & Data Processing"
-  L25 [object]: "4. Data Sharing"
-  L29 [object]: "5. Data Security"
-  L33 [object]: "6. Your Rights"
-  L37 [object]: "7. Cookies & Tracking"
-  L41 [object]: "8. Data Retention"
-  L45 [object]: "9. Changes to This Policy"
-  L49 [object]: "10. Contact Us"
-  L60 [attr:aria-label]: "JobAI Scout home"
-  L65 [text]: "Get Started"
-
-## src/pages/ProfileSettings.tsx (1)
-  L808 [attr:aria-label]: "Remove ${s}"
+## src/pages/Privacy.tsx (11)
+  L12 [object]: "1. Information We Collect"
+  L16 [object]: "2. How We Use Your Information"
+  L20 [object]: "3. AI & Data Processing"
+  L24 [object]: "4. Data Sharing"
+  L28 [object]: "5. Data Security"
+  L32 [object]: "6. Your Rights"
+  L36 [object]: "7. Cookies & Tracking"
+  L40 [object]: "8. Data Retention"
+  L44 [object]: "9. Changes to This Policy"
+  L48 [object]: "10. Contact Us"
+  L61 [attr:aria-label]: "JobAI Scout home"
 
 ## src/pages/recruiter/RecruiterCandidates.tsx (1)
   L109 [text]: "applications.reduce"

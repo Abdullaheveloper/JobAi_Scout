@@ -277,5 +277,103 @@
     "Skipped ur-formfill-mobile: set RTL_EMAIL/RTL_PASSWORD (and RTL_ADMIN_* for admin)",
     "Skipped ur-admin-analytics-mobile: set RTL_EMAIL/RTL_PASSWORD (and RTL_ADMIN_* for admin)",
     "Skipped ur-admin-users-mobile: set RTL_EMAIL/RTL_PASSWORD (and RTL_ADMIN_* for admin)"
-  ]
+  ],
+  "partC": {
+    "generatedAt": "2026-07-27T19:26:33.864Z",
+    "verdict": "PARTIAL FAIL",
+    "audits": {
+      "i18n:audit": {
+        "exit": 0,
+        "pass": true,
+        "filesWithFindings": 19,
+        "criticalHits": 0
+      },
+      "i18n:audit:strict": {
+        "exit": 0,
+        "pass": true,
+        "findings": 0
+      },
+      "i18n:check": {
+        "exit": 0,
+        "pass": true,
+        "keysPerLocale": 1000,
+        "missing": 0
+      }
+    },
+    "auth": {
+      "RTL_EMAIL": false,
+      "RTL_PASSWORD": false,
+      "I18N_EMAIL": false,
+      "I18N_PASSWORD": false,
+      "RTL_ADMIN_*": false,
+      "portalScreenshots": "skipped"
+    },
+    "publicPages": {
+      "ar_ur_desktop_mobile": "16/16 automated dir=rtl checks passed",
+      "landing": {
+        "rtl": "pass",
+        "chrome": "fail",
+        "notes": "nav.features/howItWorks/forRecruiters still English in ar+ur locales"
+      },
+      "login": {
+        "rtl": "pass",
+        "formChrome": "pass",
+        "sidePanel": "fail",
+        "notes": "signin.sideTitle/sideCopy/eyebrow/sideNote/newHere still English in ar+ur"
+      },
+      "register": {
+        "rtl": "pass",
+        "formChrome": "pass",
+        "sidePanel": "fail",
+        "notes": "signup side panel + common.privacyPolicy still English"
+      },
+      "forgot": {
+        "rtl": "pass",
+        "chrome": "pass",
+        "notes": "email placeholder LTR ok"
+      }
+    },
+    "portalPagesSkipped": [
+      "Dashboard",
+      "Upload CV",
+      "Browse Jobs",
+      "Automation",
+      "Saved Jobs",
+      "Form Fill",
+      "Voice Assistant",
+      "Profile Settings",
+      "Admin Analytics",
+      "Admin Users",
+      "Admin Jobs"
+    ],
+    "voiceFormFill": {
+      "livePortalShots": "unavailable_no_auth",
+      "localeProofShots": [
+        "ar-voice-desktop.png",
+        "ar-formfill-desktop.png",
+        "ur-voice-desktop.png",
+        "ur-formfill-desktop.png"
+      ],
+      "codeLevel": {
+        "VoiceMode": "uses useTranslation/t() for UI chrome; no MixedDir/BidiText on transcript bubbles (user content)",
+        "AutoFormFill": "uses t() + BidiText; step numbers dir=ltr; URLs isolated via BidiText LTR spans",
+        "VoiceAssistant page": "thin wrapper around VoiceMode in DashboardLayout"
+      },
+      "visualLocaleProof": {
+        "arVoice": "pass",
+        "arFormFill": "pass",
+        "notes": "Arabic chrome translated; chrome://extensions LTR; no leading punct"
+      }
+    },
+    "frenchSpotCheck": {
+      "files": [
+        "fr-dashboard-desktop.png",
+        "fr-formfill-desktop.png",
+        "fr-voice-desktop.png"
+      ],
+      "mode": "locale-render-proof (not live authenticated portal)",
+      "status": "present"
+    },
+    "overall": "Automated critical i18n audits PASS. Public RTL dir PASS. Auth marketing/nav strings still English in ar/ur → FAIL zero-English-chrome checklist. Portal/admin live shots blocked without credentials."
+  }
 }

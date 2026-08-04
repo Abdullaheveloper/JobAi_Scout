@@ -1,0 +1,94 @@
+{
+  "meta": {
+    "base": "https://localhost:5181",
+    "authConfigured": false,
+    "recruiterConfigured": false,
+    "gaps": [
+      "No NAV_/I18N_/RTL_ credentials — Dashboard/Profile/Admin/Recruiter nav checks skipped",
+      "No recruiter credentials — Recruiter nav checks skipped"
+    ]
+  },
+  "results": [
+    {
+      "page": "landing",
+      "vw": 375,
+      "ok": true,
+      "issues": [],
+      "ctaText": "Get started",
+      "hasMenu": true,
+      "hasSettings": true
+    },
+    {
+      "page": "login",
+      "vw": 375,
+      "ok": true,
+      "issues": [],
+      "ctaText": "Create an account",
+      "hasMenu": false,
+      "hasSettings": true
+    },
+    {
+      "page": "about",
+      "vw": 375,
+      "ok": true,
+      "issues": [],
+      "ctaText": "Get started",
+      "hasMenu": false,
+      "hasSettings": true
+    },
+    {
+      "page": "landing",
+      "vw": 390,
+      "ok": true,
+      "issues": [],
+      "ctaText": "Get started",
+      "hasMenu": true,
+      "hasSettings": true
+    },
+    {
+      "page": "login",
+      "vw": 390,
+      "ok": true,
+      "issues": [],
+      "ctaText": "Create an account",
+      "hasMenu": false,
+      "hasSettings": true
+    },
+    {
+      "page": "about",
+      "vw": 390,
+      "ok": true,
+      "issues": [],
+      "ctaText": "Get started",
+      "hasMenu": false,
+      "hasSettings": true
+    },
+    {
+      "page": "landing",
+      "vw": 414,
+      "ok": true,
+      "issues": [],
+      "ctaText": "Get started",
+      "hasMenu": true,
+      "hasSettings": true
+    },
+    {
+      "page": "login",
+      "vw": 414,
+      "ok": true,
+      "issues": [],
+      "ctaText": "Create an account",
+      "hasMenu": false,
+      "hasSettings": true
+    },
+    {
+      "page": "about",
+      "vw": 414,
+      "ok": true,
+      "issues": [],
+      "ctaText": "Get started",
+      "hasMenu": false,
+      "hasSettings": true
+    }
+  ]
+}

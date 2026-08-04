@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { AssistantMessage } from "./agent";
 
 export type AssistantSession = { id: string; title: string | null; input_tokens: number; output_tokens: number; started_at: string; updated_at: string };
 export type StoredMessage = { id: string; session_id: string; role: "user" | "assistant" | "tool"; content: string; linked_tool_call: Record<string, unknown> | null; created_at: string };
@@ -24,8 +25,20 @@ async function request<T>(body: Record<string, unknown>): Promise<T> {
 }
 
 export const loadAssistantMemory = () => request<MemoryBootstrap>({ operation: "bootstrap" });
+export const loadAssistantSessionMessages = (sessionId: string) => request<{ messages: StoredMessage[] }>({ operation: "session_messages", session_id: sessionId });
 export const createAssistantSession = (title?: string) => request<{ session: AssistantSession }>({ operation: "new_session", title });
 export const appendAssistantMessage = (sessionId: string, role: "user" | "assistant" | "tool", content: string, linkedToolCall?: Record<string, unknown>) => request<{ saved: true }>({ operation: "append", session_id: sessionId, role, content, linked_tool_call: linkedToolCall });
+
+export function conversationForSession(memory: MemoryBootstrap | null, sessionId: string): AssistantMessage[] {
+  return conversationFromStoredMessages((memory?.messages || []).filter((message) => message.session_id === sessionId));
+}
+
+export function conversationFromStoredMessages(messages: StoredMessage[]): AssistantMessage[] {
+  return messages
+    .filter((message) => message.role !== "tool")
+    .sort((left, right) => new Date(left.created_at).getTime() - new Date(right.created_at).getTime())
+    .map((message) => ({ id: message.id, role: message.role as "user" | "assistant", content: message.content }));
+}
 
 export function compactMemoryContext(memory: MemoryBootstrap | null, currentSessionId: string) {
   if (!memory) return {};

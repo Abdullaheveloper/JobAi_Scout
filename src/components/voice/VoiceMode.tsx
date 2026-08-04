@@ -8,7 +8,8 @@ import { WaveformVisualizer } from "./WaveformVisualizer";
 import { MicPermissionDialog } from "./MicPermissionDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { VoiceRecognition } from "@/lib/voice/recognition";
+import { toSpeechLocale, VoiceRecognition } from "@/lib/voice/recognition";
+import { resolveLocale } from "@/i18n/languages";
 import { isUsageLimitError } from "@/lib/usage-limits-client";
 import { useUsageLimitGate } from "@/hooks/useUsageLimitGate";
 
@@ -33,7 +34,9 @@ function classifyMicrophoneError(error: unknown): MicrophoneIssue {
 }
 
 export function VoiceMode() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = resolveLocale(i18n.resolvedLanguage || i18n.language);
+  const speechLocale = toSpeechLocale(locale);
   const { showUsageLimit, usageLimitNotice } = useUsageLimitGate();
   const reducedMotion = useReducedMotion();
   const [status, setStatus] = useState<Status>("idle");
@@ -123,13 +126,13 @@ export function VoiceMode() {
     setHistory((data || []) as HistoryItem[]);
   }, [conversationId]);
   const speakFallback = useCallback((text: string) => {
-    const speech = new SpeechSynthesisUtterance(text); speech.rate = speed;
+    const speech = new SpeechSynthesisUtterance(text); speech.rate = speed; speech.lang = speechLocale;
     speech.onend = () => setStatus("paused"); speech.onerror = () => setStatus("paused");
     setStatus("speaking"); window.speechSynthesis.speak(speech);
-  }, [speed]);
+  }, [speechLocale, speed]);
   const synthesizeAndPlay = useCallback(async (text: string, userId: string, sessionId: string, signal?: AbortSignal) => {
     const headers = await authHeaders();
-    const response = await fetch(`${functionsUrl}/elevenlabs-tts`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ text, speed }), signal });
+    const response = await fetch(`${functionsUrl}/elevenlabs-tts`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ text, speed, language: locale }), signal });
     if (!response.ok) { const result = await response.json().catch(() => ({})); throw new Error(result.error || t("voice.playbackFailed")); }
     const blob = await response.blob(); const path = `${userId}/${sessionId}/assistant-${crypto.randomUUID()}.mp3`;
     const player = new Audio(URL.createObjectURL(blob)); audio.current = player;
@@ -139,7 +142,7 @@ export function VoiceMode() {
       const { data: message } = await supabase.from("voice_messages").select("id").eq("conversation_id", sessionId).eq("role", "assistant").order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (message) await supabase.from("voice_messages").update({ audio_path: path }).eq("id", message.id);
     })();
-  }, [speed, t]);
+  }, [locale, speed, t]);
   const uploadKnowledgeBase = useCallback(async (file: File) => {
     try { setUploadState("loading"); setUploadMessage(t("voice.uploadingKb")); const headers = await authHeaders(); const form = new FormData(); form.append("file", file);
       const response = await fetch(`${functionsUrl}/kb-ingest-document`, { method: "POST", headers, body: form }); const result = await response.json().catch(() => ({}));
@@ -155,13 +158,13 @@ export function VoiceMode() {
     try {
       setStatus("uploading"); setErrorMessage(""); const { data: auth } = await supabase.auth.getSession(); if (!auth.session) throw new Error(t("voice.signInRequired"));
       const extension = blob.type.includes("ogg") ? "ogg" : "webm"; const headers = await authHeaders(); let transcript = recognizedText.trim();
-      if (!transcript) { const form = new FormData(); form.append("file", blob, `recording.${extension}`); form.append("language", "en-US");
+      if (!transcript) { const form = new FormData(); form.append("file", blob, `recording.${extension}`); form.append("language", speechLocale);
         const stt = await fetch(`${functionsUrl}/voice-transcribe`, { method: "POST", headers, body: form, signal: abort.signal }); const transcription = await stt.json().catch(() => ({}));
         if (!stt.ok || !transcription.text?.trim()) throw new Error(transcription.error || t("voice.noSpeechDetected")); transcript = transcription.text;
       }
       setLiveTranscript(transcript); appendMessage("user", transcript);
       const audioPath = `${auth.session.user.id}/${crypto.randomUUID()}/user.${extension}`; const uploadAudio = supabase.storage.from("voice-history").upload(audioPath, blob, { contentType: blob.type || "audio/webm" });
-      setStatus("thinking"); const chat = await fetch(`${functionsUrl}/voice-chat`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ question: transcript, conversationId, stream: false }), signal: abort.signal });
+      setStatus("thinking"); const chat = await fetch(`${functionsUrl}/voice-chat`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ question: transcript, conversationId, stream: false, language: locale }), signal: abort.signal });
       const response = await chat.json().catch(() => ({}));
       if (!chat.ok) {
         if (isUsageLimitError(response)) {
@@ -180,7 +183,7 @@ export function VoiceMode() {
       console.error("Voice request failed", error); const message = error instanceof Error ? error.message : t("voice.requestFailed");
       showMicrophoneIssue(/speech/i.test(message) ? "no-speech" : /network|fetch/i.test(message) ? "network" : "recognition");
     } finally { if (requestAbort.current === abort) requestAbort.current = null; }
-  }, [appendMessage, conversationId, loadHistory, showMicrophoneIssue, speakFallback, synthesizeAndPlay, t]);
+  }, [appendMessage, conversationId, loadHistory, locale, showMicrophoneIssue, speakFallback, speechLocale, synthesizeAndPlay, t]);
 
   const stopRecording = useCallback((options: { discard?: boolean } = {}) => {
     discardRecording.current = options.discard ?? false; clearTimers(); recognition.current?.stop(); recognition.current = null; stopAnalysis();
@@ -203,7 +206,7 @@ export function VoiceMode() {
       try { const permission = await navigator.permissions?.query({ name: "microphone" as PermissionName }); if (permission?.state === "denied") { showMicrophoneIssue("permission"); return; } } catch { /* unavailable in some browsers */ }
       const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       stream.current = mic; chunks.current = []; discardRecording.current = false; browserTranscript.current = ""; interimTranscript.current = ""; setLiveTranscript(""); hasSpoken.current = false;
-      if (VoiceRecognition.isSupported()) { const engine = new VoiceRecognition(); recognition.current = engine; engine.start({ language: "en", continuous: true, interimResults: true, onResult: (text, final) => {
+      if (VoiceRecognition.isSupported()) { const engine = new VoiceRecognition(); recognition.current = engine; engine.start({ language: locale, continuous: true, interimResults: true, onResult: (text, final) => {
         // A browser transcript is a stronger speech signal than a raw volume
         // threshold, especially with quiet laptop and Bluetooth microphones.
         hasSpoken.current = true;
@@ -227,7 +230,7 @@ export function VoiceMode() {
       recording.start(250); setStatus("listening"); noSpeech.current = window.setTimeout(() => { if (!hasSpoken.current) stopRecording(); }, INITIAL_SPEECH_WAIT_MS); detect();
     } catch (error) { stream.current?.getTracks().forEach(track => track.stop()); stream.current = null; showMicrophoneIssue(classifyMicrophoneError(error), error); }
     finally { isStarting.current = false; }
-  }, [beginSilenceTimer, processRecording, showMicrophoneIssue, stopPlayback, stopRecording]);
+  }, [beginSilenceTimer, locale, processRecording, showMicrophoneIssue, stopPlayback, stopRecording]);
   const endAssistant = useCallback(() => { requestAbort.current?.abort(); requestAbort.current = null; stopRecording({ discard: true }); stopPlayback(); clearTimers(); setLiveTranscript(""); setErrorMessage(""); setStatus("ended"); }, [clearTimers, stopPlayback, stopRecording]);
   const stopListening = useCallback(() => { if (recorder.current?.state === "recording") stopRecording(); }, [stopRecording]);
   const startAssistant = useCallback(() => { if (status === "listening" || status === "speaking-user" || status === "silence") return; setErrorMessage(""); setMicDialogOpen(false); void startRecording(); }, [startRecording, status]);

@@ -7,7 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SUPPORTED_LANGUAGES, type AppLocale, resolveLocale } from "@/i18n/languages";
+import { SUPPORTED_LANGUAGES } from "@/i18n/languages";
+import { useLocale } from "@/i18n/LocaleProvider";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/theme/ThemeProvider";
 
@@ -23,14 +24,14 @@ export function LanguageSwitcher({
   triggerClassName,
   variant = "auto",
 }: LanguageSwitcherProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const { locale, setLocale } = useLocale();
   const { theme } = useTheme();
-  const current = resolveLocale(i18n.resolvedLanguage || i18n.language);
   const resolvedVariant =
     variant === "auto" ? (theme === "dark" ? "dark" : "light") : variant;
 
   const onChange = (value: string) => {
-    void i18n.changeLanguage(resolveLocale(value) as AppLocale);
+    setLocale(value as typeof locale);
   };
 
   const triggerClass =
@@ -44,7 +45,7 @@ export function LanguageSwitcher({
         className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block"
         aria-hidden
       />
-      <Select value={current} onValueChange={onChange}>
+      <Select value={locale} onValueChange={onChange}>
         <SelectTrigger
           className={cn(triggerClass, triggerClassName)}
           aria-label={t("common.selectLanguage")}

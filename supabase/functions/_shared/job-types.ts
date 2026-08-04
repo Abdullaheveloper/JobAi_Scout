@@ -15,4 +15,6 @@ export type NormalizedJob = {
   source_url: string | null;
   recruiter_id: string | null;
   posted_at: string | null;
+  match_score?: number | null;
+  match_explanation?: Record<string, unknown> | null;
 };

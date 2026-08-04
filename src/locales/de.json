@@ -30,6 +30,9 @@
     "getStarted": "Loslegen",
     "learnMore": "Mehr erfahren",
     "tryAgain": "Bitte versuchen Sie es erneut.",
+    "errorBoundaryTitle": "Etwas ist schiefgelaufen",
+    "errorBoundaryDescription": "Diese Seite konnte nicht angezeigt werden. Versuchen Sie, sie neu zu laden.",
+    "errorBoundaryReload": "Seite neu laden",
     "required": "Pflichtfeld",
     "optional": "Optional",
     "showPassword": "Passwort anzeigen",
@@ -75,6 +78,8 @@
     "theme": "Design"
   },
   "nav": {
+    "searchJob": "Job suchen",
+    "recruiterJobs": "Recruiter-Jobs",
     "features": "Funktionen",
     "howItWorks": "So funktioniert's",
     "forRecruiters": "Für Recruiter",
@@ -824,6 +829,7 @@
     "locationHint": "Wird für standortbasiertes Job-Matching verwendet",
     "salaryHint": "Muss größer als 10.000 sein",
     "educationHint": "Wird für die Vollständigkeit verwendet. Strukturierte Abschlüsse stehen unten im Career Passport",
+    "educationEntryCount": "({{count}} Einträge)",
     "educationEntryCount_one": "({{count}} Eintrag)",
     "educationEntryCount_other": "({{count}} Einträge)",
     "phoneInvalid": "Ungültiges Telefonformat",
@@ -1018,7 +1024,8 @@
     "usageLimitValue": "{{max}} pro {{period}}",
     "usageFeature_job_scraping": "Job-Scraping",
     "usageFeature_form_fill": "Formularausfüllung",
-    "usageFeature_voice_assistant": "Sprachassistent",
+    "usageFeature_chat_bot": "Chatbot",
+    "usageFeature_voice_bot": "Sprachbot",
     "usageFeature_automation": "Automatisierung",
     "openManageUsersPending": "Benutzer verwalten → Ausstehend öffnen",
     "extensionUsageSubtitle": "Auto-Fill-Aktivität der JobAI-Browsererweiterung",
@@ -1218,7 +1225,8 @@
     "updateStatusAria": "Status aktualisieren für {{name}}"
   },
   "assistantShell": {
-    "controls": "Steuerung des JobAI Scout-Assistenten", "open": "Assistenten öffnen", "microphone": "Mikrofon", "history": "Speicher und Verlauf", "collapse": "Assistentenbereich verkleinern", "expand": "Assistentenbereich erweitern", "stop": "Assistenten stoppen", "close": "Assistenten schließen", "liveSite": "Live-JobAI-Scout-Seite", "resize": "Assistentenbereich skalieren", "panel": "JobAI Scout-Assistent", "title": "JobAI Scout-Assistent", "ready": "Bereit, wenn Sie es sind", "state_idle": "Bereit, wenn Sie es sind", "state_listening": "Hört zu...", "state_processing": "Denkt nach...", "state_speaking": "Spricht...", "historyTitle": "Gesprächsverlauf", "historyEmpty": "Ihre Assistentengespräche werden hier angezeigt.", "emptyTitle": "Wie kann ich helfen?", "emptyBody": "Fragen Sie nach Jobs oder erhalten Sie Hilfe bei der Nutzung der Live-Seite.", "messageLabel": "Nachricht an den JobAI Scout-Assistenten", "messagePlaceholder": "Nachricht eingeben...", "useMicrophone": "Mikrofon verwenden", "send": "Nachricht senden", "thinking": "Denke nach...", "listening": "Hört zu...", "interrupted": "Unterbrochen", "voiceUnsupported": "Spracherkennung wird in diesem Browser nicht unterstützt.", "error": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
+    "searchChats": "Chats durchsuchen", "noChatsFound": "Keine passenden Chats", "today": "Heute", "yesterday": "Gestern", "previous7Days": "Letzte 7 Tage",
+    "controls": "Steuerung des JobAI Scout-Assistenten", "open": "Assistenten öffnen", "microphone": "Mikrofon", "history": "Speicher und Verlauf", "collapse": "Assistentenbereich verkleinern", "expand": "Assistentenbereich erweitern", "stop": "Assistenten stoppen", "close": "Assistenten schließen", "liveSite": "Live-JobAI-Scout-Seite", "resize": "Assistentenbereich skalieren", "panel": "JobAI Scout-Assistent", "title": "JobAI Scout-Assistent", "ready": "Bereit, wenn Sie es sind", "state_idle": "Bereit, wenn Sie es sind", "state_listening": "Hört zu...", "state_processing": "Denkt nach...", "state_speaking": "Spricht...", "historyTitle": "Gesprächsverlauf", "historyEmpty": "Ihre Assistentengespräche werden hier angezeigt.", "emptyTitle": "Wie kann ich helfen?", "emptyBody": "Fragen Sie nach Jobs oder erhalten Sie Hilfe bei der Nutzung der Live-Seite.", "messageLabel": "Nachricht an den JobAI Scout-Assistenten", "messagePlaceholder": "Nachricht eingeben...", "useMicrophone": "Mikrofon verwenden", "send": "Nachricht senden", "thinking": "Denke nach...", "listening": "Hört zu...", "interrupted": "Unterbrochen", "voiceUnsupported": "Spracherkennung wird in diesem Browser nicht unterstützt.", "newChat": "Neuer Chat", "chatSession": "Assistenten-Chat", "profileMemory": "Profilspeicher", "recentActions": "Letzte Aktionen", "noMemory": "Noch keine gespeicherten Präferenzen.", "tokenWarning": "Dieser Chat nähert sich seinem Tokenlimit. Starten Sie bald einen neuen Chat.", "confirmationLabel": "Bestätigung erforderlich", "confirm": "Bestätigen", "cancel": "Abbrechen", "acknowledgeScope": "Bestätigen Sie vor dem Fortfahren den genauen Umfang.", "typeToConfirm": "Bestätigungssatz eingeben", "noSpeech": "Ich konnte keine Sprache erkennen. Bitte versuchen Sie es erneut.", "error": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
   },
   "errors": {
     "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
