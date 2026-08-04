@@ -12,6 +12,20 @@ const setStatus = (message, isError = false) => {
   status.className = "status" + (isError ? " err" : "");
 };
 
+function renderUsageLimitNotice(payload) {
+  const status = $("status");
+  const used = Math.max(0, Number(payload?.used || 0));
+  const limit = Math.max(0, Number(payload?.limit || 0));
+  const percentage = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 100;
+  let resetMessage = "This limit stays locked until an administrator changes it.";
+  if (payload?.resetsAt) {
+    const reset = new Date(payload.resetsAt);
+    if (!Number.isNaN(reset.getTime())) resetMessage = `Available again ${reset.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}.`;
+  }
+  status.className = "status limit";
+  status.innerHTML = `<div class="limit-head"><span class="limit-icon" aria-hidden="true">⏳</span><span>Form Fill limit reached</span></div><p class="limit-copy">${limit <= 0 ? "Form Fill is currently unavailable for your account." : `You've used all ${limit} of your available Form Fills.`}</p><div class="limit-meter" aria-hidden="true"><span style="width:${percentage}%"></span></div><p class="limit-reset">${escapeHtml(resetMessage)}</p>`;
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -256,26 +270,6 @@ $("loginBtn").addEventListener("click", async () => {
   if (event.key === "Enter" && !$("loginBtn").disabled) $("loginBtn").click();
 }));
 
-$("googleLoginBtn").addEventListener("click", async () => {
-  setStatus("Opening Google sign in…");
-  $("googleLoginBtn").disabled = true;
-  try {
-    const session = await api.signInWithGoogle();
-    let profile;
-    try {
-      profile = await profileService.loadProfile(session, true);
-    } catch {
-      profile = profileService.normalizeProfile({}, session);
-    }
-    showMain(profile);
-    setStatus("Signed in with Google.");
-  } catch (error) {
-    setStatus(error.message || "Google sign in failed.", true);
-  } finally {
-    $("googleLoginBtn").disabled = false;
-  }
-});
-
 $("logoutBtn").addEventListener("click", async () => {
   await storage.removeSession();
   showLogin();
@@ -438,6 +432,7 @@ $("fillBtn").addEventListener("click", async () => {
   fillButton.innerHTML = '<span class="spinner" aria-hidden="true"></span><span>Preparing application…</span>';
   setStatus("Matching verified facts to this form…");
 
+  let limitBlocked = false;
   try {
     const profile = await profileService.loadProfile(session);
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -454,6 +449,11 @@ $("fillBtn").addEventListener("click", async () => {
 
     const result = await chrome.tabs.sendMessage(tab.id, { type: "FILL_FORM", profile });
     if (!result?.ok) {
+      if (result?.code === "USAGE_LIMIT_REACHED") {
+        limitBlocked = true;
+        renderUsageLimitNotice(result);
+        return;
+      }
       throw new Error(result?.error || "Could not fill this form.");
     }
     renderFillResult(result);
@@ -465,8 +465,10 @@ $("fillBtn").addEventListener("click", async () => {
   } catch (error) {
     setStatus(error.message || "Could not fill this form.", true);
   } finally {
-    fillButton.disabled = false;
-    fillButton.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m13 2-9 12h7l-1 8 9-12h-7l1-8Z"/></svg><span>Fill this application</span>';
+    fillButton.disabled = limitBlocked;
+    fillButton.innerHTML = limitBlocked
+      ? '<span>Limit reached</span>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m13 2-9 12h7l-1 8 9-12h-7l1-8Z"/></svg><span>Fill this application</span>';
   }
 });
 

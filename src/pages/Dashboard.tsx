@@ -2,7 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import {
   FileUp, Briefcase, Bookmark, Sparkles, TrendingUp, Target, ArrowRight,
-  Zap, Mic, Brain, CheckCircle2, Clock, Star
+  Zap, MessageCircle, Brain, CheckCircle2, Clock, Star
 } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { BidiCount } from "@/components/BidiText";
@@ -83,30 +83,29 @@ function MetricCard({
 }
 
 /* ─── Quick Action Card ───────────────────────────────── */
-function QuickAction({ icon: Icon, title, desc, to, gradient, delay }: any) {
+function QuickAction({ icon: Icon, title, desc, to, gradient, delay, onClick }: any) {
+  const card = (
+    <motion.div
+      className="glass-card-sm rounded-xl p-4 flex items-center gap-4 cursor-pointer group border border-border hover:border-indigo-500/25 transition-all"
+      whileHover={{ y: -2, x: 2 }}
+    >
+      <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} shadow-md flex-shrink-0 group-hover:scale-110 transition-transform`}>
+        <Icon className="h-5 w-5 text-white" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-foreground text-sm" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{title}</p>
+        <p className="text-xs text-muted-foreground truncate" dir="auto"><MixedDir className="block truncate">{desc}</MixedDir></p>
+      </div>
+      <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-indigo-500 dark:group-hover:text-indigo-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
+    </motion.div>
+  );
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay, duration: 0.5 }}
     >
-      <Link to={to}>
-        <motion.div
-          className="glass-card-sm rounded-xl p-4 flex items-center gap-4 cursor-pointer group border border-border hover:border-indigo-500/25 transition-all"
-          whileHover={{ y: -2, x: 2 }}
-        >
-          <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} shadow-md flex-shrink-0 group-hover:scale-110 transition-transform`}>
-            <Icon className="h-5 w-5 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-foreground text-sm" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{title}</p>
-            <p className="text-xs text-muted-foreground truncate" dir="auto">
-              <MixedDir className="block truncate">{desc}</MixedDir>
-            </p>
-          </div>
-          <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-indigo-500 dark:group-hover:text-indigo-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
-        </motion.div>
-      </Link>
+      {onClick ? <button type="button" onClick={onClick} className="block w-full text-start">{card}</button> : <Link to={to}>{card}</Link>}
     </motion.div>
   );
 }
@@ -125,7 +124,7 @@ export default function Dashboard() {
     { icon: Briefcase, title: t("dashboard.browseJobsTitle"), desc: t("dashboard.browseJobsDesc"), to: "/dashboard/jobs", gradient: "from-cyan-500 to-blue-600", delay: 0.35 },
     { icon: Clock, title: t("dashboard.automationTitle"), desc: t("dashboard.automationDesc"), to: "/dashboard/automation", gradient: "from-sky-500 to-indigo-600", delay: 0.4 },
     { icon: Bookmark, title: t("dashboard.savedJobsTitle"), desc: t("dashboard.savedJobsDesc"), to: "/dashboard/saved", gradient: "from-emerald-500 to-teal-600", delay: 0.45 },
-    { icon: Mic, title: t("dashboard.voiceTitle"), desc: t("dashboard.voiceDesc"), to: "/dashboard/assistant", gradient: "from-violet-500 to-purple-600", delay: 0.5 },
+    { icon: MessageCircle, title: t("dashboard.chatTitle"), desc: t("dashboard.chatDesc"), onClick: () => window.dispatchEvent(new Event("jobai:open-assistant")), gradient: "from-violet-500 to-purple-600", delay: 0.5 },
     { icon: Zap, title: t("dashboard.formFillTitle"), desc: t("dashboard.formFillDesc"), to: "/dashboard/auto-fill", gradient: "from-amber-500 to-orange-600", delay: 0.55 },
   ];
 

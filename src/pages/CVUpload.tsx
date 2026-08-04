@@ -15,7 +15,7 @@ import {
   normalizeExtractedData,
 } from "@/lib/cv-extracted-data";
 import {
-  FileUp, Loader2, Sparkles, CheckCircle2, Upload, ExternalLink, AlertTriangle,
+  FileUp, Loader2, Sparkles, CheckCircle2, Upload, ExternalLink, AlertTriangle, X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useResumeATSAnalysis } from "@/hooks/useResumeATSAnalysis";
@@ -362,7 +362,7 @@ export default function CVUpload() {
                   <div className="flex flex-wrap gap-2 mb-4">
                     {completionInfo.missing.map(f => (
                       <Badge key={f.key} variant="outline" className="bg-rose-500/10 text-rose-300 border-rose-500/25 text-xs">
-                        ✗ {f.label}
+                        <X className="h-3 w-3" aria-hidden="true" /> {f.label}
                       </Badge>
                     ))}
                   </div>

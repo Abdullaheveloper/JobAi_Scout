@@ -1,8 +1,10 @@
 i18n untranslated string audit
-Generated: 2026-07-27T18:32:31.201Z
+Generated: 2026-08-04T07:48:32.407Z
 Files scanned: 22
 Files with findings: 0
+Attribute findings (placeholder/alt/title/aria-*): 0
 Critical-page findings (Automation / Voice / CV / Form Fill): 0 hits in 0 files
+Mode: text + attrs + object labels
 
 Intentional exceptions (do not translate):
 - User-entered data (automation schedule names, CV field values, transcript text)

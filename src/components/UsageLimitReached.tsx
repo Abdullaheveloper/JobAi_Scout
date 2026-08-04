@@ -71,11 +71,11 @@ export function UsageLimitReached({
   const viewModel: UsageLimitViewModel = { featureName, used, max, period, resetsAt, disabled };
 
   const actions = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-full flex-wrap items-center justify-end gap-2">
       <Button
         asChild
         size="sm"
-        className="border-0 bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/20 hover:brightness-110"
+        className="whitespace-nowrap border-0 bg-gradient-to-r from-indigo-500 to-violet-500 px-4 text-white shadow-md shadow-indigo-500/20 hover:brightness-110"
       >
         <Link to="/contact" onClick={onDismiss}>
           {t("usageLimits.upgradePlan", { defaultValue: "Upgrade plan" })}
@@ -87,7 +87,7 @@ export function UsageLimitReached({
           variant="outline"
           size="sm"
           onClick={onDismiss}
-          className="border-indigo-400/25 bg-transparent text-foreground hover:bg-indigo-500/10"
+          className="whitespace-nowrap border-indigo-400/25 bg-transparent px-4 text-foreground hover:bg-indigo-500/10"
         >
           {t("usageLimits.gotIt", { defaultValue: "Got it" })}
         </Button>
@@ -132,19 +132,19 @@ export function UsageLimitReached({
         className,
       )}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex gap-3">
-          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
-            <Icon className="h-4 w-4" aria-hidden="true" />
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-display text-sm font-semibold text-foreground" dir="auto">
-              {title}
-            </h3>
-            <UsageLimitBody {...viewModel} t={t} locale={i18n.language} />
-          </div>
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
+          <Icon className="h-4 w-4" aria-hidden="true" />
         </div>
-        <div className="shrink-0 sm:pt-0.5">{actions}</div>
+        <div className="min-w-0 flex-1">
+          <h3 className="font-display text-sm font-semibold leading-5 text-foreground" dir="auto">
+            {title}
+          </h3>
+          <UsageLimitBody {...viewModel} t={t} locale={i18n.language} />
+        </div>
+      </div>
+      <div className="mt-4 border-t border-indigo-500/15 pt-3">
+        {actions}
       </div>
     </div>
   );

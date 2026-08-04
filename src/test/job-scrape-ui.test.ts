@@ -45,8 +45,8 @@ describe("job scrape UI state", () => {
   });
 
   it("uses the required completion and partial-completion messages", () => {
-    expect(scrapeCompletionMessage(session({ session_status: "completed", current_adapter: null }))).toBe("Job scraping completed. 25 matching jobs found.");
-    expect(scrapeCompletionMessage(session({ session_status: "partially_completed", current_adapter: null }))).toContain("some source errors");
+    expect(scrapeCompletionMessage(session({ session_status: "completed", current_adapter: null }))).toBe("Job scraping completed successfully.");
+    expect(scrapeCompletionMessage(session({ session_status: "partially_completed", current_adapter: null }))).toBe("Job scraping completed successfully.");
   });
 
   it("hides jobs below the caller's threshold and includes the exact boundary", () => {

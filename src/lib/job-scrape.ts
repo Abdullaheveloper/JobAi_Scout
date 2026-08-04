@@ -52,12 +52,22 @@ export function runningAdapterPosition(session: JobScrapeSession | null | undefi
   return index < 0 ? 0 : index + 1;
 }
 
+export function hasSuccessfulScrapeResults(session: JobScrapeSession | null | undefined): boolean {
+  return Boolean(session && (
+    session.total_jobs_scraped > 0
+    || session.total_jobs_saved > 0
+    || session.total_jobs_displayed > 0
+  ));
+}
+
 export function scrapeCompletionMessage(session: JobScrapeSession): string {
   if (session.session_status === "completed") {
-    return `Job scraping completed. ${session.total_jobs_displayed} matching jobs found.`;
+    return "Job scraping completed successfully.";
   }
   if (session.session_status === "partially_completed") {
-    return "Scraping completed with some source errors. Successful results are available below.";
+    return hasSuccessfulScrapeResults(session)
+      ? "Job scraping completed successfully."
+      : "Scraping finished without results. Review the source details and try again.";
   }
   if (session.session_status === "failed") {
     return "The sources could not be reached this time. Review the source states and try again.";
