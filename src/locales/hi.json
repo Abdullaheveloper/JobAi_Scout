@@ -989,6 +989,8 @@
     "hintInSelectedRange": "चयनित अवधि में {{count}}",
     "hintJobsBreakdown": "{{active}} सक्रिय · {{posted}} पोस्ट · {{collected}} एकत्रित",
     "hintAppsInRange": "अवधि में {{count}} · {{external}} बाहरी",
+    "kpiActiveAutomations": "सक्रिय ऑटोमेशन",
+    "hintAutomations": "कुल {{total}} · अवधि में {{count}} बनाए गए",
     "hintCvsUploaded": "रिज्यूमे वाले प्रोफ़ाइल",
     "hintFieldsFilled": "{{count}} फ़ील्ड भरे गए",
     "hintVoiceMessages": "{{count}} संदेश",

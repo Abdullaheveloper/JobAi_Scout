@@ -12,7 +12,7 @@ import {
   Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
-  Activity, BarChart3, Briefcase, FileText, Globe2, Loader2, MapPin,
+  Activity, BarChart3, Briefcase, CalendarClock, FileText, Globe2, Loader2, MapPin,
   Mic, MousePointerClick, RefreshCw, Users, Bookmark,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -39,6 +39,8 @@ type PlatformAnalytics = {
     extension_fields: number;
     voice_conversations: number;
     voice_messages: number;
+    active_automations: number;
+    automations: number;
   };
   period: {
     new_users: number;
@@ -46,6 +48,7 @@ type PlatformAnalytics = {
     new_applications: number;
     new_extension_fills: number;
     new_voice_conversations: number;
+    new_automations: number;
   };
   users_by_role: NamedCount[];
   signups_by_day: DayCount[];
@@ -189,11 +192,20 @@ export default function AdminAnalytics() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: raw, error } = await supabase.rpc("get_platform_analytics", {
-        p_days: rangeToDays(range),
+      const p_days = rangeToDays(range);
+      const [platformResult, automationResult] = await Promise.all([
+        supabase.rpc("get_platform_analytics", { p_days }),
+        supabase.rpc("get_platform_automation_analytics", { p_days }),
+      ]);
+      if (platformResult.error) throw platformResult.error;
+      if (automationResult.error) throw automationResult.error;
+      const raw = platformResult.data as unknown as PlatformAnalytics;
+      const automation = automationResult.data as unknown as { active: number; total: number; created_in_range: number };
+      setData({
+        ...raw,
+        totals: { ...raw.totals, active_automations: automation.active || 0, automations: automation.total || 0 },
+        period: { ...raw.period, new_automations: automation.created_in_range || 0 },
       });
-      if (error) throw error;
-      setData(raw as unknown as PlatformAnalytics);
     } catch (e) {
       setData(null);
       toast({
@@ -208,6 +220,14 @@ export default function AdminAnalytics() {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-analytics-live-automations")
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_scrape_schedules" }, () => void load())
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
   }, [load]);
 
   const seriesDays = data?.series_days || (range === "all" ? 90 : rangeToDays(range));
@@ -309,12 +329,12 @@ export default function AdminAnalytics() {
                 })}
               />
               <Kpi
-                icon={FileText}
-                label={t("admin.applications")}
-                value={totals.applications}
-                hint={t("admin.hintAppsInRange", {
-                  count: period?.new_applications ?? 0,
-                  external: totals.external_applications,
+                icon={CalendarClock}
+                label={t("admin.kpiActiveAutomations")}
+                value={totals.active_automations}
+                hint={t("admin.hintAutomations", {
+                  total: totals.automations,
+                  count: period?.new_automations ?? 0,
                 })}
               />
               <Kpi

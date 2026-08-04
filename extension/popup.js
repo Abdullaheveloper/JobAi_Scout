@@ -45,27 +45,10 @@ function hasValue(value) {
   return false;
 }
 
-function careerCollection(profile, key) {
-  const items = profile?.career_profile?.[key];
-  return Array.isArray(items) ? items : [];
-}
-
-// Readiness reflects details that commonly appear on job applications.
+// The database trigger owns this score so CRM, dashboard and extension agree.
 function calcCompletion(profile) {
-  if (!profile) return 0;
-  const checks = [
-    hasValue(profile.full_name),
-    hasValue(profile.email),
-    hasValue(profile.phone),
-    hasValue(profile.location),
-    hasValue(profile.skills),
-    hasValue(profile.linkedin_url),
-    hasValue(profile.experience_years) || careerCollection(profile, "experiences").length > 0,
-    hasValue(profile.education) || careerCollection(profile, "education").length > 0,
-    hasValue(profile.resume_url),
-    careerCollection(profile, "projects").length > 0 || hasValue(profile.github_url),
-  ];
-  return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  const canonical = Number(profile?.profile_completion);
+  return Number.isFinite(canonical) ? Math.round(Math.min(100, Math.max(0, canonical))) : 0;
 }
 
 function renderProfile(profile) {
@@ -482,7 +465,7 @@ $("fillBtn").addEventListener("click", async () => {
   try {
     let profile;
     try {
-      profile = await profileService.loadProfile(session);
+      profile = await profileService.loadProfile(session, true);
     } catch {
       profile = await storage.getProfile() || profileService.normalizeProfile({}, session);
     }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Job Form Fill",
-  "version": "4.3.2",
+  "version": "4.3.3",
   "description": "Evidence-led job application assistance with safe profile filling and applicant review.",
   "permissions": [
     "activeTab",

@@ -1025,6 +1025,8 @@
     "hintInSelectedRange": "{{count}} in selected range",
     "hintJobsBreakdown": "{{active}} active · {{posted}} posted · {{collected}} collected",
     "hintAppsInRange": "{{count}} in range · {{external}} external",
+    "kpiActiveAutomations": "Active Automations",
+    "hintAutomations": "{{total}} total · {{count}} created in range",
     "hintCvsUploaded": "Profiles with a resume on file",
     "hintFieldsFilled": "{{count}} fields filled",
     "hintVoiceMessages": "{{count}} messages",

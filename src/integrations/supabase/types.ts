@@ -1461,6 +1461,10 @@ export type Database = {
         Args: { p_days?: number }
         Returns: Json
       }
+      get_platform_automation_analytics: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
       search_scrape_session_jobs: {
         Args: {
           p_include_remote?: boolean

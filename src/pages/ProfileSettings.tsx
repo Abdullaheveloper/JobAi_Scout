@@ -531,8 +531,8 @@ export default function ProfileSettings() {
   );
 
   const completeness = useMemo(
-    () => profileReadinessPercent(completenessItems),
-    [completenessItems],
+    () => profileReadinessPercent(completenessItems, profile?.profile_completion),
+    [completenessItems, profile?.profile_completion],
   );
 
   const editableSkills = form.skills

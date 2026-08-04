@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
 
       .from("profiles")
 
-      .select("full_name, email, phone, location, bio, cv_summary, resume_url, avatar_url, skills, desired_roles, experience_years, linkedin_url, github_url, portfolio_url, current_company, expected_salary, education, certifications, languages, work_authorization, willing_to_relocate, commute_to_office, availability, work_type, career_profile, autofill_preferences")
+      .select("full_name, email, phone, location, bio, cv_summary, resume_url, avatar_url, skills, desired_roles, experience_years, linkedin_url, github_url, portfolio_url, current_company, expected_salary, education, certifications, languages, work_authorization, willing_to_relocate, commute_to_office, availability, work_type, career_profile, autofill_preferences, profile_completion")
 
       .eq("user_id", userId)
 

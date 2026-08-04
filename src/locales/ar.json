@@ -991,6 +991,8 @@
     "hintInSelectedRange": "{{count}} في النطاق المحدد",
     "hintJobsBreakdown": "{{active}} نشطة · {{posted}} منشورة · {{collected}} مجمّعة",
     "hintAppsInRange": "{{count}} في النطاق · {{external}} خارجية",
+    "kpiActiveAutomations": "عمليات الأتمتة النشطة",
+    "hintAutomations": "{{total}} إجمالاً · {{count}} أُنشئت في النطاق",
     "hintCvsUploaded": "ملفات لديها سيرة ذاتية",
     "hintFieldsFilled": "{{count}} حقلًا معبأً",
     "hintVoiceMessages": "{{count}} رسالة",

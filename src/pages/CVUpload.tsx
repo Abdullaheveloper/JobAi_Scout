@@ -87,11 +87,11 @@ export default function CVUpload() {
   const completionInfo = useMemo(() => {
     const missing = completionItems.filter((c) => !c.done);
     return {
-      percent: profileReadinessPercent(completionItems),
+      percent: profileReadinessPercent(completionItems, profile?.profile_completion),
       fields: completionItems,
       missing,
     };
-  }, [completionItems]);
+  }, [completionItems, profile?.profile_completion]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();

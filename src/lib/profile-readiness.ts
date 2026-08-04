@@ -15,6 +15,7 @@ export type ProfileReadinessLike = {
   portfolio_url?: string | null;
   current_company?: string | null;
   education?: string | null;
+  profile_completion?: number | null;
 };
 
 export type ProfileReadinessItem = {
@@ -55,7 +56,10 @@ export function buildProfileReadinessItems(
   ];
 }
 
-export function profileReadinessPercent(items: ProfileReadinessItem[]): number {
+export function profileReadinessPercent(items: ProfileReadinessItem[], canonical?: number | null): number {
+  if (typeof canonical === "number" && Number.isFinite(canonical)) {
+    return Math.round(Math.min(100, Math.max(0, canonical)));
+  }
   if (!items.length) return 0;
   return Math.round((items.filter((item) => item.done).length / items.length) * 100);
 }
