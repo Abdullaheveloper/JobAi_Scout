@@ -13,6 +13,8 @@ const read = (name) => fs.readFileSync(new URL(name, root), "utf8");
 const api = read("api.js");
 const background = read("background.js");
 const content = read("content.js");
+const popup = read("popup.js");
+const popupHtml = read("popup.html");
 const extensionProfile = read("../supabase/functions/extension-profile/index.ts");
 const trackUsage = read("../supabase/functions/track-extension-usage/index.ts");
 
@@ -89,6 +91,11 @@ assert.match(
   /type:\s*["']TRACK_FORM_FILL["']/,
   "gate must send TRACK_FORM_FILL to the background",
 );
+assert.match(content, /completeFormFillUsage/, "completed fills must report their actual fields");
+assert.match(trackUsage, /phase === ["']complete["']/, "telemetry endpoint must update completed fill events");
+assert.match(popup, /renderUsageLimitNotice/, "popup must render a dedicated usage-limit notice");
+assert.match(popup, /USAGE_LIMIT_REACHED/, "popup must distinguish quota notices from errors");
+assert.match(popupHtml, /\.status\.limit/, "popup must include the styled quota notification card");
 // MutationObserver re-passes call fillForm directly — must not re-gate
 assert.match(
   content,
@@ -131,7 +138,7 @@ window.chrome = {
     onMessage: { addListener: (listener) => { messageListener = listener; } },
     sendMessage: async (msg) => {
       trackCalls.push(msg);
-      if (msg?.type === "TRACK_FORM_FILL") return { ok: true };
+      if (msg?.type === "TRACK_FORM_FILL") return { ok: true, event_id: "fill-event-1" };
       return null;
     },
   },
@@ -171,18 +178,18 @@ const fillResult = await new Promise((resolve) => {
 assert.equal(fillResult.ok, true);
 assert.ok(fillResult.count >= 1, "fill should populate at least one field");
 const fillTrackCalls = trackCalls.filter((m) => m?.type === "TRACK_FORM_FILL");
-assert.equal(
-  fillTrackCalls.length,
-  1,
-  "real fill must send exactly one TRACK_FORM_FILL (consume quota once)",
-);
+assert.equal(fillTrackCalls.length, 2, "real fill must reserve once and complete the same telemetry event once");
+assert.equal(fillTrackCalls[0].phase, undefined, "the first call reserves and meters the fill attempt");
+assert.equal(fillTrackCalls[1].phase, "complete", "the second call completes telemetry without another quota charge");
+assert.equal(fillTrackCalls[1].event_id, "fill-event-1");
+assert.ok(fillTrackCalls[1].fields.length >= 1, "completion must report fields that were actually filled");
 
 // Limit exceeded must surface to the popup as ok:false (no silent fill)
 trackCalls.length = 0;
 window.chrome.runtime.sendMessage = async (msg) => {
   trackCalls.push(msg);
   if (msg?.type === "TRACK_FORM_FILL") {
-    return { ok: false, error: "Form Fill daily limit of 1 reached." };
+    return { ok: false, code: "USAGE_LIMIT_REACHED", feature: "form_fill", used: 1, limit: 1, period: "day", resetsAt: "2026-08-05T00:00:00.000Z", error: "Form Fill daily limit of 1 reached." };
   }
   return null;
 };
@@ -198,6 +205,9 @@ const blocked = await new Promise((resolve) => {
   );
 });
 assert.equal(blocked.ok, false);
+assert.equal(blocked.code, "USAGE_LIMIT_REACHED");
+assert.equal(blocked.used, 1);
+assert.equal(blocked.limit, 1);
 assert.match(blocked.error || "", /limit/i);
 assert.equal(window.document.querySelector("#name").value, "Ayesha Khan", "blocked fill must not overwrite prior values");
 

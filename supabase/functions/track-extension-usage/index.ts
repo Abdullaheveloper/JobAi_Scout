@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
 
   try {
 
-    const { email, fields, page_url } = await req.json();
+    const { email, fields, page_url, event_id, phase } = await req.json();
 
     const safeFields: string[] = Array.isArray(fields)
 
@@ -110,6 +110,32 @@ Deno.serve(async (req) => {
 
     }
 
+    if (phase === "complete") {
+
+      if (typeof event_id !== "string" || !event_id) return json({ error: "A fill event ID is required." }, 400);
+
+      const { data, error } = await supabase
+
+        .from("extension_usage")
+
+        .update({ fields: safeFields, field_count: safeFields.length, completed_at: new Date().toISOString() })
+
+        .eq("id", event_id)
+
+        .eq("user_id", user_id)
+
+        .select("id,field_count")
+
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!data) return json({ error: "Fill event was not found." }, 404);
+
+      return json({ ok: true, event_id: data.id, field_count: data.field_count });
+
+    }
+
 
 
     // One feature_usage_log row per fill *attempt* (user-initiated fill).
@@ -126,7 +152,7 @@ Deno.serve(async (req) => {
 
 
 
-    const { error } = await supabase.from("extension_usage").insert({
+    const { data: event, error } = await supabase.from("extension_usage").insert({
 
       user_id,
 
@@ -138,13 +164,13 @@ Deno.serve(async (req) => {
 
       page_url: typeof page_url === "string" ? page_url.slice(0, 500) : null,
 
-    });
+    }).select("id").single();
 
     if (error) throw error;
 
 
 
-    return json({ ok: true });
+    return json({ ok: true, event_id: event.id });
 
   } catch (e) {
 

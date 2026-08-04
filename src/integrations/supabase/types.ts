@@ -206,6 +206,7 @@ export type Database = {
       }
       extension_usage: {
         Row: {
+          completed_at: string | null
           created_at: string
           email: string | null
           field_count: number
@@ -584,6 +585,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          completed_at?: string | null
           applied_at?: string | null
           created_at?: string
           first_saved_at?: string | null
@@ -597,6 +599,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          completed_at?: string | null
           applied_at?: string | null
           created_at?: string
           first_saved_at?: string | null

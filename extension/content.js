@@ -1156,14 +1156,38 @@
       fields: [],
       page_url: location.href,
     });
-    if (response == null) return; // no background listener (unit/smoke tests)
+    if (response == null) return null; // no background listener (unit/smoke tests)
     if (!response.ok) {
-      throw new Error(response.error || "Form Fill usage limit reached.");
+      const error = new Error(response.error || "Form Fill usage limit reached.");
+      Object.assign(error, response);
+      throw error;
+    }
+    return response.event_id || null;
+  }
+
+  async function completeFormFillUsage(eventId, fields) {
+    if (!eventId || !chrome?.runtime?.sendMessage) return;
+    const response = await chrome.runtime.sendMessage({
+      type: "TRACK_FORM_FILL",
+      phase: "complete",
+      event_id: eventId,
+      fields: Array.isArray(fields) ? fields : [],
+      page_url: location.href,
+    });
+    if (response && !response.ok) {
+      WARN("Could not complete Form Fill telemetry:", response.error);
     }
   }
 
+  function formatExtensionReset(resetsAt, period) {
+    if (!resetsAt) return "This limit stays locked until an administrator changes it.";
+    const reset = new Date(resetsAt);
+    if (Number.isNaN(reset.getTime())) return period === "week" ? "Try again next week." : "Try again tomorrow.";
+    return `Available again ${reset.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}.`;
+  }
+
   async function runFillWithRetry(profile, totalMs = 5000, intervalMs = 600) {
-    await gateFormFillUsage();
+    const usageEventId = await gateFormFillUsage();
     const seen = new Set();
     const missing = new Set();
     const suggestions = [];
@@ -1185,10 +1209,12 @@
       }
       await new Promise(r => setTimeout(r, intervalMs));
     }
+    const completedFields = [...seen];
+    await completeFormFillUsage(usageEventId, completedFields);
     return {
       count: seen.size,
       readyCount,
-      fields: [...seen],
+      fields: completedFields,
       missing: [...missing].filter((key) => !seen.has(key)),
       suggestions,
       protected: protectedFields,
@@ -1312,7 +1338,7 @@
     shadow.innerHTML = `
       <style>
         :host { pointer-events:auto; }
-        .panel { position:fixed; top:16px; right:16px; width:min(360px,calc(100vw - 32px)); max-height:calc(100vh - 32px); box-sizing:border-box; color:#edf2ff; background:linear-gradient(160deg,#111936 0%,#0b1125 58%,#14103b 100%); border:1px solid rgba(139,92,246,.36); border-radius:18px; box-shadow:0 26px 70px rgba(2,6,23,.52); font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; animation:jobai-review-enter .24s ease-out; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+        .panel { position:fixed; top:16px; right:16px; width:min(360px,calc(100vw - 32px)); max-height:calc(100vh - 32px); box-sizing:border-box; color:#edf2ff; background:linear-gradient(160deg,#111936 0%,#0b1125 58%,#14103b 100%); border:1px solid rgba(139,92,246,.36); border-radius:18px; box-shadow:0 26px 70px rgba(2,6,23,.52); font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; animation:jobai-review-enter .24s ease-out; display:flex; flex-direction:column; min-height:0; overflow:hidden; pointer-events:auto; }
         @keyframes jobai-review-enter { from { transform:translateY(-10px);opacity:0 } to { transform:translateY(0);opacity:1 } }
         .panel-scroll { flex:1; overflow-y:auto; min-height:0; overscroll-behavior:contain; }
         .header { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:18px 18px 14px; border-bottom:1px solid rgba(148,163,184,.16); flex:none; } .header-brand { display:flex;align-items:center;gap:10px; } .brand-logo { width:34px;height:34px;flex:none;filter:drop-shadow(0 6px 12px rgba(99,102,241,.3)); }
@@ -1336,7 +1362,11 @@
         </div>
         <footer class="footer"><strong>Privacy first:</strong> update your Career Passport in JobAI Scout, then run fill again. Employer-specific questions are never stored as reusable answers.</footer>
       </section>`;
-    shadow.querySelector(".close")?.addEventListener("click", removePanel);
+    shadow.querySelector(".close")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      removePanel();
+    });
     shadow.querySelector(".download-resume")?.addEventListener("click", async (event) => {
       const button = event.currentTarget;
       const status = shadow.querySelector(".google-status");
@@ -1571,7 +1601,7 @@
         .card { width: 270px; box-sizing:border-box; background:#10152d; color:#f8fafc; border:1px solid rgba(129,140,248,.42); border-radius:14px; box-shadow:0 16px 40px rgba(15,23,42,.35); padding:14px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; animation:jobai-enter .22s ease-out; }
         @keyframes jobai-enter { from { opacity:0; transform:translateY(-8px) } to { opacity:1; transform:translateY(0) } }
         .top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; } .brand { display:flex;align-items:center;gap:8px;font-weight:750;font-size:14px;letter-spacing:-.2px; } .brand-logo { width:30px;height:30px;filter:drop-shadow(0 5px 10px rgba(99,102,241,.32)); } .brand span { color:#a78bfa; } .close { border:0; background:transparent; color:#cbd5e1; font-size:21px; line-height:1; cursor:pointer; padding:0 2px; }
-        p { color:#b7c0d5; font-size:12px; line-height:1.4; margin:0 0 12px; } button.fill { width:100%; border:0; border-radius:9px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:white; padding:10px 12px; font-size:13px; font-weight:700; cursor:pointer; } button.fill:hover { filter:brightness(1.08); } button.fill:disabled { opacity:.65; cursor:wait; } .status { min-height:16px; color:#cbd5e1; font-size:11px; margin-top:9px; } .status.ok { color:#86efac; } .status.err { color:#fda4af; }
+        p { color:#b7c0d5; font-size:12px; line-height:1.4; margin:0 0 12px; } button.fill { width:100%; border:0; border-radius:9px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:white; padding:10px 12px; font-size:13px; font-weight:700; cursor:pointer; } button.fill:hover { filter:brightness(1.08); } button.fill:disabled { opacity:.65; cursor:wait; } .status { min-height:16px; color:#cbd5e1; font-size:11px; margin-top:9px; } .status.ok { color:#86efac; } .status.err { color:#fda4af; } .status.limit { margin-top:10px; padding:10px; border:1px solid rgba(251,191,36,.35); border-radius:10px; color:#fde68a; background:linear-gradient(135deg,rgba(120,53,15,.42),rgba(67,56,202,.18)); line-height:1.45; }
       </style>
       <section class="card" aria-label="JobAI application helper"><div class="top"><div class="brand">${BRAND_MARK}<span>JobAI Scout</span></div><button class="close" aria-label="Close">×</button></div><p>Application detected. Fill your saved profile, answers, and uploaded resume.</p><button class="fill">Auto-fill application</button><div class="status" role="status"></div></section>`;
     const close = shadow.querySelector(".close");
@@ -1596,10 +1626,16 @@
         fill.textContent = "Fill again";
         if (reviewCount || result.reviewed?.length || result.tiers?.synthesized?.length) createSidePanel(result, profile);
       } catch (error) {
-        status.className = "status err";
-        status.textContent = error?.message || "Auto-fill failed.";
-        fill.textContent = "Try again";
-      } finally { fill.disabled = false; }
+        if (error?.code === "USAGE_LIMIT_REACHED") {
+          status.className = "status limit";
+          status.textContent = `${error.limit <= 0 ? "Form Fill is unavailable for this account." : `You've used ${error.used} of ${error.limit} Form Fills.`} ${formatExtensionReset(error.resetsAt, error.period)}`;
+          fill.textContent = "Limit reached";
+        } else {
+          status.className = "status err";
+          status.textContent = error?.message || "Auto-fill failed.";
+          fill.textContent = "Try again";
+        }
+      } finally { fill.disabled = status.classList.contains("limit"); }
     });
   }
 
@@ -1626,7 +1662,7 @@
           url: location.href,
         });
       }).catch((error) => {
-        sendResponse({ ok: false, error: error?.message || "Could not fill this form." });
+        sendResponse({ ok: false, code: error?.code, feature: error?.feature, featureLabel: error?.featureLabel, limit: error?.limit, used: error?.used, period: error?.period, resetsAt: error?.resetsAt, error: error?.message || "Could not fill this form." });
       });
       return true;
     }

@@ -22,11 +22,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return;
     }
     if (message.type === "TRACK_FORM_FILL") {
-      await api.trackFormFill(session, {
+      const result = await api.trackFormFill(session, {
         fields: message.fields,
         page_url: message.page_url,
+        event_id: message.event_id,
+        phase: message.phase,
       });
-      sendResponse({ ok: true });
+      sendResponse({ ok: true, ...result });
       return;
     }
     if (message.type === "SYNTHESIZE_FORM_ANSWER") {
@@ -39,7 +41,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const profile = await profileService.loadProfile(session, true);
     sendResponse({ ok: true, profile });
   })().catch((error) => {
-    sendResponse({ ok: false, error: error?.message || "Could not load your JobAI profile." });
+    sendResponse({ ok: false, ...(error?.details || {}), error: error?.message || "Could not load your JobAI profile." });
   });
   return true;
 });

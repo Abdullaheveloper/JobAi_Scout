@@ -159,7 +159,7 @@ async function collectFirecrawlBatch(sources: CompanyCareerSource[], token: stri
   const start = await fetch("https://api.firecrawl.dev/v2/batch/scrape", {
     method: "POST", signal,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ urls: sources.map((source) => source.url), maxConcurrency: 2, ignoreInvalidURLs: true, onlyMainContent: true, timeout: 30_000, formats: [{ type: "json", schema: batchSchema, prompt: `Extract only current individual job openings relevant to "${query || "the requested role"}". Each job must have its own application or details URL. Do not invent jobs or URLs.` }] }),
+    body: JSON.stringify({ urls: sources.map((source) => source.url), maxConcurrency: 1, ignoreInvalidURLs: true, onlyMainContent: true, timeout: 30_000, formats: [{ type: "json", schema: batchSchema, prompt: `Extract only current individual job openings relevant to "${query || "the requested role"}". Each job must have its own application or details URL. Do not invent jobs or URLs.` }] }),
   });
   if (!start.ok) throw new Error(`Firecrawl batch failed (${start.status}): ${(await start.text().catch(() => "")).slice(0, 220)}`);
   const started = await start.json();
@@ -214,7 +214,7 @@ export async function collectCompanyCareerSources(
     // results from earlier companies when only a few credits remain.
     const pending = [...fallbacks];
     while (pending.length && !signal.aborted) {
-      const chunk = pending.splice(0, 2);
+      const chunk = pending.splice(0, 1);
       try {
         const batch = await collectFirecrawlBatch(chunk, token, signal, options.query);
         for (const source of chunk) {

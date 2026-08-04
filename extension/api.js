@@ -40,7 +40,10 @@ async function makeRequest(url, opts = {}) {
   }
   if (!res.ok) {
     const msg = json.error_description || json.msg || json.message || json.error || (typeof json === "string" ? json : null) || `HTTP ${res.status}`;
-    throw new Error(msg);
+    const error = new Error(msg);
+    error.details = json && typeof json === "object" ? json : {};
+    error.status = res.status;
+    throw error;
   }
   return json;
 }
@@ -61,41 +64,6 @@ export const api = {
       refresh_token: data.refresh_token,
       expires_at: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
       user: data.user,
-    };
-    await storage.setSession(session);
-    return session;
-  },
-
-  async signInWithGoogle() {
-    if (!chrome?.identity?.getRedirectURL || !chrome?.identity?.launchWebAuthFlow) {
-      throw new Error("Google login needs Chrome identity permission.");
-    }
-    const { supabaseUrl } = await getConfig();
-    const redirectUrl = chrome.identity.getRedirectURL();
-    const authUrl = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUrl)}`;
-    const callbackUrl = await new Promise((resolve, reject) => {
-      chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, (responseUrl) => {
-        const err = chrome.runtime.lastError;
-        if (err) reject(new Error(err.message));
-        else if (!responseUrl) reject(new Error("Google login was cancelled"));
-        else resolve(responseUrl);
-      });
-    });
-    const parsed = new URL(callbackUrl);
-    const params = new URLSearchParams(parsed.hash.slice(1));
-    parsed.searchParams.forEach((v, k) => params.set(k, v));
-    if (params.get("error")) throw new Error(params.get("error_description") || params.get("error"));
-    const accessToken = params.get("access_token");
-    const refreshToken = params.get("refresh_token");
-    if (!accessToken || !refreshToken) throw new Error("Google login did not return a session");
-    const userData = await makeRequest(`${supabaseUrl}/auth/v1/user`, {
-      headers: { "Authorization": `Bearer ${accessToken}` }
-    });
-    const session = {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      expires_at: Math.floor(Date.now() / 1000) + Number(params.get("expires_in") || 3600),
-      user: userData
     };
     await storage.setSession(session);
     return session;
@@ -174,7 +142,7 @@ export const api = {
    * Gate + meter one Form Fill attempt. Server records feature_usage_log and
    * extension_usage; throws with the server message on USAGE_LIMIT_REACHED.
    */
-  async trackFormFill(session, { fields = [], page_url = null } = {}) {
+  async trackFormFill(session, { fields = [], page_url = null, event_id = null, phase = "start" } = {}) {
     const { supabaseUrl } = await getConfig();
     return makeRequest(`${supabaseUrl}/functions/v1/track-extension-usage`, {
       method: "POST",
@@ -183,6 +151,8 @@ export const api = {
         email: session.user?.email || null,
         fields: Array.isArray(fields) ? fields.slice(0, 50) : [],
         page_url: typeof page_url === "string" ? page_url.slice(0, 500) : null,
+        event_id,
+        phase,
       }),
     });
   },

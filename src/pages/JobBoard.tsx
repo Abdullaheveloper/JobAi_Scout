@@ -13,8 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Search, MapPin, DollarSign, Bookmark, BookmarkCheck, ExternalLink, Building2, Clock, RefreshCw, Filter, Sparkles, Briefcase, ChevronDown, ChevronUp, ArrowUpRight, X, Copy, Check, LoaderCircle, CheckCircle2, AlertCircle, Square } from "lucide-react";
 import type { Database, Tables } from "@/integrations/supabase/types";
-import { PORTAL_COLORS } from "@/lib/constants";
-import { JOB_ADAPTER_STEPS, isScrapeSessionActive, isVisibleJobMatch, parseAdapterStatuses, runningAdapterPosition, scrapeCompletionMessage, type JobAdapterKey, type JobScrapeSession } from "@/lib/job-scrape";
+import { JOB_ADAPTER_STEPS, hasSuccessfulScrapeResults, isScrapeSessionActive, isVisibleJobMatch, parseAdapterStatuses, runningAdapterPosition, scrapeCompletionMessage, type JobAdapterKey, type JobScrapeSession } from "@/lib/job-scrape";
+import { plainJobDescription } from "@/lib/job-description";
 import { FuzzyAutocompleteInput, jobTaxonomy, locationTaxonomy } from "@/lib/fuzzy-taxonomy";
 import { useTranslation } from "react-i18next";
 import { MixedDir } from "@/components/MixedDir";
@@ -143,8 +143,8 @@ export default function JobBoard() {
       next.set(key, { ...current, first_viewed_at: current.first_viewed_at || now, opened_at: action !== "viewed" ? current.opened_at || now : current.opened_at, applied_at: action === "applied" ? current.applied_at || now : current.applied_at });
       return next;
     });
-    const { error } = await (supabase.rpc as unknown as (name: string, params: Record<string, unknown>) => Promise<{ error: { message: string } | null }>)
-      ("mark_job_interaction", { p_job_id: jobId, p_action: action, p_recommended: recommended });
+    const callRpc = supabase.rpc as unknown as (name: string, params: Record<string, unknown>) => Promise<{ error: { message: string } | null }>;
+    const { error } = await callRpc("mark_job_interaction", { p_job_id: jobId, p_action: action, p_recommended: recommended });
     if (error) console.error("[jobs] interaction tracking failed", error.message);
   }, [user]);
 
@@ -565,7 +565,6 @@ export default function JobBoard() {
     setScoreFilter("all");
     setRemoteFilter("all");
   };
-  const sourceLabel = (source?: string | null) => (source || "Job board").replace(/[_-]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
   const adapterStatuses = useMemo(
     () => parseAdapterStatuses(scraping && !isScrapeSessionActive(scrapeSession) ? null : scrapeSession?.adapter_statuses),
     [scrapeSession, scraping],
@@ -702,21 +701,21 @@ export default function JobBoard() {
             </div>
             {showFilters && (
               <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border/70 pt-4">
-                <Input value={titleFilter} onChange={(event) => setTitleFilter(event.target.value)} placeholder="Job title" className="w-[180px] bg-background/60" />
-                <Input value={companyFilter} onChange={(event) => setCompanyFilter(event.target.value)} placeholder="Company" className="w-[180px] bg-background/60" />
+                <Input value={titleFilter} onChange={(event) => setTitleFilter(event.target.value)} placeholder={t("jobs.jobTitleFilter")} className="w-[180px] bg-background/60" />
+                <Input value={companyFilter} onChange={(event) => setCompanyFilter(event.target.value)} placeholder={t("jobs.companyFilter")} className="w-[180px] bg-background/60" />
                 <Select value={jobTypeFilter} onValueChange={setJobTypeFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder={t("jobs.jobTypePlaceholder")} /></SelectTrigger><SelectContent><SelectItem value="all">{t("jobs.anyJobType")}</SelectItem><SelectItem value="full-time">{t("jobs.fullTime")}</SelectItem><SelectItem value="part-time">{t("jobs.partTime")}</SelectItem><SelectItem value="contract">{t("jobs.contract")}</SelectItem><SelectItem value="internship">{t("jobs.internship")}</SelectItem></SelectContent></Select>
-                <Select value={experienceFilter} onValueChange={setExperienceFilter}><SelectTrigger className="w-[165px] bg-background/60"><SelectValue placeholder="Experience level" /></SelectTrigger><SelectContent><SelectItem value="all">All experience</SelectItem><SelectItem value="entry">Entry level</SelectItem><SelectItem value="mid">Mid level</SelectItem><SelectItem value="senior">Senior</SelectItem><SelectItem value="lead">Lead</SelectItem></SelectContent></Select>
-                <Input type="number" min="0" value={salaryMinFilter} onChange={(event) => setSalaryMinFilter(event.target.value)} placeholder="Minimum salary" className="w-[160px] bg-background/60" />
-                <Input type="number" min="0" value={salaryMaxFilter} onChange={(event) => setSalaryMaxFilter(event.target.value)} placeholder="Maximum salary" className="w-[160px] bg-background/60" />
+                <Select value={experienceFilter} onValueChange={setExperienceFilter}><SelectTrigger className="w-[165px] bg-background/60"><SelectValue placeholder={t("jobs.experienceLevelFilter")} /></SelectTrigger><SelectContent><SelectItem value="all">{t("jobs.allExperience")}</SelectItem><SelectItem value="entry">{t("jobs.entryLevel")}</SelectItem><SelectItem value="mid">{t("jobs.midLevel")}</SelectItem><SelectItem value="senior">{t("jobs.seniorLevel")}</SelectItem><SelectItem value="lead">{t("jobs.leadLevel")}</SelectItem></SelectContent></Select>
+                <Input type="number" min="0" value={salaryMinFilter} onChange={(event) => setSalaryMinFilter(event.target.value)} placeholder={t("jobs.minimumSalary")} className="w-[160px] bg-background/60" />
+                <Input type="number" min="0" value={salaryMaxFilter} onChange={(event) => setSalaryMaxFilter(event.target.value)} placeholder={t("jobs.maximumSalary")} className="w-[160px] bg-background/60" />
                 <Select value={remoteFilter} onValueChange={setRemoteFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder={t("jobs.workModePlaceholder")} /></SelectTrigger><SelectContent><SelectItem value="all">{t("jobs.anyWorkMode")}</SelectItem><SelectItem value="remote">{t("jobs.remote")}</SelectItem><SelectItem value="hybrid">{t("jobs.hybrid")}</SelectItem></SelectContent></Select>
-                <Select value={sourceTypeFilter} onValueChange={setSourceTypeFilter}><SelectTrigger className="w-[175px] bg-background/60"><SelectValue placeholder="Job source" /></SelectTrigger><SelectContent><SelectItem value="all">All sources</SelectItem><SelectItem value="recruiter">Recruiter posted</SelectItem><SelectItem value="scraped">Scraped jobs</SelectItem></SelectContent></Select>
-                <Select value={postedDateFilter} onValueChange={setPostedDateFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder="Date posted" /></SelectTrigger><SelectContent><SelectItem value="all">Any time</SelectItem><SelectItem value="1">Past 24 hours</SelectItem><SelectItem value="7">Past 7 days</SelectItem><SelectItem value="30">Past 30 days</SelectItem></SelectContent></Select>
-                <label className="flex h-10 items-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 text-sm text-muted-foreground">Match ≥ <input aria-label="Minimum match score" type="range" min="0" max="100" step="5" value={selectedMinScore} onChange={(event) => setSelectedMinScore(Number(event.target.value))} /><span className="w-9 font-medium text-foreground">{selectedMinScore}%</span></label>
+                <Select value={sourceTypeFilter} onValueChange={setSourceTypeFilter}><SelectTrigger className="w-[175px] bg-background/60"><SelectValue placeholder={t("jobs.jobSourceFilter")} /></SelectTrigger><SelectContent><SelectItem value="all">{t("jobs.allSources")}</SelectItem><SelectItem value="recruiter">{t("jobs.recruiterPosted")}</SelectItem><SelectItem value="scraped">{t("jobs.scrapedJobs")}</SelectItem></SelectContent></Select>
+                <Select value={postedDateFilter} onValueChange={setPostedDateFilter}><SelectTrigger className="w-[155px] bg-background/60"><SelectValue placeholder={t("jobs.datePostedFilter")} /></SelectTrigger><SelectContent><SelectItem value="all">{t("jobs.anyTime")}</SelectItem><SelectItem value="1">{t("jobs.past24Hours")}</SelectItem><SelectItem value="7">{t("jobs.past7Days")}</SelectItem><SelectItem value="30">{t("jobs.past30Days")}</SelectItem></SelectContent></Select>
+                <label className="flex h-10 items-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 text-sm text-muted-foreground">{t("jobs.matchAtLeast")} <input aria-label={t("jobs.minimumMatchScore")} type="range" min="0" max="100" step="5" value={selectedMinScore} onChange={(event) => setSelectedMinScore(Number(event.target.value))} /><span className="w-9 font-medium text-foreground">{selectedMinScore}%</span></label>
                 <label className="flex h-10 items-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 text-sm text-muted-foreground">
                   <Checkbox checked={includeRemoteLocations} onCheckedChange={(checked) => setIncludeRemoteLocations(checked === true)} />
                   {t("jobs.includeRemote")}
                 </label>
-                <div className="flex flex-wrap items-center gap-2" aria-label="Scraping sources">
+                <div className="flex flex-wrap items-center gap-2" aria-label={t("jobs.scrapingSources")}>
                   {JOB_ADAPTER_STEPS.map((adapter) => <label key={adapter.key} className="flex h-10 items-center gap-2 rounded-md border border-border/70 bg-background/60 px-3 text-sm text-muted-foreground">
                     <Checkbox checked={selectedAdapters.has(adapter.key)} disabled={scraping} onCheckedChange={(checked) => setSelectedAdapters((current) => { const next = new Set(current); if (checked === true) next.add(adapter.key); else next.delete(adapter.key); return next; })} />
                     {adapter.key === "linkedin" ? t("jobs.adapterLinkedin") : adapter.key === "indeed" ? t("jobs.adapterIndeed") : adapter.key === "rss" ? t("jobs.adapterRss") : t("jobs.adapterCompanyCareer")}
@@ -744,7 +743,7 @@ export default function JobBoard() {
                     <div className="rounded-xl border border-border/60 bg-card/70 px-3 py-2"><p className="text-base font-bold text-success">{scrapeSession.total_jobs_displayed}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t("jobs.counterShown")}</p></div>
                   </div>
                 </div>
-                {(() => {
+                {!hasSuccessfulScrapeResults(scrapeSession) && (() => {
                   const summary = scrapeSession.exclusion_summary as Record<string, number> | null;
                   if (!summary) return null;
                   const details = [
@@ -759,7 +758,7 @@ export default function JobBoard() {
                     </p>
                   ) : null;
                 })()}
-                {(() => {
+                {!hasSuccessfulScrapeResults(scrapeSession) && (() => {
                   const errors = scrapeSession.adapter_errors as Record<string, string[]> | null;
                   const messages = Object.entries(errors || {}).flatMap(([adapter, entries]) => entries.map((message) => `${adapter.replace(/_/g, " ")}: ${message}`));
                   return messages.length ? (
@@ -795,7 +794,6 @@ export default function JobBoard() {
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-display text-base font-bold text-primary">{(job.company || "J").charAt(0).toUpperCase()}</div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">{sourceLabel(job.source)}</Badge>
                         {job.match_score !== null && <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-500">Match {Math.round(Number(job.match_score))}%</Badge>}
                         {!hasVisited(job.id) && <Badge className="bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-600 hover:bg-blue-500/15">New</Badge>}
                         {hasVisited(job.id) && <Badge variant="outline" className="px-2 py-0.5 text-[10px] font-semibold">Viewed</Badge>}
@@ -809,7 +807,7 @@ export default function JobBoard() {
                         {job.job_type && <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{job.job_type}</span>}
                         {(job.salary_min || job.salary_max) && <span className="flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" />{job.salary_currency ? `${job.salary_currency} ` : ""}{job.salary_min ? Number(job.salary_min).toLocaleString() : ""}{job.salary_min && job.salary_max ? " - " : ""}{job.salary_max ? Number(job.salary_max).toLocaleString() : ""}</span>}
                       </div>
-                      {job.description && <p className="mt-3 max-w-4xl text-sm leading-6 text-muted-foreground line-clamp-2"><MixedDir>{job.description}</MixedDir></p>}
+                      {plainJobDescription(job.description) && <p className="mt-3 max-w-4xl text-sm leading-6 text-muted-foreground line-clamp-2"><MixedDir>{plainJobDescription(job.description)}</MixedDir></p>}
                       <MatchExplanation explanation={job.match_explanation as MatchExplanationData | null} />
                       <div className="mt-4 flex flex-wrap items-center gap-2">
                         {(job.skills || []).slice(0, 4).map((skill: string) => <Badge key={skill} variant="secondary" className="bg-muted/65 px-2 py-0.5 text-xs font-normal"><MixedDir>{skill}</MixedDir></Badge>)}
@@ -897,7 +895,6 @@ export default function JobBoard() {
               const score = job.match_score || 0;
               const isSaved = savedRecIds.has(job.id);
               const isNew = !hasVisited(job.id, true);
-              const portalColor = PORTAL_COLORS[job.source_portal] || "bg-gray-200 text-gray-700";
               return (
                 <Card
                   key={job.id}
@@ -937,15 +934,12 @@ export default function JobBoard() {
                             {job.employment_type && <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{job.employment_type}</span>}
                           </div>
                           <div className="flex flex-wrap gap-1.5 mt-2">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${portalColor}`}>
-                              {job.source_portal}
-                            </span>
                             {(job.skills_required || []).slice(0, 5).map(skill => (
                               <Badge key={skill} variant="outline" className="text-xs font-normal"><MixedDir>{skill}</MixedDir></Badge>
                             ))}
                           </div>
-                          {job.description && (
-                            <p className="text-sm text-muted-foreground mt-2 line-clamp-2"><MixedDir>{job.description}</MixedDir></p>
+                          {plainJobDescription(job.description) && (
+                            <p className="text-sm text-muted-foreground mt-2 line-clamp-2"><MixedDir>{plainJobDescription(job.description)}</MixedDir></p>
                           )}
                           <MatchExplanation explanation={job.match_explanation as MatchExplanationData | null} />
                         </div>

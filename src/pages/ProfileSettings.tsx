@@ -50,7 +50,6 @@ import {
   validateSalary,
 } from "../../supabase/functions/_shared/cv-profile-merge.ts";
 import { useMatchPreferencesGate } from "@/hooks/useMatchPreferencesGate";
-import { MatchPreferencesEditor } from "@/components/match/MatchPreferencesEditor";
 
 // ── Color-coded section themes ─────────────────────────────────
 const SECTION_THEMES = {
@@ -194,7 +193,7 @@ export default function ProfileSettings() {
   const { t } = useTranslation();
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
-  const { gateOverlay, hasSetMatchPreferences } = useMatchPreferencesGate();
+  const { gateOverlay } = useMatchPreferencesGate();
   const [saving, setSaving] = useState(false);
   const [profileImageUploading, setProfileImageUploading] = useState(false);
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
@@ -988,8 +987,6 @@ export default function ProfileSettings() {
             </div>
           </CardContent>
         </Card>
-
-        {hasSetMatchPreferences ? <MatchPreferencesEditor /> : null}
 
         {/* ── Save Button ─────────────────────────────────── */}
         <div className="relative group">

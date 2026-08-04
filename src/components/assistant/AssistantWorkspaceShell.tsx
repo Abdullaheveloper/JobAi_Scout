@@ -93,6 +93,15 @@ export function AssistantWorkspaceShell({ children }: { children: ReactNode }) {
   const [historySearch, setHistorySearch] = useState("");
   const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
 
+  useEffect(() => {
+    const openAssistant = () => {
+      setHistoryOpen(false);
+      setOpen(true);
+    };
+    window.addEventListener("jobai:open-assistant", openAssistant);
+    return () => window.removeEventListener("jobai:open-assistant", openAssistant);
+  }, []);
+
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => {
     if (historyOpen) return;

@@ -10,7 +10,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "lint:i18n": "eslint --max-warnings=0 src/pages/Automation.tsx src/pages/CVUpload.tsx src/pages/AutoFormFill.tsx src/pages/VoiceAssistant.tsx src/pages/Dashboard.tsx src/pages/JobBoard.tsx src/pages/SavedJobs.tsx src/pages/ProfileSettings.tsx src/components/automation src/components/voice src/components/profile/ProfileReadinessCard.tsx src/pages/AdminDashboard.tsx src/pages/AdminUsers.tsx src/pages/AdminJobs.tsx src/pages/AdminAnalytics.tsx src/pages/Index.tsx",
+    "lint:i18n": "eslint --config eslint.i18n.config.js --max-warnings=0 src/pages/Automation.tsx src/pages/CVUpload.tsx src/pages/AutoFormFill.tsx src/pages/VoiceAssistant.tsx src/pages/Dashboard.tsx src/pages/JobBoard.tsx src/pages/SavedJobs.tsx src/pages/ProfileSettings.tsx src/components/automation src/components/voice src/components/profile/ProfileReadinessCard.tsx src/pages/AdminDashboard.tsx src/pages/AdminUsers.tsx src/pages/AdminJobs.tsx src/pages/AdminAnalytics.tsx src/pages/Index.tsx",
     "i18n:audit": "node scripts/audit-untranslated.mjs",
     "i18n:audit:attrs": "node scripts/audit-untranslated.mjs --attrs-only",
     "i18n:audit:strict": "node scripts/audit-untranslated.mjs --strict --out=scripts/i18n-critical-audit.txt --paths=src/pages/Automation.tsx,src/pages/CVUpload.tsx,src/pages/AutoFormFill.tsx,src/pages/VoiceAssistant.tsx,src/pages/Dashboard.tsx,src/pages/JobBoard.tsx,src/pages/SavedJobs.tsx,src/pages/ProfileSettings.tsx,src/components/automation,src/components/voice,src/components/profile/ProfileReadinessCard.tsx,src/pages/AdminDashboard.tsx,src/pages/AdminUsers.tsx,src/pages/AdminJobs.tsx,src/pages/AdminAnalytics.tsx,src/pages/Index.tsx",

@@ -1,13 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Job Form Fill",
-  "version": "4.3.0",
+  "version": "4.3.2",
   "description": "Evidence-led job application assistance with safe profile filling and applicant review.",
   "permissions": [
     "activeTab",
     "storage",
-    "scripting",
-    "identity"
+    "scripting"
   ],
   "host_permissions": [
     "https://*.greenhouse.io/*",
