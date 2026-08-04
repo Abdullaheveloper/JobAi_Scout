@@ -989,6 +989,8 @@
     "hintInSelectedRange": "{{count}} im gewählten Zeitraum",
     "hintJobsBreakdown": "{{active}} aktiv · {{posted}} veröffentlicht · {{collected}} gesammelt",
     "hintAppsInRange": "{{count}} im Zeitraum · {{external}} extern",
+    "kpiActiveAutomations": "Aktive Automatisierungen",
+    "hintAutomations": "{{total}} insgesamt · {{count}} im Zeitraum erstellt",
     "hintCvsUploaded": "Profile mit hinterlegtem Lebenslauf",
     "hintFieldsFilled": "{{count}} ausgefüllte Felder",
     "hintVoiceMessages": "{{count}} Nachrichten",

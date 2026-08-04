@@ -991,6 +991,8 @@
     "hintInSelectedRange": "منتخب مدت میں {{count}}",
     "hintJobsBreakdown": "{{active}} فعال · {{posted}} پوسٹ · {{collected}} جمع",
     "hintAppsInRange": "مدت میں {{count}} · {{external}} بیرونی",
+    "kpiActiveAutomations": "فعال آٹومیشنز",
+    "hintAutomations": "کل {{total}} · مدت میں {{count}} بنائی گئیں",
     "hintCvsUploaded": "ریزوم والے پروفائلز",
     "hintFieldsFilled": "{{count}} فیلڈز بھری گئیں",
     "hintVoiceMessages": "{{count}} پیغامات",

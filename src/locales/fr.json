@@ -989,6 +989,8 @@
     "hintInSelectedRange": "{{count}} sur la période",
     "hintJobsBreakdown": "{{active}} actives · {{posted}} publiées · {{collected}} collectées",
     "hintAppsInRange": "{{count}} sur la période · {{external}} externes",
+    "kpiActiveAutomations": "Automatisations actives",
+    "hintAutomations": "{{total}} au total · {{count}} créées sur la période",
     "hintCvsUploaded": "Profils avec un CV enregistré",
     "hintFieldsFilled": "{{count}} champs remplis",
     "hintVoiceMessages": "{{count}} messages",

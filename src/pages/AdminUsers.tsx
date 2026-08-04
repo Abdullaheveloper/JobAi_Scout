@@ -76,7 +76,12 @@ export default function AdminUsers() {
   const [deleteConfirm, setDeleteConfirm] = useState("");
 
   useEffect(() => {
-    fetchUsers();
+    void fetchUsers();
+    const channel = supabase
+      .channel("admin-users-live-profiles")
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => void fetchUsers())
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
   }, []);
 
   const pendingCount = useMemo(
@@ -351,21 +356,7 @@ export default function AdminUsers() {
                     const isCurrentUser = u.user_id === user?.id;
                     const isAdmin = u._role === "admin";
                     const approval = u.approval_status || "approved";
-                    const getCompleteness = () => {
-                      let score = 0;
-                      if (u.full_name) score += 15;
-                      if (u.email) score += 10;
-                      if (u.phone) score += 10;
-                      if (u.resume_url) score += 20;
-                      if ((u.skills || []).length > 0) score += 10;
-                      if ((u.desired_roles || []).length > 0) score += 10;
-                      if (u.experience_years != null) score += 5;
-                      if (u.bio) score += 5;
-                      if (u.linkedin_url) score += 10;
-                      if (u.github_url) score += 5;
-                      return score;
-                    };
-                    const completeness = getCompleteness();
+                    const completeness = Math.round(Math.min(100, Math.max(0, Number(u.profile_completion) || 0)));
                     return (
                       <TableRow key={u.id} className={approval === "pending" ? "bg-amber-500/5" : undefined}>
                         <TableCell className="font-medium"><MixedDir>{u.full_name || "—"}</MixedDir></TableCell>

@@ -8,37 +8,9 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { BidiCount } from "@/components/BidiText";
 import { MixedDir } from "@/components/MixedDir";
 import { motion } from "framer-motion";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-
-/* ─── Animated Counter ────────────────────────────────── */
-function AnimatedCount({ value, suffix = "" }: { value: number; suffix?: string }) {
-  const [display, setDisplay] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) setInView(true); }, { threshold: 0.5 });
-    if (ref.current) obs.observe(ref.current);
-    return () => obs.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!inView || value === 0) { setDisplay(value); return; }
-    const duration = 1200;
-    const start = Date.now();
-    const tick = () => {
-      const elapsed = Date.now() - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplay(Math.floor(value * eased));
-      if (progress < 1) requestAnimationFrame(tick);
-    };
-    tick();
-  }, [inView, value]);
-
-  return <span ref={ref}>{display}{suffix}</span>;
-}
+import { supabase } from "@/integrations/supabase/client";
 
 /* ─── Metric Card ─────────────────────────────────────── */
 function MetricCard({
@@ -68,7 +40,7 @@ function MetricCard({
       </div>
 
       <div className="text-3xl font-bold text-foreground mb-1" style={{ fontFamily: 'Syne, sans-serif' }}>
-        <AnimatedCount value={value} suffix={suffix} />
+        <span>{value}{suffix}</span>
       </div>
       <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
         <MixedDir>{title}</MixedDir>
@@ -112,12 +84,38 @@ function QuickAction({ icon: Icon, title, desc, to, gradient, delay, onClick }: 
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const [aiMatches, setAiMatches] = useState(0);
   const skills = profile?.skills || [];
   const desiredRoles = profile?.desired_roles || [];
   const hasProfile = skills.length > 0;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? t("dashboard.greetingMorning") : hour < 18 ? t("dashboard.greetingAfternoon") : t("dashboard.greetingEvening");
+  const profileCompletion = Math.round(Math.min(100, Math.max(0, Number(profile?.profile_completion) || 0)));
+
+  useEffect(() => {
+    if (!user?.id) {
+      setAiMatches(0);
+      return;
+    }
+    let cancelled = false;
+    const refreshAiMatches = async () => {
+      const { count } = await supabase
+        .from("recommended_jobs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id);
+      if (!cancelled) setAiMatches(count || 0);
+    };
+    void refreshAiMatches();
+    const channel = supabase
+      .channel(`dashboard-recommended-jobs-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "recommended_jobs", filter: `user_id=eq.${user.id}` }, refreshAiMatches)
+      .subscribe();
+    return () => {
+      cancelled = true;
+      void supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   const quickActions = [
     { icon: FileUp, title: t("dashboard.uploadCvTitle"), desc: t("dashboard.uploadCvDesc"), to: "/dashboard/cv", gradient: "from-indigo-500 to-violet-600", delay: 0.3 },
@@ -202,11 +200,11 @@ export default function Dashboard() {
             gradient="from-violet-500 to-purple-600" delay={0.15} link="/dashboard/jobs"
           />
           <MetricCard
-            icon={TrendingUp} title={t("dashboard.profileScore")} value={hasProfile ? 85 : 20} suffix="%" sub={hasProfile ? t("dashboard.readyForMatching") : t("dashboard.uploadToImprove")}
+            icon={TrendingUp} title={t("dashboard.profileScore")} value={profileCompletion} suffix="%" sub={profileCompletion > 0 ? t("dashboard.readyForMatching") : t("dashboard.uploadToImprove")}
             gradient="from-cyan-500 to-blue-600" delay={0.2}
           />
           <MetricCard
-            icon={Brain} title={t("dashboard.aiMatches")} value={hasProfile ? 24 : 0} sub={t("dashboard.jobsMatching")}
+            icon={Brain} title={t("dashboard.aiMatches")} value={aiMatches} sub={t("dashboard.jobsMatching")}
             gradient="from-emerald-500 to-teal-600" delay={0.25} link="/dashboard/jobs"
           />
         </div>
